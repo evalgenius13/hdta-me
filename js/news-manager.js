@@ -84,7 +84,7 @@ class NewsManager {
         this.addLoadMoreButton();
     }
 
-    // NEW: Function to load analysis when button clicked
+    // Remove the separate getBetweenLines function
     async getAnalysis(articleIndex) {
         const article = this.articles[articleIndex];
         const impactElement = document.getElementById(`impact-${articleIndex}`);
