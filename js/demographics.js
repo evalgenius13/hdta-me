@@ -49,18 +49,15 @@ class Demographics {
         const filterType = button.dataset.filter;
         const filterValue = button.dataset.value;
         
-        // Update active state in UI
         const filterGroup = button.closest('.filter-group');
         filterGroup.querySelectorAll('.filter-btn').forEach(btn => {
             btn.classList.remove('active');
         });
         button.classList.add('active');
         
-        // Update filter state
         this.filters[filterType] = filterValue;
         this.updateDisplay();
         
-        // Trigger personalization update if news is loaded
         if (window.newsManager && window.newsManager.articles.length > 0) {
             window.newsManager.updatePersonalization();
         }
@@ -116,7 +113,7 @@ class Demographics {
     }
 }
 
-// Initialize demographics when DOM is loaded
-if (typeof window !== 'undefined') {
-    window.demographics = null;
-}
+// ✅ FIX: Instantiate after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.demographics = new Demographics();
+});
