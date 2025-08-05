@@ -13,7 +13,7 @@ class NewsManager {
             this.setLoading(true);
             this.lastFetchTime = Date.now();
             
-            const response = await fetch('/api/news');
+            const response = await fetch('/api/fetch-news');
             const data = await response.json();
             
             if (data.articles) {
