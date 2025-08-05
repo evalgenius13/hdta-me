@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HDTA.me - How Does This Affect Me?</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📰</text></svg>">
     <style>
         * {
             margin: 0;
@@ -374,11 +375,11 @@
             try {
                 showLoading(true);
                 
-                // Focus on business and general news for better demographic relevance
-                const response = await fetch(`${NEWS_API_URL}?country=us&category=business&pageSize=10&apiKey=${NEWS_API_KEY}`);
+                // Call our serverless function instead of NewsAPI directly
+                const response = await fetch('/api/news');
                 const data = await response.json();
                 
-                if (data.status === 'ok') {
+                if (data.articles) {
                     newsCache = data.articles.filter(article => 
                         article.title && 
                         article.description && 
@@ -386,8 +387,8 @@
                     );
                     displayNews(newsCache);
                 } else {
-                    console.error('News API error:', data.message);
-                    showError('Unable to load news. Please try again later.');
+                    console.error('API error:', data.error);
+                    showError(data.error || 'Unable to load news. Please try again later.');
                 }
             } catch (error) {
                 console.error('Error fetching news:', error);
