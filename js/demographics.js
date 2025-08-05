@@ -23,14 +23,62 @@ class Demographics {
             renter: 'Renter',
             owner: 'Owner',
             family: 'With Family',
-            'high-school': 'High School', // NEW: Education labels
+            'high-school': 'High School',
             'some-college': 'Some College',
             'bachelors': 'Bachelor\'s',
             'graduate': 'Graduate',
-            virginia: 'Virginia',
-            california: 'California', // NEW: More states
-            texas: 'Texas',
+            alabama: 'Alabama',
+            alaska: 'Alaska',
+            arizona: 'Arizona',
+            arkansas: 'Arkansas',
+            california: 'California',
+            colorado: 'Colorado',
+            connecticut: 'Connecticut',
+            delaware: 'Delaware',
             florida: 'Florida',
+            georgia: 'Georgia',
+            hawaii: 'Hawaii',
+            idaho: 'Idaho',
+            illinois: 'Illinois',
+            indiana: 'Indiana',
+            iowa: 'Iowa',
+            kansas: 'Kansas',
+            kentucky: 'Kentucky',
+            louisiana: 'Louisiana',
+            maine: 'Maine',
+            maryland: 'Maryland',
+            massachusetts: 'Massachusetts',
+            michigan: 'Michigan',
+            minnesota: 'Minnesota',
+            mississippi: 'Mississippi',
+            missouri: 'Missouri',
+            montana: 'Montana',
+            nebraska: 'Nebraska',
+            nevada: 'Nevada',
+            newhampshire: 'New Hampshire',
+            newjersey: 'New Jersey',
+            newmexico: 'New Mexico',
+            newyork: 'New York',
+            northcarolina: 'North Carolina',
+            northdakota: 'North Dakota',
+            ohio: 'Ohio',
+            oklahoma: 'Oklahoma',
+            oregon: 'Oregon',
+            pennsylvania: 'Pennsylvania',
+            rhodeisland: 'Rhode Island',
+            southcarolina: 'South Carolina',
+            southdakota: 'South Dakota',
+            tennessee: 'Tennessee',
+            texas: 'Texas',
+            utah: 'Utah',
+            vermont: 'Vermont',
+            virginia: 'Virginia',
+            washington: 'Washington',
+            westvirginia: 'West Virginia',
+            wisconsin: 'Wisconsin',
+            wyoming: 'Wyoming',
+            dc: 'Washington DC',
+            international: 'International',
             white: 'White',
             black: 'Black',
             hispanic: 'Hispanic',
@@ -53,7 +101,20 @@ class Demographics {
             }
         });
 
-        // NEW: Handle zip code input
+        // Handle location dropdown
+        const locationSelect = document.getElementById('location-select');
+        if (locationSelect) {
+            locationSelect.addEventListener('change', (e) => {
+                this.filters.location = e.target.value;
+                this.updateDisplay();
+                
+                if (window.newsManager && window.newsManager.articles.length > 0) {
+                    window.newsManager.refresh();
+                }
+            });
+        }
+
+        // Handle zip code input
         const zipInput = document.getElementById('zipcode-input');
         if (zipInput) {
             zipInput.addEventListener('input', (e) => {
