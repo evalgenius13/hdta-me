@@ -1,6 +1,5 @@
-/* Add this to your existing styles.css file */
+/* Load More Button Styles - Add this to the bottom of your styles.css file */
 
-/* Load More Button Styles */
 .load-more-container {
     display: flex;
     flex-direction: column;
