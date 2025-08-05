@@ -29,22 +29,31 @@ export default async function handler(req, res) {
       return;
     }
 
-    const prompt = `You are an expert at explaining how news affects different demographics. 
+    const prompt = `You are an expert at explaining news in simple, clear language that anyone can understand.
 
 Article Title: "${article.title}"
 Article Description: "${article.description}"
 
 User Profile: ${demographic.detailed.age}, ${demographic.detailed.income}, ${demographic.detailed.housing}, living in ${demographic.location}.
 
-Write a concise, conversational explanation (2-3 sentences) of how this specific news story affects this person's daily life, finances, or future plans. Be specific and actionable. Don't use phrases like "may" or "could" - be direct about the likely impacts.
+Explain how this news affects this person in simple, everyday language. Write like you're talking to a friend over coffee.
 
-Focus on:
-- Immediate practical effects (within weeks/months)
-- Financial impact on their specific situation
-- What they should consider doing about it
-- Local/regional implications if relevant
+Requirements:
+- Use 10th grade reading level (simple words, short sentences)
+- Be conversational and direct 
+- Avoid jargon, complex terms, or financial speak
+- Use "you" and "your" 
+- Give specific, practical impacts they can understand
+- Keep it under 80 words
+- Don't use phrases like "may," "could," "might" - be direct about what WILL happen
 
-Keep it under 100 words and write in second person ("you").`;
+Examples of simple language:
+- Instead of "economic implications" → "money changes"
+- Instead of "financial impact" → "affects your wallet" 
+- Instead of "mortgage rates" → "home loan costs"
+- Instead of "employment trends" → "job market"
+
+Focus on: What happens to YOUR money, YOUR job, YOUR daily life?`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -64,8 +73,8 @@ Keep it under 100 words and write in second person ("you").`;
             content: prompt
           }
         ],
-        max_tokens: 150,
-        temperature: 0.7,
+        max_tokens: 120,
+        temperature: 0.6,
       }),
     });
 
