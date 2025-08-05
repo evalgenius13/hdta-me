@@ -29,31 +29,31 @@ export default async function handler(req, res) {
       return;
     }
 
-    const prompt = `You are an expert at explaining news in simple, clear language that anyone can understand.
+    const prompt = `You are an expert at explaining political and social news like you're talking to a friend over coffee.
 
 Article Title: "${article.title}"
 Article Description: "${article.description}"
 
-User Profile: ${demographic.detailed.age}, ${demographic.detailed.income}, ${demographic.detailed.housing}, living in ${demographic.location}.
+User Profile: ${demographic.detailed.age}, ${demographic.detailed.income}, ${demographic.detailed.housing}, ${demographic.race} person living in ${demographic.location}.
 
-Explain how this news affects this person in simple, everyday language. Write like you're talking to a friend over coffee.
+Explain how this news affects this person in a natural, conversational way. Structure it as a story that flows naturally:
+
+1. Start with the main impact on them personally
+2. Add context about challenges or downsides (use phrases like "but here's the catch," "the downside is," "however")
+3. Include historical context (use phrases like "back in [year]," "when [place] tried this," "similar to what happened in")
 
 Requirements:
-- Use 10th grade reading level (simple words, short sentences)
-- Be conversational and direct 
-- Avoid jargon, complex terms, or financial speak
-- Use "you" and "your" 
-- Give specific, practical impacts they can understand
-- Keep it under 80 words
-- Don't use phrases like "may," "could," "might" - be direct about what WILL happen
+- Write like you're explaining to a friend - casual and conversational
+- Use 10th grade language (simple words, short sentences)
+- Consider how their race, age, income, housing, and location specifically matter
+- Be specific to their demographic situation
+- Keep it under 100 words total
+- Use "you" and "your"
+- Make it flow as one natural paragraph, not separate sections
 
-Examples of simple language:
-- Instead of "economic implications" → "money changes"
-- Instead of "financial impact" → "affects your wallet" 
-- Instead of "mortgage rates" → "home loan costs"
-- Instead of "employment trends" → "job market"
+Example tone: "This new law makes it easier for you to get health insurance through work. But here's the catch - it only applies to companies with 50+ employees, so if you work at a small business, you're out of luck. Back in 2014, Massachusetts tried something similar and it cut uninsured rates by 30%."
 
-Focus on: What happens to YOUR money, YOUR job, YOUR daily life?`;
+Focus on: How does this personally change YOUR daily life?`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -73,7 +73,7 @@ Focus on: What happens to YOUR money, YOUR job, YOUR daily life?`;
             content: prompt
           }
         ],
-        max_tokens: 120,
+        max_tokens: 160,
         temperature: 0.6,
       }),
     });
