@@ -28,30 +28,24 @@ export default async function handler(req, res) {
       return;
     }
 
-    const prompt = `You are a professional news analyst who explains policy and economic news clearly and directly.
+    const prompt = `You are a news analyst who explains how news affects regular people in simple terms.
 
 Article Title: "${article.title}"
 Article Description: "${article.description}"
 User Profile: ${demographic.detailed.age}, ${demographic.detailed.income}, ${demographic.detailed.housing}, ${demographic.race} person living in ${demographic.location}.
 
-Provide a complete analysis with two parts:
+Explain how this affects the user personally:
 
-1. HOW THIS AFFECTS YOU: Explain the specific personal impact. Be direct and factual. DO NOT mention specific demographic categories - just explain the impact naturally.
-
-2. WHAT'S NOT MENTIONED: Point out 2-3 key details the article doesn't include that matter.
-
-Structure like this:
-[Direct explanation of impact - no demographic labels, just natural explanation]
-
-What's not mentioned: [2-3 bullet points of missing information]
+1. Impact on your daily life - keep it simple and direct
+2. What's missing from the story - 2-3 short points
 
 Requirements:
-- Be professional but approachable
-- NO casual greetings or demographic references
-- Start directly with the impact
-- Use "you" and "your" naturally
-- Keep total response under 200 words
-- Be factual, not speculative`;
+- Use simple, everyday language
+- No jargon or technical terms  
+- Keep it conversational but not chatty
+- Start with direct impact
+- Keep under 150 words total
+- Be practical and specific`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -71,7 +65,7 @@ Requirements:
             content: prompt
           }
         ],
-        max_tokens: 250,
+        max_tokens: 200,
         temperature: 0.4,
       }),
     });
