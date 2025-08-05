@@ -4,7 +4,7 @@ class NewsManager {
         this.articles = [];
         this.loading = false;
         this.lastFetchTime = null;
-        this.displayedCount = 6; // NEW: Track displayed articles
+        this.displayedCount = 6;
     }
 
     async fetchNews() {
@@ -23,7 +23,7 @@ class NewsManager {
                     article.description && 
                     !article.title.includes('[Removed]')
                 );
-                this.displayedCount = 6; // NEW: Reset count
+                this.displayedCount = 6;
                 await this.displayNews();
             } else {
                 this.showError(data.error || 'Unable to load news. Please try again later.');
@@ -40,24 +40,17 @@ class NewsManager {
         const newsGrid = document.getElementById('news-grid');
         if (!newsGrid) return;
 
-        // Display articles with loading placeholders for personalization
+        // Display articles - NO auto personalization
         newsGrid.innerHTML = this.articles.slice(0, this.displayedCount).map(article => this.createArticleHTML(article)).join('');
-        
-        // NEW: Add load more button
         this.addLoadMoreButton();
-        
-        // Generate personalized impact for each article
-        await this.updatePersonalization();
     }
 
-    // NEW: Add load more button
     addLoadMoreButton() {
         const existingButton = document.getElementById('load-more-btn');
         if (existingButton) existingButton.remove();
 
         if (this.displayedCount < this.articles.length) {
             const remaining = this.articles.length - this.displayedCount;
-            // Load 3 or 6 to keep grid balanced
             const loadCount = remaining >= 6 ? 6 : (remaining >= 3 ? 3 : remaining);
             
             const button = document.createElement('div');
@@ -75,11 +68,9 @@ class NewsManager {
         }
     }
 
-    // NEW: Load more function
     async loadMore() {
         const oldCount = this.displayedCount;
         const remaining = this.articles.length - this.displayedCount;
-        // Load 3 or 6 to keep grid balanced
         const loadCount = remaining >= 6 ? 6 : (remaining >= 3 ? 3 : remaining);
         this.displayedCount = Math.min(this.displayedCount + loadCount, this.articles.length);
         
@@ -91,55 +82,30 @@ class NewsManager {
         });
 
         this.addLoadMoreButton();
-        
-        // Update personalization for new articles only
-        for (let i = oldCount; i < this.displayedCount; i++) {
-            const article = this.articles[i];
-            const impactElement = document.getElementById(`impact-${i}`);
-            
-            if (impactElement && window.personalization) {
-                const demographic = window.demographics.getProfile();
-                const detailedDemo = window.demographics.getDetailedProfile();
-                
-                try {
-                    const impact = await window.personalization.generateImpactAnalysis(article, {
-                        ...demographic,
-                        detailed: detailedDemo
-                    });
-                    impactElement.innerHTML = impact;
-                } catch (error) {
-                    impactElement.innerHTML = 'Unable to generate personalized impact analysis.';
-                }
-            }
-        }
     }
 
-    async updatePersonalization() {
-        if (!window.demographics || !window.personalization) return;
-
-        const demographic = window.demographics.getProfile();
-        const detailedDemo = window.demographics.getDetailedProfile();
+    // NEW: Function to load analysis when button clicked
+    async getAnalysis(articleIndex) {
+        const article = this.articles[articleIndex];
+        const impactElement = document.getElementById(`impact-${articleIndex}`);
         
-        // Update each article's impact analysis
-        for (let i = 0; i < Math.min(this.articles.length, this.displayedCount); i++) {
-            const article = this.articles[i];
-            const impactElement = document.getElementById(`impact-${i}`);
+        if (!article || !window.personalization || !window.demographics) return;
+        
+        impactElement.innerHTML = '<div class="impact-loading">Analyzing how this affects you...</div>';
+        
+        try {
+            const demographic = window.demographics.getProfile();
+            const detailedDemo = window.demographics.getDetailedProfile();
             
-            if (impactElement) {
-                impactElement.innerHTML = '<div class="impact-loading">Analyzing how this affects you...</div>';
-                
-                try {
-                    const impact = await window.personalization.generateImpactAnalysis(article, {
-                        ...demographic,
-                        detailed: detailedDemo
-                    });
-                    
-                    impactElement.innerHTML = impact;
-                } catch (error) {
-                    console.error('Error generating impact for article:', error);
-                    impactElement.innerHTML = 'Unable to generate personalized impact analysis.';
-                }
-            }
+            const impact = await window.personalization.generateImpactAnalysis(article, {
+                ...demographic,
+                detailed: detailedDemo
+            });
+            
+            impactElement.innerHTML = impact;
+        } catch (error) {
+            console.error('Error generating impact for article:', error);
+            impactElement.innerHTML = 'Unable to generate personalized impact analysis.';
         }
     }
 
@@ -159,10 +125,10 @@ class NewsManager {
                     <p class="news-summary">${this.escapeHtml(article.description)}</p>
                     
                     <div class="impact-section">
-                        <div class="impact-title">How this affects you:</div>
-                        <div class="impact-text" id="impact-${articleIndex}">
-                            <div class="impact-loading">Loading personalized analysis...</div>
-                        </div>
+                        <button onclick="window.newsManager.getAnalysis(${articleIndex})" class="compare-btn" style="margin-bottom: 0.5rem;">
+                            How Does This Affect Me?
+                        </button>
+                        <div class="impact-text" id="impact-${articleIndex}"></div>
                     </div>
                 </div>
             </article>
@@ -204,7 +170,7 @@ class NewsManager {
 
     refresh() {
         this.articles = [];
-        this.displayedCount = 6; // NEW: Reset count
+        this.displayedCount = 6;
         if (window.personalization) {
             window.personalization.clearCache();
         }
