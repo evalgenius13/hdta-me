@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
   try {
     const NEWS_API_KEY = process.env.NEWS_API_KEY || '84087b3e66df4bbaab9416aeeff59fdc';
-    const url = `https://newsapi.org/v2/top-headlines?country=us&category=business&pageSize=10&apiKey=${NEWS_API_KEY}`;
+    const url = `https://newsapi.org/v2/top-headlines?country=us&category=general&pageSize=10&apiKey=${NEWS_API_KEY}`;
     
     const response = await fetch(url);
     const data = await response.json();
