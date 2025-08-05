@@ -57,7 +57,8 @@ class NewsManager {
 
         if (this.displayedCount < this.articles.length) {
             const remaining = this.articles.length - this.displayedCount;
-            const loadCount = Math.min(6, remaining);
+            // Load 3 or 6 to keep grid balanced
+            const loadCount = remaining >= 6 ? 6 : (remaining >= 3 ? 3 : remaining);
             
             const button = document.createElement('div');
             button.id = 'load-more-btn';
@@ -77,7 +78,10 @@ class NewsManager {
     // NEW: Load more function
     async loadMore() {
         const oldCount = this.displayedCount;
-        this.displayedCount = Math.min(this.displayedCount + 6, this.articles.length);
+        const remaining = this.articles.length - this.displayedCount;
+        // Load 3 or 6 to keep grid balanced
+        const loadCount = remaining >= 6 ? 6 : (remaining >= 3 ? 3 : remaining);
+        this.displayedCount = Math.min(this.displayedCount + loadCount, this.articles.length);
         
         const newsGrid = document.getElementById('news-grid');
         const newArticles = this.articles.slice(oldCount, this.displayedCount);
