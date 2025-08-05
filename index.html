@@ -15,7 +15,7 @@
         </div>
     </header>
 
-    <section class="demographics-bar">
+    <section class="demographics-bar" style="display: none;">
         <div class="container">
             <div class="demo-filters">
                 <div class="filter-group">
@@ -48,11 +48,26 @@
                 </div>
 
                 <div class="filter-group">
+                    <span class="filter-label">Education:</span>
+                    <div class="filter-buttons">
+                        <button class="filter-btn" data-filter="education" data-value="high-school">High School</button>
+                        <button class="filter-btn" data-filter="education" data-value="some-college">Some College</button>
+                        <button class="filter-btn" data-filter="education" data-value="bachelors">Bachelor's</button>
+                        <button class="filter-btn" data-filter="education" data-value="graduate">Graduate</button>
+                    </div>
+                </div>
+
+                <div class="filter-group">
                     <span class="filter-label">Location:</span>
                     <div class="filter-buttons">
                         <button class="filter-btn active" data-filter="location" data-value="virginia">Virginia</button>
-                        <button class="filter-btn" data-filter="location" data-value="other">Other ▼</button>
+                        <button class="filter-btn" data-filter="location" data-value="california">California</button>
+                        <button class="filter-btn" data-filter="location" data-value="texas">Texas</button>
+                        <button class="filter-btn" data-filter="location" data-value="florida">Florida</button>
+                        <button class="filter-btn" data-filter="location" data-value="other">Other</button>
                     </div>
+                    <input type="text" id="zipcode-input" placeholder="Zip (optional)" 
+                           style="margin-left: 0.5rem; padding: 0.375rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; width: 80px;">
                 </div>
 
                 <div class="filter-group">
@@ -74,7 +89,7 @@
             <div class="view-toggle">
                 <span class="toggle-label">Viewing impact for:</span>
                 <span id="current-demo">Millennial • $30-60K • Renter • Virginia • White</span>
-                <button class="compare-btn" onclick="toggleCompareMode()">Compare Demographics</button>
+                <button class="compare-btn" onclick="toggleDemographics()">Customize Profile</button>
             </div>
 
             <div class="news-grid" id="news-grid">
@@ -82,7 +97,7 @@
             </div>
 
             <div class="loading-state" id="loading" style="display: none;">
-                <div>Loading personalized news...</div>
+                <div>Loading latest news...</div>
             </div>
         </div>
     </main>
@@ -91,5 +106,20 @@
     <script src="/js/personalization.js"></script>  
     <script src="/js/news-manager.js"></script>
     <script src="/js/app.js"></script>
+
+    <script>
+    function toggleDemographics() {
+        const demoBar = document.querySelector('.demographics-bar');
+        const button = event.target;
+        
+        if (demoBar.style.display === 'none') {
+            demoBar.style.display = 'block';
+            button.textContent = 'Hide Profile';
+        } else {
+            demoBar.style.display = 'none';
+            button.textContent = 'Customize Profile';
+        }
+    }
+    </script>
 </body>
 </html>
