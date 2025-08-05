@@ -181,6 +181,9 @@ class NewsManager {
         const newsGrid = document.getElementById('news-grid');
         
         if (loadingElement && newsGrid) {
+            loadingElement.innerHTML = loading ? 
+                '<div>Loading latest news...</div>' : 
+                '<div>Loading latest news...</div>';
             loadingElement.style.display = loading ? 'block' : 'none';
             newsGrid.style.display = loading ? 'none' : 'grid';
         }
