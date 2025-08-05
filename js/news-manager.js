@@ -139,8 +139,8 @@ class NewsManager {
         return `
             <article class="news-card">
                 <div class="news-image">
-                    ${article.image ? 
-                        `<img src="${article.image}" alt="News image" onerror="this.parentElement.innerHTML='[Image unavailable]'">` : 
+                    ${article.image || article.urlToImage ? 
+                        `<img src="${article.image || article.urlToImage}" alt="News image" onerror="this.parentElement.innerHTML='[Image unavailable]'">` : 
                         '[News Image]'
                     }
                 </div>
