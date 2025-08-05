@@ -5,7 +5,8 @@ class Demographics {
             age: 'millennial',
             income: '30-60k',
             housing: 'renter',
-            location: 'virginia'
+            location: 'virginia',
+            race: 'white'
         };
 
         this.labels = {
@@ -20,7 +21,12 @@ class Demographics {
             renter: 'Renter',
             owner: 'Owner',
             family: 'With Family',
-            virginia: 'Virginia'
+            virginia: 'Virginia',
+            white: 'White',
+            black: 'Black',
+            hispanic: 'Hispanic',
+            asian: 'Asian',
+            other: 'Other'
         };
 
         this.init();
@@ -61,7 +67,7 @@ class Demographics {
     }
 
     updateDisplay() {
-        const display = `${this.labels[this.filters.age]} • ${this.labels[this.filters.income]} • ${this.labels[this.filters.housing]} • ${this.labels[this.filters.location]}`;
+        const display = `${this.labels[this.filters.age]} • ${this.labels[this.filters.income]} • ${this.labels[this.filters.housing]} • ${this.labels[this.filters.location]} • ${this.labels[this.filters.race]}`;
         const demoElement = document.getElementById('current-demo');
         if (demoElement) {
             demoElement.textContent = display;
@@ -74,7 +80,8 @@ class Demographics {
             income: this.filters.income,
             housing: this.filters.housing,
             location: this.filters.location,
-            display: `${this.labels[this.filters.age]} earning ${this.labels[this.filters.income]}, ${this.labels[this.filters.housing]} in ${this.labels[this.filters.location]}`
+            race: this.filters.race,
+            display: `${this.labels[this.filters.age]} earning ${this.labels[this.filters.income]}, ${this.labels[this.filters.housing]} in ${this.labels[this.filters.location]}, ${this.labels[this.filters.race]}`
         };
     }
 
@@ -103,7 +110,8 @@ class Demographics {
             age: ageDescriptions[this.filters.age],
             income: incomeDescriptions[this.filters.income],
             housing: housingDescriptions[this.filters.housing],
-            location: this.filters.location
+            location: this.filters.location,
+            race: this.filters.race
         };
     }
 }
