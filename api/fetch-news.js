@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
   try {
     const NEWS_API_KEY = process.env.NEWS_API_KEY || '84087b3e66df4bbaab9416aeeff59fdc';
-    const url = `https://newsapi.org/v2/everything?domains=politico.com,thehill.com,cnn.com,washingtonpost.com&q=politics OR policy OR government&language=en&sortBy=publishedAt&pageSize=10&apiKey=${NEWS_API_KEY}`;
+    const url = `https://newsapi.org/v2/everything?q=politics OR policy OR government OR congress OR senate OR election OR biden OR trump&language=en&sortBy=publishedAt&pageSize=15&apiKey=${NEWS_API_KEY}`;
     
     const response = await fetch(url);
     const data = await response.json();
