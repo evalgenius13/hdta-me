@@ -1,3 +1,6 @@
+// Simple in-memory cache
+const responseCache = new Map();
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -21,6 +24,13 @@ export default async function handler(req, res) {
       return;
     }
 
+    // Simple cache key
+    const cacheKey = `${article.title}-${demographic.age}-${demographic.income}-${demographic.housing}-${demographic.location}`;
+    
+    // Check cache first
+    if (responseCache.has(cacheKey)) {
+      return res.status(200).json({ impact: responseCache.get(cacheKey) });
+    }
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     
     if (!OPENAI_API_KEY) {
@@ -80,6 +90,10 @@ Requirements:
     
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const impact = data.choices[0].message.content.trim();
+      
+      // Cache the response
+      responseCache.set(cacheKey, impact);
+      
       res.status(200).json({ impact });
     } else {
       console.error('Unexpected OpenAI response format:', data);
