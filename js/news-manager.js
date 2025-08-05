@@ -4,7 +4,6 @@ class NewsManager {
         this.articles = [];
         this.loading = false;
         this.lastFetchTime = null;
-        this.displayedCount = 6; // Track how many articles are currently displayed
     }
 
     async fetchNews() {
@@ -23,7 +22,6 @@ class NewsManager {
                     article.description && 
                     !article.title.includes('[Removed]')
                 );
-                this.displayedCount = 6; // Reset to initial display count
                 await this.displayNews();
             } else {
                 this.showError(data.error || 'Unable to load news. Please try again later.');
@@ -40,78 +38,21 @@ class NewsManager {
         const newsGrid = document.getElementById('news-grid');
         if (!newsGrid) return;
 
-        // Display articles up to the current displayedCount
-        const articlesToShow = this.articles.slice(0, this.displayedCount);
-        newsGrid.innerHTML = articlesToShow.map(article => this.createArticleHTML(article)).join('');
+        // Display articles with loading placeholders for personalization
+        newsGrid.innerHTML = this.articles.slice(0, 6).map(article => this.createArticleHTML(article)).join('');
         
-        // Add load more button if there are more articles
-        this.addLoadMoreButton();
-        
-        // Generate personalized impact for displayed articles
+        // Generate personalized impact for each article
         await this.updatePersonalization();
     }
 
-    addLoadMoreButton() {
-        const newsGrid = document.getElementById('news-grid');
-        const existingButton = document.getElementById('load-more-btn');
-        
-        // Remove existing button if it exists
-        if (existingButton) {
-            existingButton.remove();
-        }
-
-        // Only show button if there are more articles to load
-        if (this.displayedCount < this.articles.length) {
-            const remainingCount = this.articles.length - this.displayedCount;
-            const loadMoreCount = Math.min(6, remainingCount);
-            
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'load-more-container';
-            buttonContainer.id = 'load-more-btn';
-            buttonContainer.innerHTML = `
-                <button class="load-more-button" onclick="window.newsManager.loadMoreArticles()">
-                    Load ${loadMoreCount} More Articles
-                </button>
-                <div class="articles-count">
-                    Showing ${this.displayedCount} of ${this.articles.length} stories
-                </div>
-            `;
-            
-            newsGrid.parentNode.insertBefore(buttonContainer, newsGrid.nextSibling);
-        }
-    }
-
-    async loadMoreArticles() {
-        const previousCount = this.displayedCount;
-        this.displayedCount = Math.min(this.displayedCount + 6, this.articles.length);
-        
-        // Add the new articles to the grid
-        const newsGrid = document.getElementById('news-grid');
-        const newArticles = this.articles.slice(previousCount, this.displayedCount);
-        
-        newArticles.forEach(article => {
-            newsGrid.innerHTML += this.createArticleHTML(article);
-        });
-
-        // Update the load more button
-        this.addLoadMoreButton();
-        
-        // Generate personalized impact for the new articles
-        await this.updatePersonalizationForRange(previousCount, this.displayedCount);
-    }
-
     async updatePersonalization() {
-        await this.updatePersonalizationForRange(0, this.displayedCount);
-    }
-
-    async updatePersonalizationForRange(startIndex, endIndex) {
         if (!window.demographics || !window.personalization) return;
 
         const demographic = window.demographics.getProfile();
         const detailedDemo = window.demographics.getDetailedProfile();
         
-        // Update each article's impact analysis in the specified range
-        for (let i = startIndex; i < Math.min(endIndex, this.articles.length); i++) {
+        // Update each article's impact analysis
+        for (let i = 0; i < Math.min(this.articles.length, 6); i++) {
             const article = this.articles[i];
             const impactElement = document.getElementById(`impact-${i}`);
             
@@ -191,7 +132,6 @@ class NewsManager {
 
     refresh() {
         this.articles = [];
-        this.displayedCount = 6;
         if (window.personalization) {
             window.personalization.clearCache();
         }
