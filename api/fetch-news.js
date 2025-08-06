@@ -10,35 +10,23 @@ export default async function handler(req, res) {
   try {
     const API_KEY = process.env.GNEWS_API_KEY || '050022879499fff60e9b870bf150a377';
     
-    // Focus on national news that affects everyone
-    const query = '"federal government" OR "congress" OR "senate" OR "supreme court" OR "white house" OR "national policy" OR "federal law" OR "healthcare policy" OR "national economy" OR "federal reserve"';
-    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=15&token=${API_KEY}`;
+    // Target federal and state government policy actions
+    const query = '"bill signed" OR "law passed" OR "governor signs" OR "state legislature" OR "supreme court" OR "federal court" OR "executive order" OR "congress passes" OR "senate approves" OR "regulation" OR "rule change"';
+    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=20&token=${API_KEY}`;
     
     const response = await fetch(url);
     const data = await response.json();
     
     if (data.articles) {
-      // Remove duplicates and filter articles
-      const seenTitles = new Set();
-      const articles = data.articles.filter(article => {
-        if (!article.title || !article.description || article.title.includes('[Removed]')) {
-          return false;
-        }
-        
-        // Remove sports/entertainment junk
-        if (/golf|nfl|nba|ncaa|sports|celebrity|stocks|earnings|rapper/i.test(article.title)) {
-          return false;
-        }
-        
-        // Simple duplicate detection - normalize title
-        const normalizedTitle = article.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        if (seenTitles.has(normalizedTitle)) {
-          return false;
-        }
-        
-        seenTitles.add(normalizedTitle);
-        return true;
-      });
+      const articles = data.articles.filter(article => 
+        article.title && 
+        article.description &&
+        !article.title.includes('[Removed]') &&
+        // Remove sports/entertainment/market noise
+        !(/golf|nfl|nba|ncaa|sports|celebrity|stocks|earnings|rapper|music|movie|entertainment/i.test(article.title)) &&
+        // Keep only if it mentions actual policy actions
+        (/bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves/i.test(article.title + ' ' + article.description))
+      );
 
       res.status(200).json({ articles });
     } else {
