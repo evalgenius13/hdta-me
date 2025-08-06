@@ -101,7 +101,7 @@ class NewsManager {
         }
         
         return `
-            <article class="news-card">
+            <article class="news-card" onclick="window.open('${article.url}', '_blank')" style="cursor: pointer;">
                 <div class="news-image">
                     ${article.image || article.urlToImage ? 
                         `<img src="${article.image || article.urlToImage}" alt="News image" onerror="this.parentElement.innerHTML='[Image unavailable]'">` : 
@@ -117,7 +117,7 @@ class NewsManager {
                     <p class="news-summary">${this.escapeHtml(article.description)}</p>
                     
                     <div class="impact-section">
-                        <button onclick="window.newsManager.getAnalysis(${articleIndex})" class="compare-btn" style="margin-bottom: 0.5rem;">
+                        <button onclick="event.stopPropagation(); window.newsManager.getAnalysis(${articleIndex})" class="compare-btn" style="margin-bottom: 0.5rem;">
                             How Does This Affect Me?
                         </button>
                         <div class="impact-text" id="impact-${articleIndex}"></div>
