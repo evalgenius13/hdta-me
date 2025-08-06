@@ -54,15 +54,15 @@ module.exports = async function handler(req, res) {
       if (fullContent) {
         articleContent = fullContent;
         analysisType = 'full-article';
-        console.log('Using full article content for analysis');
+        console.log('Using full article content for deeper analysis');
       } else {
         console.log('No full content available, using description');
       }
     }
 
-    // Create prompt based on available content
+    // Create enhanced prompt
     const prompt = analysisType === 'full-article' 
-      ? createFullContentPrompt(article, articleContent, demographic)
+      ? createEnhancedPrompt(article, articleContent, demographic)
       : createBasicPrompt(article, demographic);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -76,14 +76,14 @@ module.exports = async function handler(req, res) {
         messages: [
           {
             role: 'system',
-            content: 'You are a professional news analyst. Provide direct, factual analysis without casual greetings or conversational filler.'
+            content: 'You are a professional news analyst who cuts through political spin to show real-world impacts on regular people.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_tokens: analysisType === 'full-article' ? 300 : 300,
+        max_tokens: analysisType === 'full-article' ? 350 : 300,
         temperature: 0.4,
       }),
     });
@@ -119,25 +119,26 @@ module.exports = async function handler(req, res) {
 };
 
 // Enhanced prompt for full article content
-function createFullContentPrompt(article, fullContent, demographic) {
-  return `You are analyzing a government policy article for its real-world impact.
+function createEnhancedPrompt(article, fullContent, demographic) {
+  return `You are analyzing a government policy article to reveal real-world impacts.
 
 ARTICLE TITLE: "${article.title}"
 
 FULL ARTICLE CONTENT: "${fullContent}"
 
-READER: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
+READER PROFILE: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
 
-Analyze how this policy specifically affects someone with their demographics. Focus on:
-- Direct personal impact (costs, benefits, eligibility changes)
-- Who actually benefits vs who gets hurt (follow the money)
-- What the article doesn't mention or glosses over
-- Real examples from similar policies in other states
+Analyze how this policy specifically affects someone with these demographics. Focus on:
 
-Write as a clear explanation, not bullet points. Keep under 220 words and be direct about winners and losers.`;
+1. DIRECT PERSONAL IMPACT: Concrete effects on their finances, benefits, eligibility, or daily life
+2. FOLLOW THE MONEY: Who actually profits from this policy and who pays the cost
+3. WHAT'S HIDDEN: Critical details the article glosses over or political spin being used
+4. REAL EXAMPLES: How similar policies played out in other states or timeframes
+
+Write as a clear, conversational explanation. No bullet points. Keep under 250 words. Be direct about winners and losers.`;
 }
 
-// Basic prompt for headline/description only
+// Basic prompt for headline/description only  
 function createBasicPrompt(article, demographic) {
   return `You are a news analyst who explains how government policies affect regular people in plain English.
 
