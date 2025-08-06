@@ -1,7 +1,4 @@
-// api/personalize.js - Enhanced with full article analysis
-const { getFullArticle } = require('../lib/redis');
-
-// Simple in-memory cache for AI responses
+// api/personalize.js - Clean version with improved prompts
 const responseCache = new Map();
 
 module.exports = async function handler(req, res) {
@@ -45,25 +42,21 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    // Try to get full article content
-    let articleContent = article.description; // Fallback
-    let analysisType = 'headline';
-    
-    if (article.url) {
-      const fullContent = await getFullArticle(article.url);
-      if (fullContent) {
-        articleContent = fullContent;
-        analysisType = 'full-article';
-        console.log('Using full article content for deeper analysis');
-      } else {
-        console.log('No full content available, using description');
-      }
-    }
+    const prompt = `You're an analyst explaining a policy story clearly and directly.
 
-    // Create enhanced prompt
-    const prompt = analysisType === 'full-article' 
-      ? createEnhancedPrompt(article, articleContent, demographic)
-      : createBasicPrompt(article, demographic);
+STORY: "${article.title}"
+SUMMARY: "${article.description}"
+READER: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
+
+Break down the real impact:
+
+How does this affect someone in their situation? Be specific about what changes for them financially or practically.
+
+Who benefits from this policy and who pays the price? Cut through the political language to show what's really happening.
+
+What's the article not emphasizing? Include a real example from another state or similar policy.
+
+Write clearly with short paragraphs. Under 250 words. Be straightforward about winners and losers.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -83,7 +76,7 @@ module.exports = async function handler(req, res) {
             content: prompt
           }
         ],
-        max_tokens: analysisType === 'full-article' ? 350 : 300,
+        max_tokens: 300,
         temperature: 0.4,
       }),
     });
@@ -104,7 +97,6 @@ module.exports = async function handler(req, res) {
       
       res.status(200).json({ 
         impact,
-        analysisType,
         cached: false
       });
     } else {
@@ -117,41 +109,3 @@ module.exports = async function handler(req, res) {
     res.status(500).json({ error: 'Failed to generate personalized analysis' });
   }
 };
-
-// Enhanced prompt for full article content
-function createEnhancedPrompt(article, fullContent, demographic) {
-  return `You're a knowledgeable analyst breaking down a policy story. Be clear and direct without being overly casual.
-
-ARTICLE: "${article.title}"
-FULL CONTENT: "${fullContent}"
-READER: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
-
-Explain the real impact:
-
-How does this directly affect someone with their income and situation? Be specific about costs, benefits, or changes they'll experience.
-
-Who actually wins and loses from this policy? Follow the money and power - what's the real motivation here?
-
-What important details is the article leaving out or downplaying? Give an example of how similar policies worked in other places.
-
-Use clear, short paragraphs. Keep it under 250 words. Be direct about the reality.`;
-}
-
-// Basic prompt for headline/description only  
-function createBasicPrompt(article, demographic) {
-  return `You're an analyst explaining a policy story clearly and directly.
-
-STORY: "${article.title}"
-SUMMARY: "${article.description}"
-READER: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
-
-Break down the real impact:
-
-How does this affect someone in their situation? Be specific about what changes for them financially or practically.
-
-Who benefits from this policy and who pays the price? Cut through the political language to show what's really happening.
-
-What's the article not emphasizing? Include a real example from another state or similar policy.
-
-Write clearly with short paragraphs. Under 200 words. Be straightforward about winners and losers.`;
-}
