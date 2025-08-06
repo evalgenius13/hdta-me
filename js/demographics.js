@@ -163,18 +163,18 @@ class Demographics {
 
     getDetailedProfile() {
         const ageDescriptions = {
-            genz: 'Gen Z (born 1997-2012), digital natives who value authenticity and social justice',
-            millennial: 'Millennial (born 1981-1996), tech-savvy with student loans and home-buying challenges',
-            genx: 'Gen X (born 1965-1980), sandwich generation balancing kids and aging parents',
-            boomer: 'Baby Boomer (born 1946-1964), established in career or retired, focused on stability'
+            genz: 'Gen Z (born 1997-2012)',
+            millennial: 'Millennial (born 1981-1996)', 
+            genx: 'Gen X (born 1965-1980)',
+            boomer: 'Baby Boomer (born 1946-1964)'
         };
 
         const incomeDescriptions = {
-            'under30k': 'earning under $30K annually, likely entry-level or part-time work',
-            '30-60k': 'earning $30K-$60K annually, middle-class income with budget considerations',
-            '60-100k': 'earning $60K-$100K annually, comfortable middle to upper-middle class',
-            '100k-1m': 'earning $100K-$1M annually, high income with investment opportunities',
-            'over1m': 'earning over $1M annually, wealthy with significant assets'
+            'under30k': 'earning under $30K annually',
+            '30-60k': 'earning $30K-$60K annually',
+            '60-100k': 'earning $60K-$100K annually', 
+            '100k-1m': 'earning $100K-$1M annually',
+            'over1m': 'earning over $1M annually'
         };
 
         return {
