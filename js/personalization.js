@@ -1,17 +1,6 @@
-// OpenAI-powered personalization
+// js/personalization.js - Simplified without redundant caching
 class Personalization {
-    constructor() {
-        this.cache = new Map(); // Cache personalized responses
-    }
-
     async generateImpactAnalysis(article, demographic) {
-        const cacheKey = `${article.title}-${JSON.stringify(demographic)}`;
-        
-        // Check cache first
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-
         try {
             const response = await fetch('/api/personalize', {
                 method: 'POST',
@@ -34,25 +23,14 @@ class Personalization {
             const data = await response.json();
             
             if (data.impact) {
-                // Cache the result
-                this.cache.set(cacheKey, data.impact);
                 return data.impact;
             } else {
                 throw new Error('No impact analysis returned');
             }
-
         } catch (error) {
             console.error('Error generating personalized impact:', error);
-            throw error; // Let the error bubble up so you can see failures
+            throw error;
         }
-    }
-
-    clearCache() {
-        this.cache.clear();
-    }
-
-    getCacheSize() {
-        return this.cache.size;
     }
 }
 
