@@ -83,7 +83,7 @@ module.exports = async function handler(req, res) {
             content: prompt
           }
         ],
-        max_tokens: analysisType === 'full-article' ? 250 : 200,
+        max_tokens: analysisType === 'full-article' ? 300 : 300,
         temperature: 0.4,
       }),
     });
