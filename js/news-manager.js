@@ -22,7 +22,6 @@ class NewsManager {
                     article.description && 
                     !article.title.includes('[Removed]')
                 );
-                this.displayedCount = 6;
                 await this.displayNews();
             } else {
                 this.showError(data.error || 'Unable to load news. Please try again later.');
@@ -39,56 +38,29 @@ class NewsManager {
         const newsGrid = document.getElementById('news-grid');
         if (!newsGrid) return;
 
-        // Display articles - NO auto personalization
-        newsGrid.innerHTML = this.articles.slice(0, this.displayedCount).map(article => this.createArticleHTML(article)).join('');
-        this.addLoadMoreButton();
+        // Display all articles - no limit
+        newsGrid.innerHTML = this.articles.map(article => this.createArticleHTML(article)).join('');
     }
 
-    addLoadMoreButton() {
-        const existingButton = document.getElementById('load-more-btn');
-        if (existingButton) existingButton.remove();
-
-        if (this.displayedCount < this.articles.length) {
-            const remaining = this.articles.length - this.displayedCount;
-            const loadCount = remaining >= 6 ? 6 : (remaining >= 3 ? 3 : remaining);
-            
-            const button = document.createElement('div');
-            button.id = 'load-more-btn';
-            button.innerHTML = `
-                <div style="text-align: center; margin: 2rem 0;">
-                    <button onclick="window.newsManager.loadMore()" class="compare-btn">
-                        Load ${loadCount} More Articles
-                    </button>
-                </div>
-            `;
-            
-            const newsGrid = document.getElementById('news-grid');
-            newsGrid.parentNode.insertBefore(button, newsGrid.nextSibling);
-        }
-    }
-
-    async loadMore() {
-        const oldCount = this.displayedCount;
-        const remaining = this.articles.length - this.displayedCount;
-        const loadCount = remaining >= 6 ? 6 : (remaining >= 3 ? 3 : remaining);
-        this.displayedCount = Math.min(this.displayedCount + loadCount, this.articles.length);
-        
-        const newsGrid = document.getElementById('news-grid');
-        const newArticles = this.articles.slice(oldCount, this.displayedCount);
-        
-        newArticles.forEach(article => {
-            newsGrid.innerHTML += this.createArticleHTML(article);
-        });
-
-        this.addLoadMoreButton();
-    }
-
-    // Remove the separate getBetweenLines function
     async getAnalysis(articleIndex) {
         const article = this.articles[articleIndex];
         const impactElement = document.getElementById(`impact-${articleIndex}`);
         
-        if (!article || !window.personalization || !window.demographics) return;
+        if (!article) {
+            console.error('Article not found for index:', articleIndex);
+            return;
+        }
+        
+        if (!impactElement) {
+            console.error('Impact element not found for index:', articleIndex);
+            return;
+        }
+
+        if (!window.personalization || !window.demographics) {
+            console.error('Personalization or demographics not loaded');
+            impactElement.innerHTML = 'System not ready. Please refresh the page.';
+            return;
+        }
         
         impactElement.innerHTML = '<div class="impact-loading">Analyzing how this affects you...</div>';
         
@@ -104,7 +76,7 @@ class NewsManager {
             impactElement.innerHTML = impact;
         } catch (error) {
             console.error('Error generating impact for article:', error);
-            impactElement.innerHTML = 'Unable to generate personalized impact analysis.';
+            impactElement.innerHTML = 'Unable to generate analysis. Please try again.';
         }
     }
 
