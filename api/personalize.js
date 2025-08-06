@@ -1,7 +1,7 @@
-// api/personalize.js - Clean version with improved prompts
-const responseCache = new Map();
+// api/personalize.js - Fixed with Redis AI caching and security
+const { getAIResponse, storeAIResponse } = require('../lib/redis');
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -24,22 +24,26 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    // Create cache key
+    // Create cache key for Redis
     const cacheKey = `${article.title}-${demographic.age}-${demographic.income}-${demographic.location}`;
     
-    // Check cache first
-    if (responseCache.has(cacheKey)) {
+    // Check Redis cache first
+    const cachedAnalysis = await getAIResponse(cacheKey);
+    if (cachedAnalysis) {
+      console.log('Serving cached AI analysis');
       return res.status(200).json({ 
-        impact: responseCache.get(cacheKey),
+        impact: cachedAnalysis,
         cached: true 
       });
     }
 
+    console.log('Generating fresh AI analysis');
+
+    // Secure API key handling
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    
     if (!OPENAI_API_KEY) {
-      res.status(500).json({ error: 'OpenAI API key not configured' });
-      return;
+      console.error('OPENAI_API_KEY not configured');
+      return res.status(500).json({ error: 'AI service not configured' });
     }
 
     const prompt = `You're an analyst explaining a policy story clearly and directly.
@@ -82,9 +86,8 @@ Write clearly with short paragraphs. Under 250 words. Be straightforward about w
     });
 
     if (!response.ok) {
-      console.error('OpenAI API error:', response.status);
-      res.status(response.status).json({ error: 'OpenAI API request failed' });
-      return;
+      console.error('OpenAI API error:', response.status, response.statusText);
+      return res.status(response.status).json({ error: 'AI analysis service temporarily unavailable' });
     }
 
     const data = await response.json();
@@ -92,8 +95,8 @@ Write clearly with short paragraphs. Under 250 words. Be straightforward about w
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const impact = data.choices[0].message.content.trim();
       
-      // Cache the response
-      responseCache.set(cacheKey, impact);
+      // Cache the analysis in Redis for 8 hours
+      await storeAIResponse(cacheKey, impact);
       
       res.status(200).json({ 
         impact,
@@ -101,11 +104,11 @@ Write clearly with short paragraphs. Under 250 words. Be straightforward about w
       });
     } else {
       console.error('Unexpected OpenAI response format:', data);
-      res.status(500).json({ error: 'Unexpected response format from OpenAI' });
+      res.status(500).json({ error: 'Unable to generate analysis' });
     }
 
   } catch (error) {
     console.error('Error in personalize API:', error);
-    res.status(500).json({ error: 'Failed to generate personalized analysis' });
+    res.status(500).json({ error: 'Failed to generate analysis' });
   }
-};
+}
