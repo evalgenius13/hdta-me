@@ -13,9 +13,10 @@ class Demographics {
             genx: 'Gen X',
             boomer: 'Boomer',
             'under30k': 'Under $30K',
-            '30-60k': '$30-60K',
-            '60-100k': '$60-100K',
-            '100k+': '$100K+',
+            '30-60k': '$30K-$60K',
+            '60-100k': '$60K-$100K',
+            '100k-1m': '$100K-$1M',
+            'over1m': 'Over $1M',
             alabama: 'Alabama',
             alaska: 'Alaska',
             arizona: 'Arizona',
@@ -160,9 +161,10 @@ class Demographics {
 
         const incomeDescriptions = {
             'under30k': 'earning under $30K annually, likely entry-level or part-time work',
-            '30-60k': 'earning $30-60K annually, middle-class income with budget considerations',
-            '60-100k': 'earning $60-100K annually, comfortable middle to upper-middle class',
-            '100k+': 'earning over $100K annually, higher income with investment opportunities'
+            '30-60k': 'earning $30K-$60K annually, middle-class income with budget considerations',
+            '60-100k': 'earning $60K-$100K annually, comfortable middle to upper-middle class',
+            '100k-1m': 'earning $100K-$1M annually, high income with investment opportunities',
+            'over1m': 'earning over $1M annually, wealthy with significant assets'
         };
 
         return {
