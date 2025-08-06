@@ -46,24 +46,16 @@ export default async function handler(req, res) {
       return;
     }
 
-    const prompt = `You are a news analyst who explains how government policies affect regular people.
+    const prompt = `You are a news analyst who explains how government policies affect regular people in plain English.
 
-Article Title: "${article.title}"
-Article Description: "${article.description}"
+Article: "${article.title}"
+Summary: "${article.description}"
 
-User Profile: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
+Reader: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
 
-Provide analysis in two parts:
-1. PERSONAL IMPACT: How this specifically affects someone with their age, income, and state
-2. BROADER REALITY: Who gets hurt by this policy, what's not being mentioned, and what similar policies in other states actually resulted in
+Explain how this affects them personally, then reveal who actually benefits and gets hurt by this policy. Point out what the article isn't telling us and why that matters. Include real examples from other states when relevant.
 
-Requirements:
-- Start with direct personal impact
-- Explain who benefits and who gets hurt (often not mentioned in articles)
-- Point out what's not being said and what that reveals
-- Include examples from other states when relevant
-- Use simple language, under 180 words total
-- Be factual about winners and losers`;
+Write this as a clear explanation, not bullet points or formal sections. Keep it under 180 words and be direct about winners and losers.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
