@@ -1,14 +1,11 @@
-// Demographics filter management
+// Demographics filter management - Simplified to 3 fields
 class Demographics {
     constructor() {
         this.filters = {
             age: 'millennial',
             income: '30-60k',
-            housing: 'renter',
-            education: null, // NEW: No default for education
             location: 'virginia',
-            zipcode: '', // NEW: Zip code field
-            race: 'white'
+            zipcode: ''
         };
 
         this.labels = {
@@ -20,13 +17,6 @@ class Demographics {
             '30-60k': '$30-60K',
             '60-100k': '$60-100K',
             '100k+': '$100K+',
-            renter: 'Renter',
-            owner: 'Owner',
-            family: 'With Family',
-            'high-school': 'High School',
-            'some-college': 'Some College',
-            'bachelors': 'Bachelor\'s',
-            'graduate': 'Graduate',
             alabama: 'Alabama',
             alaska: 'Alaska',
             arizona: 'Arizona',
@@ -78,12 +68,7 @@ class Demographics {
             wisconsin: 'Wisconsin',
             wyoming: 'Wyoming',
             dc: 'Washington DC',
-            international: 'International',
-            white: 'White',
-            black: 'Black',
-            hispanic: 'Hispanic',
-            asian: 'Asian',
-            other: 'Other'
+            international: 'International'
         };
 
         this.init();
@@ -151,21 +136,13 @@ class Demographics {
         
         parts.push(this.labels[this.filters.age]);
         parts.push(this.labels[this.filters.income]);
-        parts.push(this.labels[this.filters.housing]);
         
-        // NEW: Add education if selected
-        if (this.filters.education) {
-            parts.push(this.labels[this.filters.education]);
-        }
-        
-        // NEW: Add location with zip if provided
+        // Add location with zip if provided
         if (this.filters.zipcode) {
             parts.push(`${this.labels[this.filters.location]} (${this.filters.zipcode})`);
         } else {
             parts.push(this.labels[this.filters.location]);
         }
-        
-        parts.push(this.labels[this.filters.race]);
         
         const display = parts.join(' • ');
         const demoElement = document.getElementById('current-demo');
@@ -178,31 +155,18 @@ class Demographics {
         return {
             age: this.filters.age,
             income: this.filters.income,
-            housing: this.filters.housing,
-            education: this.filters.education, // NEW
             location: this.filters.location,
-            zipcode: this.filters.zipcode, // NEW
-            race: this.filters.race,
+            zipcode: this.filters.zipcode,
             display: this.getDisplayString()
         };
     }
 
     getDisplayString() {
-        let display = `${this.labels[this.filters.age]} earning ${this.labels[this.filters.income]}, ${this.labels[this.filters.housing]}`;
+        let display = `${this.labels[this.filters.age]} earning ${this.labels[this.filters.income]} in ${this.labels[this.filters.location]}`;
         
-        // NEW: Add education if selected
-        if (this.filters.education) {
-            display += ` with ${this.labels[this.filters.education]}`;
-        }
-        
-        display += ` in ${this.labels[this.filters.location]}`;
-        
-        // NEW: Add zip if provided
         if (this.filters.zipcode) {
             display += ` (${this.filters.zipcode})`;
         }
-        
-        display += `, ${this.labels[this.filters.race]}`;
         
         return display;
     }
@@ -222,33 +186,16 @@ class Demographics {
             '100k+': 'earning over $100K annually, higher income with investment opportunities'
         };
 
-        const housingDescriptions = {
-            renter: 'renting their home, affected by rental market changes and mobility',
-            owner: 'owning their home, affected by property values and mortgage rates',
-            family: 'living with family, sharing housing costs and decisions'
-        };
-
-        // NEW: Education descriptions
-        const educationDescriptions = {
-            'high-school': 'with high school education, focused on practical job impacts',
-            'some-college': 'with some college education, balancing debt and career growth',
-            'bachelors': 'with bachelor\'s degree, concerned with professional advancement',
-            'graduate': 'with graduate education, focused on specialized career impacts'
-        };
-
         return {
             age: ageDescriptions[this.filters.age],
             income: incomeDescriptions[this.filters.income],
-            housing: housingDescriptions[this.filters.housing],
-            education: this.filters.education ? educationDescriptions[this.filters.education] : null, // NEW
             location: this.filters.location,
-            zipcode: this.filters.zipcode, // NEW
-            race: this.filters.race
+            zipcode: this.filters.zipcode
         };
     }
 }
 
-// ✅ FIX: Instantiate after DOM is ready
+// Initialize after DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     window.demographics = new Demographics();
 });
