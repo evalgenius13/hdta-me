@@ -175,6 +175,23 @@ body {
     padding: 1.5rem;
 }
 
+.news-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    font-size: 0.875rem;
+}
+
+.news-source {
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.news-time {
+    color: #64748b;
+}
+
 @media (min-width: 768px) {
     .news-content {
         padding: 1.25rem;
