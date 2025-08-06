@@ -1,6 +1,17 @@
 // api/fetch-news.js - Conservative scraping implementation
 const { getNewsList, storeNewsList, storeFullArticle, getFullArticle } = require('../lib/redis');
 
+// Calculate similarity between two strings (simple approach)
+function calculateSimilarity(str1, str2) {
+  const words1 = new Set(str1.split(' ').filter(w => w.length > 2));
+  const words2 = new Set(str2.split(' ').filter(w => w.length > 2));
+  
+  const intersection = new Set([...words1].filter(w => words2.has(w)));
+  const union = new Set([...words1, ...words2]);
+  
+  return intersection.size / union.size; // Jaccard similarity
+}
+
 // Extract key policy content from HTML
 function extractPolicyContent(html) {
   // Remove scripts, styles, ads, navigation
@@ -105,7 +116,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: data.error || 'No articles found' });
     }
 
-    // Filter for policy articles
+    // Filter and deduplicate articles
     let articles = data.articles.filter(article => 
       article.title && 
       article.description && 
@@ -114,7 +125,30 @@ module.exports = async function handler(req, res) {
       (/bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves/i.test(article.title + ' ' + article.description))
     );
 
-    console.log(`Processing ${articles.length} policy articles`);
+    // Remove duplicates based on similar titles
+    const seenTitles = new Set();
+    articles = articles.filter(article => {
+      // Normalize title for comparison (remove common words, lowercase, trim)
+      const normalizedTitle = article.title
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '') // Remove punctuation
+        .replace(/\b(the|a|an|and|or|but|in|on|at|to|for|of|with|by)\b/g, '') // Remove common words
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      // Check for similar titles (handle slight variations)
+      for (const seenTitle of seenTitles) {
+        const similarity = calculateSimilarity(normalizedTitle, seenTitle);
+        if (similarity > 0.8) { // 80% similarity threshold
+          return false; // Skip this duplicate
+        }
+      }
+      
+      seenTitles.add(normalizedTitle);
+      return true;
+    });
+
+    console.log(`After deduplication: ${articles.length} unique policy articles`);
 
     // Conservative approach: Only try to scrape 3 articles with significant delays
     const articlesToEnhance = articles.slice(0, 3);
