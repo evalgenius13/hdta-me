@@ -25,12 +25,13 @@ export default async function handler(req, res) {
     }
 
     // Simple cache key
-    const cacheKey = `${article.title}-${demographic.age}-${demographic.income}-${demographic.housing}-${demographic.location}`;
+    const cacheKey = `${article.title}-${demographic.age}-${demographic.income}-${demographic.location}`;
     
     // Check cache first
     if (responseCache.has(cacheKey)) {
       return res.status(200).json({ impact: responseCache.get(cacheKey) });
     }
+
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     
     if (!OPENAI_API_KEY) {
