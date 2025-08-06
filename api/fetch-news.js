@@ -1,4 +1,4 @@
-// api/fetch-news.js - Basic working version with deduplication
+// api/fetch-news.js - Fixed version with security and consistency
 const { getNewsList, storeNewsList } = require('../lib/redis');
 
 // Calculate similarity between two strings
@@ -12,7 +12,7 @@ function calculateSimilarity(str1, str2) {
   return intersection.size / union.size;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
   
@@ -34,7 +34,12 @@ module.exports = async function handler(req, res) {
 
     console.log('Fetching fresh news from GNews API');
 
-    const API_KEY = process.env.GNEWS_API_KEY || '050022879499fff60e9b870bf150a377';
+    // Secure API key handling - no hardcoded fallback
+    const API_KEY = process.env.GNEWS_API_KEY;
+    if (!API_KEY) {
+      console.error('GNEWS_API_KEY not configured');
+      return res.status(500).json({ error: 'News service not configured' });
+    }
     
     const query = 'congress OR senate OR governor OR "bill signed" OR "supreme court" OR "executive order" OR regulation OR "rule change" OR EPA OR FDA OR IRS OR "federal agency"';
     const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=20&token=${API_KEY}`;
@@ -43,7 +48,8 @@ module.exports = async function handler(req, res) {
     const data = await response.json();
     
     if (!data.articles) {
-      return res.status(400).json({ error: data.error || 'No articles found' });
+      console.error('GNews API error:', data);
+      return res.status(400).json({ error: data.error || 'Failed to fetch news' });
     }
 
     // Filter and deduplicate articles
@@ -55,7 +61,7 @@ module.exports = async function handler(req, res) {
       (/bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves/i.test(article.title + ' ' + article.description))
     );
 
-    // Remove duplicates
+    // Remove duplicates based on title similarity
     const seenTitles = new Set();
     articles = articles.filter(article => {
       const normalizedTitle = article.title
@@ -68,7 +74,7 @@ module.exports = async function handler(req, res) {
       for (const seenTitle of seenTitles) {
         const similarity = calculateSimilarity(normalizedTitle, seenTitle);
         if (similarity > 0.8) {
-          return false;
+          return false; // Skip duplicate
         }
       }
       
@@ -88,7 +94,7 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Fetch error:', error);
+    console.error('Fetch news error:', error);
     res.status(500).json({ error: 'Failed to fetch news' });
   }
-};
+}
