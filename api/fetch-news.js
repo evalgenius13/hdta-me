@@ -1,5 +1,75 @@
-// api/fetch-news.js - Basic version with just Redis news caching
-const { getNewsList, storeNewsList } = require('../lib/redis');
+// api/fetch-news.js - Conservative scraping implementation
+const { getNewsList, storeNewsList, storeFullArticle, getFullArticle } = require('../lib/redis');
+
+// Extract key policy content from HTML
+function extractPolicyContent(html) {
+  // Remove scripts, styles, ads, navigation
+  let cleanHtml = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+                     .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
+                     .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '')
+                     .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
+  
+  // Extract text and clean up
+  const textOnly = cleanHtml.replace(/<[^>]*>/g, ' ')
+                           .replace(/\s+/g, ' ')
+                           .replace(/\n+/g, ' ')
+                           .trim();
+  
+  // Focus on policy-relevant content - first 2000 chars usually contain the meat
+  const policyText = textOnly.substring(0, 2000);
+  
+  // Basic quality check
+  if (policyText.length < 300) {
+    throw new Error('Extracted content too short - likely failed');
+  }
+  
+  return policyText;
+}
+
+// Scrape single article with conservative approach
+async function scrapeArticleConservatively(url) {
+  try {
+    // Always check cache first
+    const cachedContent = await getFullArticle(url);
+    if (cachedContent) {
+      return cachedContent;
+    }
+
+    console.log(`Attempting to scrape: ${url}`);
+    
+    const scrapingUrl = `https://app.scrapingbee.com/api/v1/?api_key=${process.env.SCRAPINGBEE_API_KEY}&url=${encodeURIComponent(url)}&render_js=false`;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    
+    const response = await fetch(scrapingUrl, { 
+      signal: controller.signal,
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const html = await response.text();
+    const policyContent = extractPolicyContent(html);
+    
+    // Cache successful extraction
+    await storeFullArticle(url, policyContent);
+    console.log(`Successfully scraped and cached: ${url}`);
+    
+    return policyContent;
+    
+  } catch (error) {
+    console.error(`Scraping failed for ${url}:`, error.message);
+    return null;
+  }
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -11,17 +81,17 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Check cache first
+    // Check news cache first (8 hours)
     const cachedNews = await getNewsList();
     if (cachedNews) {
-      console.log('Serving cached news');
+      console.log('Serving cached news with enhanced articles');
       return res.status(200).json({ 
         articles: cachedNews,
         cached: true 
       });
     }
 
-    console.log('Fetching fresh news from GNews API');
+    console.log('Fetching fresh news and attempting article enhancement');
 
     const API_KEY = process.env.GNEWS_API_KEY || '050022879499fff60e9b870bf150a377';
     
@@ -31,28 +101,72 @@ module.exports = async function handler(req, res) {
     const response = await fetch(url);
     const data = await response.json();
     
-    if (data.articles) {
-      const articles = data.articles.filter(article => 
-        article.title && 
-        article.description && 
-        !article.title.includes('[Removed]') &&
-        !(/golf|nfl|nba|ncaa|sports|celebrity|stocks|earnings|rapper|music|movie|entertainment/i.test(article.title)) &&
-        (/bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves/i.test(article.title + ' ' + article.description))
-      );
-
-      // Cache the filtered articles
-      await storeNewsList(articles);
-      
-      res.status(200).json({ 
-        articles,
-        cached: false,
-        count: articles.length
-      });
-    } else {
-      res.status(400).json({ error: data.error || 'No articles found' });
+    if (!data.articles) {
+      return res.status(400).json({ error: data.error || 'No articles found' });
     }
+
+    // Filter for policy articles
+    let articles = data.articles.filter(article => 
+      article.title && 
+      article.description && 
+      !article.title.includes('[Removed]') &&
+      !(/golf|nfl|nba|ncaa|sports|celebrity|stocks|earnings|rapper|music|movie|entertainment/i.test(article.title)) &&
+      (/bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves/i.test(article.title + ' ' + article.description))
+    );
+
+    console.log(`Processing ${articles.length} policy articles`);
+
+    // Conservative approach: Only try to scrape 3 articles with significant delays
+    const articlesToEnhance = articles.slice(0, 3);
+    const basicArticles = articles.slice(3);
+
+    // Process articles with delays to respect rate limits
+    const enhancedArticles = [];
+    
+    for (let i = 0; i < articlesToEnhance.length; i++) {
+      const article = articlesToEnhance[i];
+      
+      // Add 4-second delay between requests (very conservative)
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 4000));
+      }
+      
+      const fullContent = await scrapeArticleConservatively(article.url);
+      
+      enhancedArticles.push({
+        ...article,
+        hasFullContent: !!fullContent
+      });
+    }
+
+    // Combine enhanced and basic articles
+    const allArticles = [
+      ...enhancedArticles,
+      ...basicArticles.map(article => ({
+        ...article,
+        hasFullContent: false
+      }))
+    ];
+
+    // Cache the results for 8 hours
+    await storeNewsList(allArticles);
+
+    const enhancedCount = enhancedArticles.filter(a => a.hasFullContent).length;
+    console.log(`Enhanced ${enhancedCount}/${articlesToEnhance.length} articles with full content`);
+
+    res.status(200).json({ 
+      articles: allArticles,
+      cached: false,
+      enhancement_stats: {
+        total_articles: allArticles.length,
+        enhancement_attempts: articlesToEnhance.length,
+        successful_enhancements: enhancedCount,
+        basic_articles: basicArticles.length
+      }
+    });
+
   } catch (error) {
-    console.error('Fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch news' });
+    console.error('Fetch news error:', error);
+    res.status(500).json({ error: 'Failed to fetch and enhance news' });
   }
 };
