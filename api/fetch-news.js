@@ -10,8 +10,8 @@ export default async function handler(req, res) {
   try {
     const API_KEY = process.env.GNEWS_API_KEY || '050022879499fff60e9b870bf150a377';
     
-    // Simpler, more reliable query for government policy
-    const query = 'congress OR senate OR governor OR "bill signed" OR "supreme court"';
+    // Comprehensive government policy coverage
+    const query = 'congress OR senate OR governor OR "bill signed" OR "supreme court" OR "executive order" OR regulation OR "rule change" OR EPA OR FDA OR IRS OR "federal agency"';
     const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=20&token=${API_KEY}`;
     
     const response = await fetch(url);
