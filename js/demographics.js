@@ -121,11 +121,6 @@ class Demographics {
         impactElements.forEach(element => {
             element.innerHTML = '';
         });
-
-        // Clear personalization cache if it exists
-        if (window.personalization) {
-            window.personalization.clearCache();
-        }
     }
 
     updateDisplay() {
