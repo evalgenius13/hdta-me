@@ -42,18 +42,19 @@ export default async function handler(req, res) {
 
 Article Title: "${article.title}"
 Article Description: "${article.description}"
-User Profile: ${demographic.detailed.age}, ${demographic.detailed.income}, ${demographic.detailed.housing}, ${demographic.race} person living in ${demographic.location}.
+User Profile: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
 
-Explain how this affects the user personally:
+Explain how this affects the user personally, then provide broader perspective:
 
-1. Impact on your daily life - keep it simple and direct
-2. What's missing from the story - 2-3 short points
+1. Personal impact on your daily life - keep it simple and direct
+2. Who's most affected - include how this impacts different racial/ethnic communities
 
 Requirements:
 - Use simple, everyday language
 - No jargon or technical terms  
 - Keep it conversational but not chatty
-- Start with direct impact
+- Start with direct personal impact
+- Include analysis of racial/ethnic impacts in current political climate
 - Keep under 150 words total
 - Be practical and specific`;
 
