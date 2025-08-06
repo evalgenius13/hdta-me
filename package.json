@@ -3,14 +3,9 @@
   "version": "1.0.0",
   "description": "How Does This Affect Me - News Personalization Service",
   "scripts": {
-    "dev": "vercel dev",
-    "build": "vercel build",
-    "deploy": "vercel"
+    "dev": "vercel dev"
   },
   "dependencies": {
     "@upstash/redis": "^1.28.2"
-  },
-  "devDependencies": {
-    "vercel": "^33.0.0"
   }
 }
