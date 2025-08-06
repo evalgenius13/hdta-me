@@ -1,3 +1,6 @@
+// api/fetch-news.js - Enhanced with simple caching
+const { getNewsList, storeNewsList } = require('../lib/redis');
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
@@ -8,6 +11,18 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Check cache first
+    const cachedNews = await getNewsList();
+    if (cachedNews) {
+      console.log('Serving cached news');
+      return res.status(200).json({ 
+        articles: cachedNews,
+        cached: true 
+      });
+    }
+
+    console.log('Fetching fresh news from API');
+
     const API_KEY = process.env.GNEWS_API_KEY || '050022879499fff60e9b870bf150a377';
     
     // Comprehensive government policy coverage
@@ -20,7 +35,7 @@ export default async function handler(req, res) {
     if (data.articles) {
       const articles = data.articles.filter(article => 
         article.title && 
-        article.description &&
+        article.description && 
         !article.title.includes('[Removed]') &&
         // Remove sports/entertainment/market noise
         !(/golf|nfl|nba|ncaa|sports|celebrity|stocks|earnings|rapper|music|movie|entertainment/i.test(article.title)) &&
@@ -28,9 +43,16 @@ export default async function handler(req, res) {
         (/bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves/i.test(article.title + ' ' + article.description))
       );
 
-      res.status(200).json({ articles });
+      // Cache the filtered articles
+      await storeNewsList(articles);
+      
+      res.status(200).json({ 
+        articles,
+        cached: false,
+        count: articles.length
+      });
     } else {
-      res.status(400).json({ error: data.message || 'No articles found' });
+      res.status(400).json({ error: data.error || 'No articles found' });
     }
   } catch (error) {
     console.error('Fetch error:', error);
