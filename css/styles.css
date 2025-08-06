@@ -1,324 +1,55 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    line-height: 1.6;
-    color: #333;
-    background: #f8fafc;
-}
-
-.header {
-    background: white;
-    border-bottom: 1px solid #e2e8f0;
-    padding: 1rem 0;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 1rem;
-}
-
-.logo {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #2563eb;
-}
-
-.tagline {
-    font-size: 0.875rem;
-    color: #64748b;
-    margin-top: 0.25rem;
-}
-
-.demographics-bar {
-    background: white;
-    border-bottom: 1px solid #e2e8f0;
-    padding: 1rem 0;
-}
-
-.demo-filters {
-    display: flex;
-    gap: 2rem;
-    flex-wrap: wrap;
-    align-items: center;
-}
-
-@media (min-width: 768px) {
-    .demo-filters {
-        gap: 3rem;
-        justify-content: center;
-    }
-}
-
-@media (min-width: 1200px) {
-    .demo-filters {
-        gap: 4rem;
-        flex-wrap: nowrap;
-    }
-}
-
-.filter-group {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.filter-label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #475569;
-}
-
-.filter-buttons {
-    display: flex;
-    gap: 0.25rem;
-}
-
-.filter-btn {
-    padding: 0.375rem 0.75rem;
-    border: 1px solid #d1d5db;
-    background: white;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    color: #374151;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.filter-btn:hover {
-    background: #f3f4f6;
-}
-
-.filter-btn.active {
-    background: #2563eb;
-    color: white;
-    border-color: #2563eb;
-}
-
-.main-content {
-    padding: 2rem 0;
-}
-
-.news-grid {
-    display: grid;
-    gap: 1.5rem;
-    grid-template-columns: 1fr;
-}
-
-/* Desktop improvements */
-@media (min-width: 768px) {
-    .news-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 2rem;
-    }
-}
-
-@media (min-width: 1200px) {
-    .news-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 2.5rem;
-    }
-    
-    .container {
-        max-width: 1400px;
-    }
-}
-
-.news-card {
-    background: white;
-    border-radius: 0.75rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    overflow: hidden;
-    transition: all 0.3s ease;
-    height: fit-content;
-}
-
-.news-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-}
-
-.news-image {
-    width: 100%;
-    height: 220px;
-    background: #e2e8f0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #64748b;
-    overflow: hidden;
-    position: relative;
-}
-
-@media (min-width: 1200px) {
-    .news-image {
-        height: 200px;
-    }
-}
-
-.news-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-}
-
-.news-content {
-    padding: 1.5rem;
-}
-
-@media (min-width: 768px) {
-    .news-content {
-        padding: 1.25rem;
-    }
-}
-
-@media (min-width: 1200px) {
-    .news-content {
-        padding: 1rem;
-    }
-}
-
-.news-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: #1e293b;
-    line-height: 1.4;
-}
-
-@media (min-width: 768px) {
-    .news-title {
-        font-size: 1.125rem;
-    }
-}
-
-@media (min-width: 1200px) {
-    .news-title {
-        font-size: 1rem;
-    }
-}
-
-.news-summary {
-    color: #64748b;
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
-}
-
-.impact-section {
-    background: #f1f5f9;
-    padding: 1rem;
-    border-radius: 0.375rem;
-    border-left: 4px solid #2563eb;
-}
-
-.impact-title {
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-}
-
-.impact-text {
-    color: #475569;
-    font-size: 0.875rem;
-}
-
-.impact-loading {
-    color: #64748b;
-    font-style: italic;
-    font-size: 0.875rem;
-}
-
-.view-toggle {
-    background: white;
-    border: 1px solid #e2e8f0;
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    margin-bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    justify-content: center;
-    text-align: center;
-}
-
-@media (min-width: 768px) {
-    .view-toggle {
-        padding: 1rem 1.5rem;
-        border-radius: 0.75rem;
-        margin-bottom: 2rem;
-    }
-}
-
-@media (min-width: 1200px) {
-    .view-toggle {
-        justify-content: space-between;
-        text-align: left;
-    }
-}
-
-.toggle-label {
-    font-weight: 500;
-    color: #374151;
-}
-
-.compare-btn {
-    background: #f8fafc;
-    border: 1px solid #d1d5db;
-    padding: 0.5rem 1rem;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.compare-btn:hover {
-    background: #f3f4f6;
-}
-
-.loading-state {
-    text-align: center;
-    padding: 3rem;
-    color: #64748b;
-}
-
-.error-state {
-    text-align: center;
-    padding: 2rem;
-    color: #ef4444;
-    background: #fef2f2;
-    border-radius: 0.5rem;
-    border: 1px solid #fecaca;
-}
+/* Mobile improvements for demographics - ADD to your existing styles.css */
 
 @media (max-width: 768px) {
+    /* Better touch targets */
+    .filter-btn {
+        padding: 0.75rem 1rem;
+        min-height: 44px;
+    }
+    
+    .filter-buttons {
+        gap: 0.5rem;
+    }
+    
+    /* Better dropdown and input */
+    #location-select {
+        padding: 0.75rem;
+        font-size: 1rem;
+        min-height: 44px;
+        width: 140px;
+    }
+    
+    #zipcode-input {
+        padding: 0.75rem;
+        font-size: 1rem;
+        min-height: 44px;
+        width: 80px;
+    }
+    
+    /* Stack vertically on mobile */
     .demo-filters {
         flex-direction: column;
-        align-items: stretch;
-        gap: 1rem;
+        gap: 1.5rem;
     }
-
+    
     .filter-group {
         justify-content: space-between;
-    }
-
-    .filter-buttons {
-        flex-wrap: wrap;
-    }
-
-    .view-toggle {
         flex-direction: column;
-        align-items: stretch;
-        text-align: center;
         gap: 0.75rem;
+    }
+    
+    /* Location row stays horizontal */
+    .filter-group:nth-child(5) > div {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    
+    /* Better toggle buttons */
+    .demographics-toggle,
+    .demographics-show {
+        padding: 1rem;
+        font-size: 1rem;
+        min-height: 44px;
     }
 }
