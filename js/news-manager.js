@@ -4,7 +4,6 @@ class NewsManager {
         this.articles = [];
         this.loading = false;
         this.lastFetchTime = null;
-        this.displayedCount = 6;
     }
 
     async fetchNews() {
@@ -170,7 +169,6 @@ class NewsManager {
 
     refresh() {
         this.articles = [];
-        this.displayedCount = 6;
         if (window.personalization) {
             window.personalization.clearCache();
         }
