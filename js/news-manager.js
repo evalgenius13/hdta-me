@@ -83,6 +83,23 @@ class NewsManager {
     createArticleHTML(article) {
         const articleIndex = this.articles.indexOf(article);
         
+        // Format publish time
+        let timeAgo = '';
+        if (article.publishedAt) {
+            const publishTime = new Date(article.publishedAt);
+            const now = new Date();
+            const diffHours = Math.floor((now - publishTime) / (1000 * 60 * 60));
+            
+            if (diffHours < 1) {
+                timeAgo = 'Just now';
+            } else if (diffHours < 24) {
+                timeAgo = `${diffHours}h ago`;
+            } else {
+                const diffDays = Math.floor(diffHours / 24);
+                timeAgo = `${diffDays}d ago`;
+            }
+        }
+        
         return `
             <article class="news-card">
                 <div class="news-image">
@@ -92,6 +109,10 @@ class NewsManager {
                     }
                 </div>
                 <div class="news-content">
+                    <div class="news-meta">
+                        <span class="news-source">${article.source?.name || 'Unknown Source'}</span>
+                        ${timeAgo ? `<span class="news-time">${timeAgo}</span>` : ''}
+                    </div>
                     <h2 class="news-title">${this.escapeHtml(article.title)}</h2>
                     <p class="news-summary">${this.escapeHtml(article.description)}</p>
                     
