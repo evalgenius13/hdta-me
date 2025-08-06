@@ -1,23 +1,3 @@
-// TEST - add at top of file
-if (req.query.test === 'scrape') {
-  try {
-    const testUrl = 'https://www.newsweek.com/va-major-change-healthcare-benefits-abortion-2109500';
-    const scrapingUrl = `https://app.scrapingbee.com/api/v1/?api_key=WFOD09LZ19LHCAPMFFHT6PGQRKG7HW490K64BUBPNKXEZLLR6RY531F0BGP6GN6PWM0YZ0SAA9QPOD1G&url=${encodeURIComponent(testUrl)}`;
-    
-    const response = await fetch(scrapingUrl);
-    const html = await response.text();
-    
-    return res.status(200).json({ 
-      success: true,
-      contentLength: html.length,
-      preview: html.substring(0, 1000) + '...'
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-}
-
-
 // api/personalize.js - Enhanced with Redis caching
 const { getAnalysis, storeAnalysis } = require('../lib/redis');
 
