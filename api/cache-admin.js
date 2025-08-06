@@ -1,5 +1,5 @@
 // api/cache-admin.js - Simple cache management
-const { clearCache } = require('../lib/redis');
+const { getCacheStats, clearCache } = require('../lib/redis');
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -12,9 +12,12 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // Simple status check
+      // Get detailed cache stats
+      const stats = await getCacheStats();
       res.status(200).json({
-        message: 'Redis cache is connected',
+        message: 'Redis cache status',
+        stats,
+        upstash_free_limit: '256MB storage, 10K requests/day',
         timestamp: new Date().toISOString()
       });
       
