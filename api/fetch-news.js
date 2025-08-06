@@ -18,13 +18,27 @@ export default async function handler(req, res) {
     const data = await response.json();
     
     if (data.articles) {
-      const articles = data.articles.filter(article => 
-        article.title && 
-        article.description &&
-        !article.title.includes('[Removed]') &&
-        // Simple filtering - remove obvious junk
-        !(/golf|nfl|nba|ncaa|sports|celebrity|stocks|earnings|rapper/i.test(article.title))
-      );
+      // Remove duplicates and filter articles
+      const seenTitles = new Set();
+      const articles = data.articles.filter(article => {
+        if (!article.title || !article.description || article.title.includes('[Removed]')) {
+          return false;
+        }
+        
+        // Remove sports/entertainment junk
+        if (/golf|nfl|nba|ncaa|sports|celebrity|stocks|earnings|rapper/i.test(article.title)) {
+          return false;
+        }
+        
+        // Simple duplicate detection - normalize title
+        const normalizedTitle = article.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+        if (seenTitles.has(normalizedTitle)) {
+          return false;
+        }
+        
+        seenTitles.add(normalizedTitle);
+        return true;
+      });
 
       res.status(200).json({ articles });
     } else {
