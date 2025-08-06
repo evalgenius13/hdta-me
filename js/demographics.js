@@ -1,4 +1,4 @@
-// Demographics filter management - Simplified to 3 fields
+// Demographics filter management - Fixed to not reload articles
 class Demographics {
     constructor() {
         this.filters = {
@@ -92,10 +92,7 @@ class Demographics {
             locationSelect.addEventListener('change', (e) => {
                 this.filters.location = e.target.value;
                 this.updateDisplay();
-                
-                if (window.newsManager && window.newsManager.articles.length > 0) {
-                    window.newsManager.refresh();
-                }
+                this.clearExistingAnalysis(); // Clear old analysis, but keep articles
             });
         }
     }
@@ -113,8 +110,21 @@ class Demographics {
         this.filters[filterType] = filterValue;
         this.updateDisplay();
         
-        if (window.newsManager && window.newsManager.articles.length > 0) {
-            window.newsManager.refresh();
+        // Clear existing analysis but DON'T reload articles
+        this.clearExistingAnalysis();
+    }
+
+    clearExistingAnalysis() {
+        // Clear all existing "How Does This Affect Me?" responses
+        // so they regenerate with new demographics, but keep the articles
+        const impactElements = document.querySelectorAll('[id^="impact-"]');
+        impactElements.forEach(element => {
+            element.innerHTML = '';
+        });
+
+        // Clear personalization cache if it exists
+        if (window.personalization) {
+            window.personalization.clearCache();
         }
     }
 
