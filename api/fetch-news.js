@@ -2,10 +2,6 @@
 let articleCache = {
   articles: [],
   timestamp: 0,
-  c// Simple article cache
-let articleCache = {
-  articles: [],
-  timestamp: 0,
   cacheHours: 6
 };
 
