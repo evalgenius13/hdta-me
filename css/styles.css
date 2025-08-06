@@ -300,9 +300,9 @@ body {
     border: 1px solid #fecaca;
 }
 
-/* Mobile improvements for demographics */
+/* Mobile improvements for demographics and articles */
 @media (max-width: 768px) {
-    /* Better touch targets */
+    /* Better touch targets for demographics */
     .filter-btn {
         padding: 0.75rem 1rem;
         min-height: 44px;
@@ -354,5 +354,54 @@ body {
         padding: 1rem;
         font-size: 1rem;
         min-height: 44px;
+    }
+    
+    /* Article card improvements for mobile */
+    .news-card {
+        margin: 0 0.5rem; /* Add side margins */
+    }
+    
+    .news-content {
+        padding: 1.5rem; /* More generous padding */
+    }
+    
+    .news-title {
+        font-size: 1.25rem; /* Bigger titles on mobile */
+        margin-bottom: 1rem;
+        line-height: 1.3;
+    }
+    
+    .news-summary {
+        font-size: 1rem; /* Bigger summary text */
+        margin-bottom: 1.5rem;
+        line-height: 1.5;
+    }
+    
+    /* Better "How Does This Affect Me?" button */
+    .compare-btn {
+        padding: 1rem 1.5rem; /* Much bigger touch area */
+        font-size: 1rem;
+        min-height: 48px;
+        width: 100%; /* Full width on mobile */
+        text-align: center;
+    }
+    
+    .impact-section {
+        padding: 1.25rem; /* More padding */
+        margin-top: 1rem;
+    }
+    
+    .impact-title {
+        font-size: 1rem; /* Bigger impact title */
+        margin-bottom: 0.75rem;
+    }
+    
+    .impact-text {
+        font-size: 1rem; /* Bigger impact text */
+        line-height: 1.5;
+    }
+    
+    .impact-loading {
+        font-size: 1rem;
     }
 }
