@@ -120,34 +120,38 @@ module.exports = async function handler(req, res) {
 
 // Enhanced prompt for full article content
 function createEnhancedPrompt(article, fullContent, demographic) {
-  return `You are analyzing a government policy article to reveal real-world impacts.
+  return `You're a knowledgeable analyst breaking down a policy story. Be clear and direct without being overly casual.
 
-ARTICLE TITLE: "${article.title}"
+ARTICLE: "${article.title}"
+FULL CONTENT: "${fullContent}"
+READER: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
 
-FULL ARTICLE CONTENT: "${fullContent}"
+Explain the real impact:
 
-READER PROFILE: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
+How does this directly affect someone with their income and situation? Be specific about costs, benefits, or changes they'll experience.
 
-Analyze how this policy specifically affects someone with these demographics. Focus on:
+Who actually wins and loses from this policy? Follow the money and power - what's the real motivation here?
 
-1. DIRECT PERSONAL IMPACT: Concrete effects on their finances, benefits, eligibility, or daily life
-2. FOLLOW THE MONEY: Who actually profits from this policy and who pays the cost
-3. WHAT'S HIDDEN: Critical details the article glosses over or political spin being used
-4. REAL EXAMPLES: How similar policies played out in other states or timeframes
+What important details is the article leaving out or downplaying? Give an example of how similar policies worked in other places.
 
-Write as a clear, conversational explanation. No bullet points. Keep under 250 words. Be direct about winners and losers.`;
+Use clear, short paragraphs. Keep it under 250 words. Be direct about the reality.`;
 }
 
 // Basic prompt for headline/description only  
 function createBasicPrompt(article, demographic) {
-  return `You are a news analyst who explains how government policies affect regular people in plain English.
+  return `You're an analyst explaining a policy story clearly and directly.
 
-Article: "${article.title}"
-Summary: "${article.description}"
+STORY: "${article.title}"
+SUMMARY: "${article.description}"
+READER: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
 
-Reader: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
+Break down the real impact:
 
-Explain how this affects them personally, then reveal who actually benefits and gets hurt by this policy. Point out what the article isn't telling us and why that matters. Include real examples from other states when relevant.
+How does this affect someone in their situation? Be specific about what changes for them financially or practically.
 
-Write this as a clear explanation, not bullet points or formal sections. Keep it under 180 words and be direct about winners and losers.`;
+Who benefits from this policy and who pays the price? Cut through the political language to show what's really happening.
+
+What's the article not emphasizing? Include a real example from another state or similar policy.
+
+Write clearly with short paragraphs. Under 200 words. Be straightforward about winners and losers.`;
 }
