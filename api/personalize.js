@@ -1,5 +1,5 @@
-// Simple in-memory cache
-const responseCache = new Map();
+// api/personalize.js - Enhanced with Redis caching
+const { getAnalysis, storeAnalysis } = require('../lib/redis');
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     res.status(200).end();
     return;
   }
-
+  
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -24,13 +24,20 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Simple cache key
+    // Create cache key
     const cacheKey = `${article.title}-${demographic.age}-${demographic.income}-${demographic.location}`;
     
-    // Check cache first
-    if (responseCache.has(cacheKey)) {
-      return res.status(200).json({ impact: responseCache.get(cacheKey) });
+    // Check Redis cache first
+    const cachedAnalysis = await getAnalysis(cacheKey);
+    if (cachedAnalysis) {
+      console.log('Serving cached analysis');
+      return res.status(200).json({ 
+        impact: cachedAnalysis,
+        cached: true 
+      });
     }
+
+    console.log('Generating fresh analysis');
 
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     
@@ -43,10 +50,10 @@ export default async function handler(req, res) {
 
 Article Title: "${article.title}"
 Article Description: "${article.description}"
+
 User Profile: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
 
 Provide analysis in two parts:
-
 1. PERSONAL IMPACT: How this specifically affects someone with their age, income, and state
 2. BROADER REALITY: Who gets hurt by this policy, what's not being mentioned, and what similar policies in other states actually resulted in
 
@@ -92,14 +99,18 @@ Requirements:
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const impact = data.choices[0].message.content.trim();
       
-      // Cache the response
-      responseCache.set(cacheKey, impact);
+      // Cache the analysis in Redis
+      await storeAnalysis(cacheKey, impact);
       
-      res.status(200).json({ impact });
+      res.status(200).json({ 
+        impact,
+        cached: false
+      });
     } else {
       console.error('Unexpected OpenAI response format:', data);
       res.status(500).json({ error: 'Unexpected response format from OpenAI' });
     }
+
   } catch (error) {
     console.error('Error in personalize API:', error);
     res.status(500).json({ error: 'Failed to generate personalized analysis' });
