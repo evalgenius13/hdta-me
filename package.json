@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@upstash/redis": "^1.28.2",
+    "jsdom": "^24.0.0"
+  }
+}
