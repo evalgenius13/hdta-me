@@ -1,3 +1,17 @@
+// TEMP: Add at very top of api/personalize.js
+if (req.query.clear === 'nuclear') {
+  const { Redis } = require('@upstash/redis');
+  const redis = new Redis({
+    url: process.env.KV_REST_API_URL,
+    token: process.env.KV_REST_API_TOKEN,
+  });
+  
+  const keys = await redis.keys('*');
+  for (const key of keys) await redis.del(key);
+  
+  return res.status(200).json({ cleared: keys.length });
+}
+
 // api/personalize.js - Clean version with improved prompts
 const responseCache = new Map();
 
