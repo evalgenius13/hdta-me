@@ -1,7 +1,10 @@
-// api/personalize.js - Enhanced with Redis caching
-const { getAnalysis, storeAnalysis } = require('../lib/redis');
+// api/personalize.js - Enhanced with full article analysis
+const { getFullArticle } = require('../lib/redis');
 
-export default async function handler(req, res) {
+// Simple in-memory cache for AI responses
+const responseCache = new Map();
+
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -27,17 +30,13 @@ export default async function handler(req, res) {
     // Create cache key
     const cacheKey = `${article.title}-${demographic.age}-${demographic.income}-${demographic.location}`;
     
-    // Check Redis cache first
-    const cachedAnalysis = await getAnalysis(cacheKey);
-    if (cachedAnalysis) {
-      console.log('Serving cached analysis');
+    // Check cache first
+    if (responseCache.has(cacheKey)) {
       return res.status(200).json({ 
-        impact: cachedAnalysis,
+        impact: responseCache.get(cacheKey),
         cached: true 
       });
     }
-
-    console.log('Generating fresh analysis');
 
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     
@@ -46,16 +45,25 @@ export default async function handler(req, res) {
       return;
     }
 
-    const prompt = `You are a news analyst who explains how government policies affect regular people in plain English.
+    // Try to get full article content
+    let articleContent = article.description; // Fallback
+    let analysisType = 'headline';
+    
+    if (article.url) {
+      const fullContent = await getFullArticle(article.url);
+      if (fullContent) {
+        articleContent = fullContent;
+        analysisType = 'full-article';
+        console.log('Using full article content for analysis');
+      } else {
+        console.log('No full content available, using description');
+      }
+    }
 
-Article: "${article.title}"
-Summary: "${article.description}"
-
-Reader: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
-
-Explain how this affects them personally, then reveal who actually benefits and gets hurt by this policy. Point out what the article isn't telling us and why that matters. Include real examples from other states when relevant.
-
-Write this as a clear explanation, not bullet points or formal sections. Keep it under 180 words and be direct about winners and losers.`;
+    // Create prompt based on available content
+    const prompt = analysisType === 'full-article' 
+      ? createFullContentPrompt(article, articleContent, demographic)
+      : createBasicPrompt(article, demographic);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -75,7 +83,7 @@ Write this as a clear explanation, not bullet points or formal sections. Keep it
             content: prompt
           }
         ],
-        max_tokens: 200,
+        max_tokens: analysisType === 'full-article' ? 250 : 200,
         temperature: 0.4,
       }),
     });
@@ -91,11 +99,12 @@ Write this as a clear explanation, not bullet points or formal sections. Keep it
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const impact = data.choices[0].message.content.trim();
       
-      // Cache the analysis in Redis
-      await storeAnalysis(cacheKey, impact);
+      // Cache the response
+      responseCache.set(cacheKey, impact);
       
       res.status(200).json({ 
         impact,
+        analysisType,
         cached: false
       });
     } else {
@@ -107,4 +116,37 @@ Write this as a clear explanation, not bullet points or formal sections. Keep it
     console.error('Error in personalize API:', error);
     res.status(500).json({ error: 'Failed to generate personalized analysis' });
   }
+};
+
+// Enhanced prompt for full article content
+function createFullContentPrompt(article, fullContent, demographic) {
+  return `You are analyzing a government policy article for its real-world impact.
+
+ARTICLE TITLE: "${article.title}"
+
+FULL ARTICLE CONTENT: "${fullContent}"
+
+READER: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
+
+Analyze how this policy specifically affects someone with their demographics. Focus on:
+- Direct personal impact (costs, benefits, eligibility changes)
+- Who actually benefits vs who gets hurt (follow the money)
+- What the article doesn't mention or glosses over
+- Real examples from similar policies in other states
+
+Write as a clear explanation, not bullet points. Keep under 220 words and be direct about winners and losers.`;
+}
+
+// Basic prompt for headline/description only
+function createBasicPrompt(article, demographic) {
+  return `You are a news analyst who explains how government policies affect regular people in plain English.
+
+Article: "${article.title}"
+Summary: "${article.description}"
+
+Reader: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
+
+Explain how this affects them personally, then reveal who actually benefits and gets hurt by this policy. Point out what the article isn't telling us and why that matters. Include real examples from other states when relevant.
+
+Write this as a clear explanation, not bullet points or formal sections. Keep it under 180 words and be direct about winners and losers.`;
 }
