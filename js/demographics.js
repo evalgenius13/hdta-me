@@ -4,8 +4,7 @@ class Demographics {
         this.filters = {
             age: 'millennial',
             income: '30-60k',
-            location: 'virginia',
-            zipcode: ''
+            location: 'virginia'
         };
 
         this.labels = {
@@ -98,19 +97,6 @@ class Demographics {
                 }
             });
         }
-
-        // Handle zip code input
-        const zipInput = document.getElementById('zipcode-input');
-        if (zipInput) {
-            zipInput.addEventListener('input', (e) => {
-                this.filters.zipcode = e.target.value;
-                this.updateDisplay();
-                
-                if (window.newsManager && window.newsManager.articles.length > 0) {
-                    window.newsManager.refresh();
-                }
-            });
-        }
     }
 
     handleFilterClick(button) {
@@ -156,19 +142,12 @@ class Demographics {
             age: this.filters.age,
             income: this.filters.income,
             location: this.filters.location,
-            zipcode: this.filters.zipcode,
             display: this.getDisplayString()
         };
     }
 
     getDisplayString() {
-        let display = `${this.labels[this.filters.age]} earning ${this.labels[this.filters.income]} in ${this.labels[this.filters.location]}`;
-        
-        if (this.filters.zipcode) {
-            display += ` (${this.filters.zipcode})`;
-        }
-        
-        return display;
+        return `${this.labels[this.filters.age]} earning ${this.labels[this.filters.income]} in ${this.labels[this.filters.location]}`;
     }
 
     getDetailedProfile() {
@@ -189,8 +168,7 @@ class Demographics {
         return {
             age: ageDescriptions[this.filters.age],
             income: incomeDescriptions[this.filters.income],
-            location: this.filters.location,
-            zipcode: this.filters.zipcode
+            location: this.filters.location
         };
     }
 }
