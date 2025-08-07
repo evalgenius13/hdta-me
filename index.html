@@ -17,6 +17,7 @@
             line-height: 1.6;
             color: #333;
             background: #f8fafc;
+            overflow-x: hidden;
         }
 
         .header {
@@ -32,6 +33,11 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 1rem;
+            transition: max-width 0.3s ease;
+        }
+
+        .container.chat-open {
+            max-width: 800px;
         }
 
         .logo {
@@ -50,6 +56,11 @@
 
         .main-content {
             padding: 2rem 0;
+            transition: margin-right 0.3s ease;
+        }
+
+        .main-content.chat-open {
+            margin-right: 420px;
         }
 
         .news-grid {
@@ -67,12 +78,8 @@
 
         @media (min-width: 1200px) {
             .news-grid {
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(2, 1fr);
                 gap: 2.5rem;
-            }
-            
-            .container {
-                max-width: 1400px;
             }
         }
 
@@ -92,21 +99,19 @@
 
         .news-image {
             width: 100%;
-            height: 220px;
+            height: 180px;
             background: #e2e8f0;
             display: flex;
             align-items: center;
             justify-content: center;
             color: #64748b;
             overflow: hidden;
-            position: relative;
         }
 
         .news-image img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: center;
         }
 
         .news-content {
@@ -131,39 +136,26 @@
         }
 
         .news-title {
-            font-size: 1.25rem;
+            font-size: 1.125rem;
             font-weight: 600;
             margin-bottom: 0.75rem;
             color: #1e293b;
             line-height: 1.4;
+            cursor: pointer;
+        }
+
+        .news-title:hover {
+            color: #2563eb;
         }
 
         .news-summary {
             color: #64748b;
             margin-bottom: 1rem;
-            font-size: 1rem;
-        }
-
-        .impact-section {
-            background: #f1f5f9;
-            padding: 1rem;
-            border-radius: 0.375rem;
-            border-left: 4px solid #2563eb;
-        }
-
-        .impact-text {
-            color: #475569;
-            font-size: 1rem;
+            font-size: 0.95rem;
             line-height: 1.5;
         }
 
-        .impact-loading {
-            color: #64748b;
-            font-style: italic;
-            font-size: 1rem;
-        }
-
-        .compare-btn {
+        .analyze-btn {
             background: #2563eb;
             color: white;
             border: none;
@@ -176,8 +168,127 @@
             width: 100%;
         }
 
-        .compare-btn:hover {
+        .analyze-btn:hover {
             background: #1d4ed8;
+        }
+
+        /* Chat Window */
+        .chat-window {
+            position: fixed;
+            top: 0;
+            right: -420px;
+            width: 420px;
+            height: 100vh;
+            background: white;
+            border-left: 1px solid #e2e8f0;
+            z-index: 200;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-window.open {
+            right: 0;
+        }
+
+        .chat-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-title {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 0.95rem;
+        }
+
+        .chat-close {
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            color: #64748b;
+            padding: 0.25rem;
+        }
+
+        .chat-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .chat-message {
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+
+        .chat-message.analysis {
+            background: #f1f5f9;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border-left: 4px solid #2563eb;
+        }
+
+        .chat-message.user {
+            background: #e0f2fe;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-left: 2rem;
+        }
+
+        .chat-message.assistant {
+            background: #f8fafc;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-right: 2rem;
+        }
+
+        .chat-input-area {
+            padding: 1rem;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            outline: none;
+        }
+
+        .chat-input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .chat-send {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .chat-send:hover {
+            background: #1d4ed8;
+        }
+
+        .chat-send:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
         }
 
         .loading-state {
@@ -195,43 +306,55 @@
             border: 1px solid #fecaca;
         }
 
-        /* Mobile improvements */
+        /* Mobile styles */
         @media (max-width: 768px) {
-            .news-card {
-                margin: 0 0.5rem;
+            .chat-window {
+                width: 100vw;
+                right: -100vw;
             }
-            
-            .news-title {
-                font-size: 1.25rem;
-                line-height: 1.3;
+
+            .main-content.chat-open {
+                margin-right: 0;
             }
-            
-            .news-summary {
-                font-size: 1rem;
-                line-height: 1.5;
+
+            .container.chat-open {
+                max-width: 1200px;
             }
-            
-            .compare-btn {
-                padding: 1rem 1.5rem;
-                font-size: 1rem;
-                min-height: 48px;
+
+            .news-grid {
+                grid-template-columns: 1fr;
             }
-            
-            .impact-section {
-                padding: 1.25rem;
+
+            .chat-message.user {
+                margin-left: 1rem;
             }
+
+            .chat-message.assistant {
+                margin-right: 1rem;
+            }
+        }
+
+        .typing-indicator {
+            display: none;
+            color: #64748b;
+            font-style: italic;
+            padding: 0.5rem;
+        }
+
+        .typing-indicator.show {
+            display: block;
         }
     </style>
 </head>
 <body>
     <header class="header">
-        <div class="container">
+        <div class="container" id="container">
             <div class="logo">HDTA.me</div>
             <div class="tagline">Cut through the spin. See who really wins and loses.</div>
         </div>
     </header>
 
-    <main class="main-content">
+    <main class="main-content" id="main-content">
         <div class="container">
             <div class="news-grid" id="news-grid">
                 <!-- News articles will be loaded here -->
@@ -243,13 +366,32 @@
         </div>
     </main>
 
+    <!-- Chat Window -->
+    <div class="chat-window" id="chat-window">
+        <div class="chat-header">
+            <div class="chat-title" id="chat-title">Analysis</div>
+            <button class="chat-close" onclick="closeChat()">×</button>
+        </div>
+        <div class="chat-content" id="chat-content">
+            <!-- Messages will appear here -->
+        </div>
+        <div class="typing-indicator" id="typing-indicator">Thinking...</div>
+        <div class="chat-input-area">
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" id="chat-input" placeholder="Ask me more about this story..." onkeypress="handleKeyPress(event)">
+                <button class="chat-send" id="chat-send" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Simplified News Manager
+        // News Manager with Chat Integration
         class NewsManager {
             constructor() {
                 this.articles = [];
                 this.loading = false;
                 this.lastFetchTime = null;
+                this.currentArticle = null;
             }
 
             async fetchNews() {
@@ -287,13 +429,17 @@
                 newsGrid.innerHTML = this.articles.map(article => this.createArticleHTML(article)).join('');
             }
 
-            async getAnalysis(articleIndex) {
+            async analyzeArticle(articleIndex) {
                 const article = this.articles[articleIndex];
-                const impactElement = document.getElementById(`impact-${articleIndex}`);
+                if (!article) return;
+
+                this.currentArticle = article;
                 
-                if (!article || !impactElement) return;
-                
-                impactElement.innerHTML = '<div class="impact-loading">Analyzing the real impact...</div>';
+                // Open chat window and show it's loading
+                openChat();
+                document.getElementById('chat-title').textContent = 'Analyzing...';
+                document.getElementById('chat-content').innerHTML = '';
+                showTyping();
                 
                 try {
                     const response = await fetch('/api/personalize', {
@@ -312,13 +458,15 @@
                     const data = await response.json();
                     
                     if (data.impact) {
-                        impactElement.innerHTML = data.impact;
+                        hideTyping();
+                        displayAnalysis(article.title, data.impact);
                     } else {
                         throw new Error('No analysis returned');
                     }
                 } catch (error) {
                     console.error('Error generating analysis:', error);
-                    impactElement.innerHTML = 'Unable to generate analysis. Please try again.';
+                    hideTyping();
+                    displayError('Unable to generate analysis. Please try again.');
                 }
             }
 
@@ -342,7 +490,7 @@
                 }
                 
                 return `
-                    <article class="news-card" onclick="window.open('${article.url}', '_blank')" style="cursor: pointer;">
+                    <article class="news-card">
                         <div class="news-image">
                             ${article.image || article.urlToImage ? 
                                 `<img src="${article.image || article.urlToImage}" alt="News image" onerror="this.parentElement.innerHTML='[Image unavailable]'">` : 
@@ -354,15 +502,12 @@
                                 <span class="news-source">${article.source?.name || 'Unknown Source'}</span>
                                 ${timeAgo ? `<span class="news-time">${timeAgo}</span>` : ''}
                             </div>
-                            <h2 class="news-title">${this.escapeHtml(article.title)}</h2>
+                            <h2 class="news-title" onclick="window.open('${article.url}', '_blank')">${this.escapeHtml(article.title)}</h2>
                             <p class="news-summary">${this.escapeHtml(article.description)}</p>
                             
-                            <div class="impact-section">
-                                <button onclick="event.stopPropagation(); window.newsManager.getAnalysis(${articleIndex})" class="compare-btn" style="margin-bottom: 0.5rem;">
-                                    How Does This Affect Me?
-                                </button>
-                                <div class="impact-text" id="impact-${articleIndex}"></div>
-                            </div>
+                            <button onclick="window.newsManager.analyzeArticle(${articleIndex})" class="analyze-btn">
+                                How Does This Affect Me?
+                            </button>
                         </div>
                     </article>
                 `;
@@ -392,11 +537,118 @@
                         <div class="error-state">
                             <strong>Error:</strong> ${message}
                             <br><br>
-                            <button onclick="window.newsManager.fetchNews()" class="compare-btn">Try Again</button>
+                            <button onclick="window.newsManager.fetchNews()" class="analyze-btn">Try Again</button>
                         </div>
                     `;
                 }
             }
+        }
+
+        // Chat functions
+        function openChat() {
+            document.getElementById('chat-window').classList.add('open');
+            document.getElementById('main-content').classList.add('chat-open');
+            document.getElementById('container').classList.add('chat-open');
+        }
+
+        function closeChat() {
+            document.getElementById('chat-window').classList.remove('open');
+            document.getElementById('main-content').classList.remove('chat-open');
+            document.getElementById('container').classList.remove('chat-open');
+        }
+
+        function displayAnalysis(title, analysis) {
+            document.getElementById('chat-title').textContent = 'Analysis';
+            const chatContent = document.getElementById('chat-content');
+            chatContent.innerHTML = `
+                <div class="chat-message analysis">
+                    <strong>${title}</strong><br><br>
+                    ${analysis.replace(/\n/g, '<br>')}
+                </div>
+            `;
+            chatContent.scrollTop = chatContent.scrollHeight;
+        }
+
+        function displayError(message) {
+            document.getElementById('chat-title').textContent = 'Error';
+            const chatContent = document.getElementById('chat-content');
+            chatContent.innerHTML = `
+                <div class="chat-message" style="color: #ef4444;">
+                    ${message}
+                </div>
+            `;
+        }
+
+        function showTyping() {
+            document.getElementById('typing-indicator').classList.add('show');
+        }
+
+        function hideTyping() {
+            document.getElementById('typing-indicator').classList.remove('show');
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message || !window.newsManager.currentArticle) return;
+
+            // Add user message to chat
+            const chatContent = document.getElementById('chat-content');
+            chatContent.innerHTML += `
+                <div class="chat-message user">
+                    ${message}
+                </div>
+            `;
+
+            input.value = '';
+            showTyping();
+            chatContent.scrollTop = chatContent.scrollHeight;
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        article: window.newsManager.currentArticle
+                    })
+                });
+
+                const data = await response.json();
+                
+                hideTyping();
+                
+                if (data.response) {
+                    chatContent.innerHTML += `
+                        <div class="chat-message assistant">
+                            ${data.response.replace(/\n/g, '<br>')}
+                        </div>
+                    `;
+                } else {
+                    chatContent.innerHTML += `
+                        <div class="chat-message assistant" style="color: #ef4444;">
+                            Sorry, I couldn't process that question. Please try again.
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                hideTyping();
+                chatContent.innerHTML += `
+                    <div class="chat-message assistant" style="color: #ef4444;">
+                        Sorry, there was an error. Please try again.
+                    </div>
+                `;
+            }
+
+            chatContent.scrollTop = chatContent.scrollHeight;
         }
 
         // Initialize app
