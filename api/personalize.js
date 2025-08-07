@@ -1,66 +1,41 @@
-// api/personalize.js - Fixed with Redis AI caching and security
-const { getAIResponse, storeAIResponse } = require('../lib/redis');
-
+// api/personalize.js - Simple, working version
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
   
   if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { article, demographic } = req.body;
+    const { article } = req.body;
     
-    if (!article || !demographic) {
-      res.status(400).json({ error: 'Missing article or demographic data' });
-      return;
+    if (!article?.title || !article?.description) {
+      return res.status(400).json({ error: 'Missing article data' });
     }
 
-    // Create cache key for Redis
-    const cacheKey = `${article.title}-${demographic.age}-${demographic.income}-${demographic.location}`;
-    
-    // Check Redis cache first
-    const cachedAnalysis = await getAIResponse(cacheKey);
-    if (cachedAnalysis) {
-      console.log('Serving cached AI analysis');
-      return res.status(200).json({ 
-        impact: cachedAnalysis,
-        cached: true 
-      });
-    }
-
-    console.log('Generating fresh AI analysis');
-
-    // Secure API key handling
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
-      console.error('OPENAI_API_KEY not configured');
-      return res.status(500).json({ error: 'AI service not configured' });
+      return res.status(500).json({ error: 'Service unavailable' });
     }
 
-    const prompt = `You're an analyst explaining a policy story clearly and directly.
+    const prompt = `Analyze this news story:
 
-STORY: "${article.title}"
-SUMMARY: "${article.description}"
-READER: ${demographic.detailed.age}, ${demographic.detailed.income}, living in ${demographic.location}.
+Title: ${article.title}
+Summary: ${article.description}
 
-Break down the real impact:
+Write a plain English analysis that shows:
+1. What's actually happening
+2. Who gets hurt most 
+3. Who benefits
+4. What's not being said
 
-How does this affect someone in their situation? Be specific about what changes for them financially or practically.
-
-Who benefits from this policy and who pays the price? Cut through the political language to show what's really happening.
-
-What's the article not emphasizing? Include a real example from another state or similar policy.
-
-Write clearly with short paragraphs. Under 250 words. Be straightforward about winners and losers.`;
+Keep it under 250 words and be direct about winners and losers.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -73,7 +48,7 @@ Write clearly with short paragraphs. Under 250 words. Be straightforward about w
         messages: [
           {
             role: 'system',
-            content: 'You are a professional news analyst who cuts through political spin to show real-world impacts on regular people.'
+            content: 'You cut through political spin to show who really wins and loses from policy changes.'
           },
           {
             role: 'user',
@@ -81,34 +56,19 @@ Write clearly with short paragraphs. Under 250 words. Be straightforward about w
           }
         ],
         max_tokens: 300,
-        temperature: 0.4,
+        temperature: 0.3,
       }),
     });
 
-    if (!response.ok) {
-      console.error('OpenAI API error:', response.status, response.statusText);
-      return res.status(response.status).json({ error: 'AI analysis service temporarily unavailable' });
-    }
-
     const data = await response.json();
     
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      const impact = data.choices[0].message.content.trim();
-      
-      // Cache the analysis in Redis for 8 hours
-      await storeAIResponse(cacheKey, impact);
-      
-      res.status(200).json({ 
-        impact,
-        cached: false
-      });
+    if (data.choices?.[0]?.message?.content) {
+      return res.json({ impact: data.choices[0].message.content.trim() });
     } else {
-      console.error('Unexpected OpenAI response format:', data);
-      res.status(500).json({ error: 'Unable to generate analysis' });
+      return res.status(500).json({ error: 'Unable to generate analysis' });
     }
-
   } catch (error) {
-    console.error('Error in personalize API:', error);
-    res.status(500).json({ error: 'Failed to generate analysis' });
+    console.error('Analysis error:', error);
+    return res.status(500).json({ error: 'Analysis failed' });
   }
 }
