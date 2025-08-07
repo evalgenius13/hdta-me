@@ -268,11 +268,41 @@
             border-radius: 6px;
             position: relative;
             transition: all 0.2s ease;
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 1rem;
         }
 
         .update-item:hover {
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             transform: translateY(-2px);
+        }
+
+        .update-image {
+            width: 120px;
+            height: 80px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #e9ecef;
+        }
+
+        .update-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .update-image .placeholder-icon {
+            font-size: 2rem;
+            color: #666;
+        }
+
+        .update-content {
+            flex: 1;
         }
 
         .update-time {
@@ -464,6 +494,21 @@
             .nav-container {
                 padding: 0 0.5rem;
             }
+
+            .update-item {
+                grid-template-columns: 80px 1fr;
+                gap: 0.75rem;
+                padding: 1rem;
+            }
+
+            .update-image {
+                width: 80px;
+                height: 60px;
+            }
+
+            .update-image .placeholder-icon {
+                font-size: 1.5rem;
+            }
         }
     </style>
 </head>
@@ -608,34 +653,40 @@
             createUpdateHTML(article, index) {
                 const timeAgo = this.getTimeAgo(article.publishedAt);
                 const urgentFraming = this.getUrgentFraming(article, index);
+                const imageData = this.getImageData(article);
                 
                 return `
                     <article class="update-item">
-                        <div class="update-time">${timeAgo}</div>
-                        <h2 class="update-headline">${urgentFraming.headline}</h2>
-                        <p class="update-summary">${urgentFraming.summary}</p>
-                        
-                        <div class="analyze-section">
-                            <button class="analyze-btn" onclick="policyManager.analyzeUpdate(${index})">
-                                How Does This Affect Me?
-                            </button>
-                            <div class="trend-note">
-                                📊 ${urgentFraming.trendNote}
-                            </div>
+                        <div class="update-image">
+                            ${imageData.html}
+                        </div>
+                        <div class="update-content">
+                            <div class="update-time">${timeAgo}</div>
+                            <h2 class="update-headline">${urgentFraming.headline}</h2>
+                            <p class="update-summary">${urgentFraming.summary}</p>
                             
-                            <div class="chat-container" id="chat-${index}">
-                                <div class="chat-window">
-                                    <div class="chat-header">
-                                        <span>Analysis & Discussion</span>
-                                        <button class="chat-close" onclick="policyManager.closeChat(${index})">×</button>
-                                    </div>
-                                    <div class="chat-content" id="chat-content-${index}">
-                                        <!-- Analysis will load here -->
-                                    </div>
-                                    <div class="chat-input-area">
-                                        <div class="chat-input-container">
-                                            <input type="text" class="chat-input" placeholder="Ask about this policy..." onkeypress="policyManager.handleKeyPress(event, ${index})">
-                                            <button class="chat-send" onclick="policyManager.sendMessage(${index})">Send</button>
+                            <div class="analyze-section">
+                                <button class="analyze-btn" onclick="policyManager.analyzeUpdate(${index})">
+                                    How Does This Affect Me?
+                                </button>
+                                <div class="trend-note">
+                                    📊 ${urgentFraming.trendNote}
+                                </div>
+                                
+                                <div class="chat-container" id="chat-${index}">
+                                    <div class="chat-window">
+                                        <div class="chat-header">
+                                            <span>Analysis & Discussion</span>
+                                            <button class="chat-close" onclick="policyManager.closeChat(${index})">×</button>
+                                        </div>
+                                        <div class="chat-content" id="chat-content-${index}">
+                                            <!-- Analysis will load here -->
+                                        </div>
+                                        <div class="chat-input-area">
+                                            <div class="chat-input-container">
+                                                <input type="text" class="chat-input" placeholder="Ask about this policy..." onkeypress="policyManager.handleKeyPress(event, ${index})">
+                                                <button class="chat-send" onclick="policyManager.sendMessage(${index})">Send</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -700,14 +751,53 @@
                 ).join('');
             }
 
-            detectCategory(text) {
-                const lowerText = text.toLowerCase();
-                if (lowerText.includes('epa') || lowerText.includes('environment')) return 'Environmental';
-                if (lowerText.includes('immigration') || lowerText.includes('border')) return 'Immigration';
-                if (lowerText.includes('healthcare') || lowerText.includes('medicare')) return 'Healthcare';
-                if (lowerText.includes('trade') || lowerText.includes('tariff')) return 'Trade';
-                if (lowerText.includes('energy') || lowerText.includes('oil')) return 'Energy';
-                return 'Policy';
+            getImageData(article) {
+                // Try to use article image first
+                if (article.urlToImage || article.image) {
+                    const imageUrl = article.urlToImage || article.image;
+                    return {
+                        html: `<img src="${imageUrl}" alt="Policy update" onerror="this.parentElement.innerHTML='${this.getCategoryIcon(article)}'">`,
+                        hasImage: true
+                    };
+                }
+                
+                // Fallback to category icon
+                return {
+                    html: `<div class="placeholder-icon">${this.getCategoryIcon(article)}</div>`,
+                    hasImage: false
+                };
+            }
+
+            getCategoryIcon(article) {
+                const text = (article.title + ' ' + article.description).toLowerCase();
+                
+                if (text.includes('epa') || text.includes('environment') || text.includes('climate')) {
+                    return '🏭'; // Factory for environmental
+                }
+                if (text.includes('immigration') || text.includes('border') || text.includes('visa')) {
+                    return '🗽'; // Statue of Liberty for immigration
+                }
+                if (text.includes('healthcare') || text.includes('medicare') || text.includes('medicaid')) {
+                    return '⚕️'; // Medical symbol for healthcare
+                }
+                if (text.includes('trade') || text.includes('tariff') || text.includes('import')) {
+                    return '📊'; // Chart for trade
+                }
+                if (text.includes('energy') || text.includes('oil') || text.includes('gas')) {
+                    return '⛽'; // Gas pump for energy
+                }
+                if (text.includes('financial') || text.includes('bank') || text.includes('crypto')) {
+                    return '💰'; // Money bag for financial
+                }
+                if (text.includes('tech') || text.includes('ai') || text.includes('data')) {
+                    return '💻'; // Computer for tech
+                }
+                if (text.includes('education') || text.includes('school') || text.includes('student')) {
+                    return '📚'; // Books for education
+                }
+                
+                // Default policy icon
+                return '📋'; // Clipboard for general policy
             }
 
             updateTrends() {
