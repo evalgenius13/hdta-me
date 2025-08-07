@@ -1,4 +1,4 @@
-// api/personalize.js - Enhanced with real trend analysis
+// api/personalize.js - Enhanced with Redis trend analysis
 import { trendTracker } from '../lib/trend-tracker.js';
 
 export default async function handler(req, res) {
@@ -26,8 +26,14 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Service unavailable' });
     }
 
-    // Generate trend context from real analyzed data
-    const trendContext = trendTracker.generateTrendContext(article);
+    // Generate trend context from Redis data (with fallback)
+    let trendContext = '';
+    try {
+      trendContext = await trendTracker.generateTrendContext(article);
+    } catch (error) {
+      console.error('Error generating trend context:', error);
+      // Continue without trend context if Redis fails
+    }
 
     // Create enhanced prompt
     let prompt = `You're explaining this administration policy news to a friend who wants to know what's really going on.
@@ -77,8 +83,10 @@ Keep it under 250 words. Use simple language. Be direct about the real impact on
     if (data.choices?.[0]?.message?.content) {
       const analysis = data.choices[0].message.content.trim();
       
-      // Track this analysis for future trend detection
-      trendTracker.trackAnalysis(article, analysis);
+      // Track this analysis in Redis (async - don't wait)
+      trendTracker.trackAnalysis(article, analysis).catch(error => {
+        console.error('Error tracking analysis:', error);
+      });
       
       return res.json({ impact: analysis });
     } else {
