@@ -1,4 +1,4 @@
-// News fetching and display management
+// js/news-manager.js - Simplified without demographics
 class NewsManager {
     constructor() {
         this.articles = [];
@@ -38,7 +38,6 @@ class NewsManager {
         const newsGrid = document.getElementById('news-grid');
         if (!newsGrid) return;
 
-        // Display all articles - no limit
         newsGrid.innerHTML = this.articles.map(article => this.createArticleHTML(article)).join('');
     }
 
@@ -55,27 +54,36 @@ class NewsManager {
             console.error('Impact element not found for index:', articleIndex);
             return;
         }
-
-        if (!window.personalization || !window.demographics) {
-            console.error('Personalization or demographics not loaded');
-            impactElement.innerHTML = 'System not ready. Please refresh the page.';
-            return;
-        }
         
-        impactElement.innerHTML = '<div class="impact-loading">Analyzing how this affects you...</div>';
+        impactElement.innerHTML = '<div class="impact-loading">Analyzing the real impact...</div>';
         
         try {
-            const demographic = window.demographics.getProfile();
-            const detailedDemo = window.demographics.getDetailedProfile();
-            
-            const impact = await window.personalization.generateImpactAnalysis(article, {
-                ...demographic,
-                detailed: detailedDemo
+            const response = await fetch('/api/personalize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    article: {
+                        title: article.title,
+                        description: article.description
+                    }
+                })
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
             
-            impactElement.innerHTML = impact;
+            if (data.impact) {
+                impactElement.innerHTML = data.impact;
+            } else {
+                throw new Error('No analysis returned');
+            }
         } catch (error) {
-            console.error('Error generating impact for article:', error);
+            console.error('Error generating analysis:', error);
             impactElement.innerHTML = 'Unable to generate analysis. Please try again.';
         }
     }
@@ -162,9 +170,6 @@ class NewsManager {
 
     refresh() {
         this.articles = [];
-        if (window.personalization) {
-            window.personalization.clearCache();
-        }
         this.fetchNews();
     }
 }
