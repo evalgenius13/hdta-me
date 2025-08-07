@@ -51,14 +51,14 @@ Keep it under 200 words. Write like a journalist who's done the research to conn
         messages: [
           {
             role: 'system',
-            content: 'You are a policy analyst who specializes in showing the real-world impact of government decisions on regular people. You write in plain English and focus on concrete consequences that news articles often miss or downplay.'
+            content: 'You explain government policies in simple terms. You focus on who wins and who loses from policy changes. You write like you\'re talking to a friend, using everyday language that anyone can understand.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_tokens: 250,
+        max_tokens: 220,
         temperature: 0.3,
       }),
     });
