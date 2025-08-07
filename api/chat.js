@@ -1,4 +1,4 @@
-// api/chat.js - Enhanced with real trend analysis capabilities
+// api/chat.js - Enhanced with Redis trend analysis capabilities
 import { trendTracker } from '../lib/trend-tracker.js';
 
 export default async function handler(req, res) {
@@ -31,9 +31,15 @@ export default async function handler(req, res) {
     
     let prompt;
     if (isTrendQuery) {
-      // Use real trend data to answer
+      // Use real trend data from Redis to answer (with fallback)
       const category = trendTracker.detectCategory(article);
-      const trendResponse = trendTracker.answerTrendQuestion(message, category);
+      let trendResponse;
+      try {
+        trendResponse = await trendTracker.answerTrendQuestion(message, category);
+      } catch (error) {
+        console.error('Error getting trend response:', error);
+        trendResponse = "I'm having trouble accessing trend data right now.";
+      }
       
       prompt = `You're answering a trend analysis question about administration policies.
 
