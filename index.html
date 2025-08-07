@@ -74,15 +74,40 @@
 
         .article-item {
             background: #fff;
-            padding: 2rem;
             margin-bottom: 2rem;
             border: 1px solid #e5e5e5;
             border-radius: 8px;
             transition: box-shadow 0.2s ease;
+            overflow: hidden;
         }
 
         .article-item:hover {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .news-image {
+            width: 100%;
+            height: 240px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 1rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .news-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .article-content {
+            padding: 2rem;
         }
 
         .article-meta {
@@ -110,16 +135,22 @@
             background: #4a5568;
             color: #fff;
             border: none;
-            padding: 0.75rem 2rem;
+            padding: 0.875rem 2rem;
             border-radius: 4px;
             font-size: 0.95rem;
             cursor: pointer;
             transition: background 0.2s ease;
             font-family: inherit;
+            width: 100%;
         }
 
         .analyze-btn:hover {
             background: #2d3748;
+        }
+
+        .analyze-btn:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
         }
 
         .analysis-container {
@@ -274,22 +305,115 @@
             font-style: italic;
         }
 
-        /* Mobile responsive */
+        /* Mobile responsive improvements */
         @media (max-width: 768px) {
             .container {
                 padding: 0 1rem;
             }
 
-            .article-item {
-                padding: 1.5rem;
+            .header {
+                padding: 1.5rem 0;
+            }
+
+            .logo {
+                font-size: 1.75rem;
+            }
+
+            .tagline {
+                font-size: 0.95rem;
+            }
+
+            .main-content {
+                padding: 2rem 0;
             }
 
             .page-title {
                 font-size: 2rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .page-subtitle {
+                font-size: 1rem;
+                margin-bottom: 2rem;
+            }
+
+            .article-content {
+                padding: 1.5rem;
+            }
+
+            .news-image {
+                height: 200px;
+            }
+
+            .article-title {
+                font-size: 1.35rem;
+                line-height: 1.25;
+            }
+
+            .article-summary {
+                font-size: 1rem;
+                margin-bottom: 1.25rem;
+            }
+
+            .analyze-btn {
+                padding: 1rem 1.5rem;
+                font-size: 1rem;
+                min-height: 52px;
+                font-weight: 500;
             }
 
             .analysis-content {
                 padding: 1.5rem;
+            }
+
+            .analysis-text {
+                font-size: 1rem;
+            }
+
+            .share-buttons {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .share-btn {
+                padding: 0.875rem 1rem;
+                width: 100%;
+                text-align: center;
+                min-height: 48px;
+                font-size: 0.95rem;
+            }
+
+            .copy-link {
+                margin-top: 0.5rem;
+            }
+
+            .link-input {
+                font-size: 0.9rem;
+                padding: 0.75rem;
+            }
+
+            .copy-btn {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Extra small screens */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 0.75rem;
+            }
+
+            .article-content {
+                padding: 1.25rem;
+            }
+
+            .page-title {
+                font-size: 1.75rem;
+            }
+
+            .news-image {
+                height: 180px;
             }
         }
     </style>
@@ -321,6 +445,7 @@
         class PolicyAnalyzer {
             constructor() {
                 this.articles = [];
+                this.sharingData = {};
                 this.init();
             }
 
@@ -331,15 +456,20 @@
             async fetchArticles() {
                 try {
                     const response = await fetch('/api/fetch-news');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
                     const data = await response.json();
                     
                     if (data.articles) {
                         this.articles = data.articles.slice(0, 8); // Show 8 most recent
                         this.displayArticles();
+                    } else {
+                        throw new Error('No articles in response');
                     }
                 } catch (error) {
                     console.error('Error fetching articles:', error);
-                    document.getElementById('loading').innerHTML = 'Unable to load articles at this time.';
+                    document.getElementById('loading').innerHTML = 'Unable to load articles at this time. Please try refreshing the page.';
                 }
             }
 
@@ -366,36 +496,44 @@
                 
                 return `
                     <article class="article-item">
-                        <div class="article-meta">${article.source?.name || 'News Source'} • ${timeAgo}</div>
-                        <h3 class="article-title">${cleanTitle}</h3>
-                        <p class="article-summary">${article.description}</p>
-                        
-                        <button class="analyze-btn" onclick="policyAnalyzer.analyzeArticle(${index})">
-                            See the bigger picture
-                        </button>
-                        
-                        <div class="analysis-container" id="analysis-${index}">
-                            <h4 class="analysis-title">The Bigger Picture</h4>
-                            <div class="analysis-content" id="analysis-content-${index}">
-                                <!-- Analysis will load here -->
-                            </div>
+                        <div class="news-image">
+                            ${article.urlToImage || article.image ? 
+                                `<img src="${article.urlToImage || article.image}" alt="News image" onerror="this.parentElement.innerHTML='📰 Policy News'">` : 
+                                '📰 Policy News'
+                            }
+                        </div>
+                        <div class="article-content">
+                            <div class="article-meta">${this.escapeHtml(article.source?.name || 'News Source')} • ${timeAgo}</div>
+                            <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
+                            <p class="article-summary">${this.escapeHtml(article.description || '')}</p>
                             
-                            <div class="social-sharing" id="sharing-${index}" style="display: none;">
-                                <div class="sharing-title">Share this analysis:</div>
-                                <div class="share-buttons">
-                                    <button class="share-btn twitter" onclick="policyAnalyzer.shareToTwitter(${index})">
-                                        Share on Twitter
-                                    </button>
-                                    <button class="share-btn linkedin" onclick="policyAnalyzer.shareToLinkedIn(${index})">
-                                        Share on LinkedIn
-                                    </button>
-                                    <button class="share-btn facebook" onclick="policyAnalyzer.shareToFacebook(${index})">
-                                        Share on Facebook
-                                    </button>
+                            <button class="analyze-btn" onclick="policyAnalyzer.analyzeArticle(${index})">
+                                See the bigger picture
+                            </button>
+                            
+                            <div class="analysis-container" id="analysis-${index}">
+                                <h4 class="analysis-title">The Bigger Picture</h4>
+                                <div class="analysis-content" id="analysis-content-${index}">
+                                    <!-- Analysis will load here -->
                                 </div>
-                                <div class="copy-link">
-                                    <input type="text" class="link-input" id="link-${index}" readonly>
-                                    <button class="copy-btn" onclick="policyAnalyzer.copyLink(${index})">Copy</button>
+                                
+                                <div class="social-sharing" id="sharing-${index}" style="display: none;">
+                                    <div class="sharing-title">Share this analysis:</div>
+                                    <div class="share-buttons">
+                                        <button class="share-btn twitter" onclick="policyAnalyzer.shareToTwitter(${index})">
+                                            Share on Twitter
+                                        </button>
+                                        <button class="share-btn linkedin" onclick="policyAnalyzer.shareToLinkedIn(${index})">
+                                            Share on LinkedIn
+                                        </button>
+                                        <button class="share-btn facebook" onclick="policyAnalyzer.shareToFacebook(${index})">
+                                            Share on Facebook
+                                        </button>
+                                    </div>
+                                    <div class="copy-link">
+                                        <input type="text" class="link-input" id="link-${index}" readonly>
+                                        <button class="copy-btn" onclick="policyAnalyzer.copyLink(${index})">Copy Link</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -404,7 +542,7 @@
             }
 
             cleanTitle(title) {
-                // Remove excessive caps and clean up title
+                if (!title) return '';
                 return title.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i, '');
             }
 
@@ -424,14 +562,31 @@
                 return published.toLocaleDateString();
             }
 
+            escapeHtml(text) {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
             async analyzeArticle(index) {
                 const article = this.articles[index];
+                if (!article) return;
+
                 const analysisContainer = document.getElementById(`analysis-${index}`);
                 const analysisContent = document.getElementById(`analysis-content-${index}`);
                 const sharingSection = document.getElementById(`sharing-${index}`);
+                const button = document.querySelector(`button[onclick="policyAnalyzer.analyzeArticle(${index})"]`);
                 
+                if (!analysisContainer || !analysisContent) return;
+
                 analysisContainer.classList.add('show');
                 analysisContent.innerHTML = '<div class="loading-analysis">Analyzing the bigger picture...</div>';
+                
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Analyzing...';
+                }
                 
                 try {
                     const response = await fetch('/api/personalize', {
@@ -440,6 +595,10 @@
                         body: JSON.stringify({ article })
                     });
                     
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
                     const data = await response.json();
                     
                     if (data.impact) {
@@ -447,42 +606,52 @@
                         analysisContent.innerHTML = `<div class="analysis-text">${formattedAnalysis}</div>`;
                         
                         // Show sharing options
-                        sharingSection.style.display = 'block';
-                        this.setupSharing(index, article, data.impact);
+                        if (sharingSection) {
+                            sharingSection.style.display = 'block';
+                            this.setupSharing(index, article, data.impact);
+                        }
+                        
+                        if (button) {
+                            button.textContent = '✓ Analysis Complete';
+                            button.disabled = true;
+                        }
                     } else {
                         throw new Error('No analysis received');
                     }
                 } catch (error) {
                     console.error('Analysis error:', error);
                     analysisContent.innerHTML = '<div class="error-analysis">Unable to analyze this policy at this time. Please try again.</div>';
+                    
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = 'Try Again';
+                    }
                 }
             }
 
             setupSharing(index, article, analysis) {
                 const linkInput = document.getElementById(`link-${index}`);
-                const shareUrl = `${window.location.origin}#article-${index}`;
-                linkInput.value = shareUrl;
-                
-                // Store sharing data for social media functions
-                this.sharingData = this.sharingData || {};
-                this.sharingData[index] = {
-                    article,
-                    analysis: this.extractKeyInsight(analysis),
-                    url: shareUrl
-                };
+                if (linkInput) {
+                    const shareUrl = `${window.location.origin}#article-${index}`;
+                    linkInput.value = shareUrl;
+                    
+                    this.sharingData[index] = {
+                        article,
+                        analysis: this.extractKeyInsight(analysis),
+                        url: shareUrl
+                    };
+                }
             }
 
             formatAnalysis(text) {
-                // Convert line breaks to paragraphs and clean up formatting
                 return text
                     .split('\n\n')
                     .filter(p => p.trim())
-                    .map(p => `<p>${p.trim()}</p>`)
+                    .map(p => `<p>${this.escapeHtml(p.trim())}</p>`)
                     .join('');
             }
 
             extractKeyInsight(analysis) {
-                // Extract the most shareable sentence from analysis
                 const sentences = analysis.split('. ');
                 const keyPhrases = ['bigger picture', 'real impact', 'what this means', 'while officials', 'the reality'];
                 
@@ -494,12 +663,13 @@
                     }
                 }
                 
-                // Fallback to first substantial sentence
                 return sentences.find(s => s.length > 50)?.trim() + '.' || analysis.substring(0, 100) + '...';
             }
 
             shareToTwitter(index) {
                 const data = this.sharingData[index];
+                if (!data) return;
+                
                 const text = `The bigger picture on "${data.article.title}": ${data.analysis} ${data.url}`;
                 const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
                 window.open(twitterUrl, '_blank');
@@ -507,30 +677,38 @@
 
             shareToLinkedIn(index) {
                 const data = this.sharingData[index];
+                if (!data) return;
+                
                 const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(data.url)}`;
                 window.open(linkedinUrl, '_blank');
             }
 
             shareToFacebook(index) {
                 const data = this.sharingData[index];
+                if (!data) return;
+                
                 const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(data.url)}`;
                 window.open(facebookUrl, '_blank');
             }
 
             copyLink(index) {
                 const linkInput = document.getElementById(`link-${index}`);
+                if (!linkInput) return;
+                
                 const copyBtn = linkInput.parentElement.querySelector('.copy-btn');
                 
                 linkInput.select();
                 document.execCommand('copy');
                 
-                copyBtn.textContent = 'Copied!';
-                copyBtn.classList.add('copied');
-                
-                setTimeout(() => {
-                    copyBtn.textContent = 'Copy';
-                    copyBtn.classList.remove('copied');
-                }, 2000);
+                if (copyBtn) {
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy Link';
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                }
             }
         }
 
