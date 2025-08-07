@@ -17,7 +17,6 @@
             line-height: 1.6;
             color: #333;
             background: #f8fafc;
-            overflow-x: hidden;
         }
 
         .header {
@@ -33,11 +32,6 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 1rem;
-            transition: max-width 0.3s ease;
-        }
-
-        .container.chat-open {
-            max-width: 800px;
         }
 
         .logo {
@@ -56,11 +50,6 @@
 
         .main-content {
             padding: 2rem 0;
-            transition: margin-right 0.3s ease;
-        }
-
-        .main-content.chat-open {
-            margin-right: 420px;
         }
 
         .news-grid {
@@ -78,8 +67,12 @@
 
         @media (min-width: 1200px) {
             .news-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(3, 1fr);
                 gap: 2.5rem;
+            }
+            
+            .container {
+                max-width: 1400px;
             }
         }
 
@@ -172,29 +165,150 @@
             background: #1d4ed8;
         }
 
-        /* Chat Window */
-        .chat-window {
+        /* Modal Overlay */
+        .modal-overlay {
             position: fixed;
             top: 0;
-            right: -420px;
-            width: 420px;
-            height: 100vh;
-            background: white;
-            border-left: 1px solid #e2e8f0;
-            z-index: 200;
-            transition: right 0.3s ease;
-            display: flex;
-            flex-direction: column;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
         }
 
-        .chat-window.open {
-            right: 0;
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        /* Analysis Modal */
+        .analysis-modal {
+            background: white;
+            border-radius: 1rem;
+            max-width: 700px;
+            width: 100%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.4;
+            flex: 1;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #64748b;
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+            flex-shrink: 0;
+        }
+
+        .modal-close:hover {
+            background: #f1f5f9;
+        }
+
+        .modal-content {
+            padding: 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .analysis-text {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: #374151;
+        }
+
+        .analysis-text p {
+            margin-bottom: 1rem;
+        }
+
+        .analysis-text strong {
+            color: #1e293b;
+        }
+
+        .loading-analysis {
+            text-align: center;
+            color: #64748b;
+            font-style: italic;
+            padding: 2rem;
+        }
+
+        .error-analysis {
+            text-align: center;
+            color: #ef4444;
+            padding: 2rem;
+            background: #fef2f2;
+            border-radius: 0.5rem;
+            border: 1px solid #fecaca;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+            border-radius: 0 0 1rem 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .chat-trigger {
+            background: #f1f5f9;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chat-trigger:hover {
+            background: #e2e8f0;
+            border-color: #9ca3af;
+        }
+
+        /* Chat Modal */
+        .chat-modal {
+            background: white;
+            border-radius: 1rem;
+            max-width: 600px;
+            width: 100%;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
 
         .chat-header {
-            padding: 1rem;
+            padding: 1rem 1.5rem;
             border-bottom: 1px solid #e2e8f0;
             background: #f8fafc;
+            border-radius: 1rem 1rem 0 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -203,16 +317,7 @@
         .chat-title {
             font-weight: 600;
             color: #1e293b;
-            font-size: 0.95rem;
-        }
-
-        .chat-close {
-            background: none;
-            border: none;
-            font-size: 1.25rem;
-            cursor: pointer;
-            color: #64748b;
-            padding: 0.25rem;
+            font-size: 1rem;
         }
 
         .chat-content {
@@ -226,31 +331,27 @@
             line-height: 1.6;
         }
 
-        .chat-message.analysis {
-            background: #f1f5f9;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            border-left: 4px solid #2563eb;
-        }
-
         .chat-message.user {
-            background: #e0f2fe;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
+            background: #dbeafe;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem 1rem 0.25rem 1rem;
             margin-left: 2rem;
+            color: #1e40af;
         }
 
         .chat-message.assistant {
-            background: #f8fafc;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
+            background: #f1f5f9;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem 1rem 1rem 0.25rem;
             margin-right: 2rem;
+            color: #374151;
         }
 
         .chat-input-area {
             padding: 1rem;
             border-top: 1px solid #e2e8f0;
             background: #f8fafc;
+            border-radius: 0 0 1rem 1rem;
         }
 
         .chat-input-container {
@@ -262,7 +363,7 @@
             flex: 1;
             padding: 0.75rem;
             border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
+            border-radius: 0.5rem;
             font-size: 0.875rem;
             outline: none;
         }
@@ -277,9 +378,10 @@
             color: white;
             border: none;
             padding: 0.75rem 1rem;
-            border-radius: 0.375rem;
+            border-radius: 0.5rem;
             cursor: pointer;
             font-size: 0.875rem;
+            font-weight: 500;
         }
 
         .chat-send:hover {
@@ -289,6 +391,18 @@
         .chat-send:disabled {
             background: #94a3b8;
             cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            display: none;
+            color: #64748b;
+            font-style: italic;
+            padding: 0.5rem 1rem;
+            text-align: center;
+        }
+
+        .typing-indicator.show {
+            display: block;
         }
 
         .loading-state {
@@ -308,21 +422,21 @@
 
         /* Mobile styles */
         @media (max-width: 768px) {
-            .chat-window {
-                width: 100vw;
-                right: -100vw;
+            .modal-overlay {
+                padding: 0.5rem;
             }
 
-            .main-content.chat-open {
-                margin-right: 0;
+            .analysis-modal {
+                max-height: 90vh;
             }
 
-            .container.chat-open {
-                max-width: 1200px;
+            .modal-content {
+                padding: 1.5rem;
             }
 
-            .news-grid {
-                grid-template-columns: 1fr;
+            .chat-modal {
+                height: 80vh;
+                max-height: none;
             }
 
             .chat-message.user {
@@ -333,28 +447,17 @@
                 margin-right: 1rem;
             }
         }
-
-        .typing-indicator {
-            display: none;
-            color: #64748b;
-            font-style: italic;
-            padding: 0.5rem;
-        }
-
-        .typing-indicator.show {
-            display: block;
-        }
     </style>
 </head>
 <body>
     <header class="header">
-        <div class="container" id="container">
+        <div class="container">
             <div class="logo">HDTA.me</div>
             <div class="tagline">Cut through the spin. See who really wins and loses from policy changes.</div>
         </div>
     </header>
 
-    <main class="main-content" id="main-content">
+    <main class="main-content">
         <div class="container">
             <div class="news-grid" id="news-grid">
                 <!-- News articles will be loaded here -->
@@ -366,26 +469,47 @@
         </div>
     </main>
 
-    <!-- Chat Window -->
-    <div class="chat-window" id="chat-window">
-        <div class="chat-header">
-            <div class="chat-title" id="chat-title">Analysis</div>
-            <button class="chat-close" onclick="closeChat()">×</button>
+    <!-- Modal Overlay -->
+    <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+        <!-- Analysis Modal -->
+        <div class="analysis-modal" id="analysis-modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title">Analysis</h2>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-content">
+                <div class="analysis-text" id="analysis-content">
+                    <!-- Analysis will appear here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="chat-trigger" onclick="openChat()">
+                    💬 Ask questions about this story
+                </button>
+            </div>
         </div>
-        <div class="chat-content" id="chat-content">
-            <!-- Messages will appear here -->
-        </div>
-        <div class="typing-indicator" id="typing-indicator">Thinking...</div>
-        <div class="chat-input-area">
-            <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chat-input" placeholder="Ask me more about this story..." onkeypress="handleKeyPress(event)">
-                <button class="chat-send" id="chat-send" onclick="sendMessage()">Send</button>
+
+        <!-- Chat Modal -->
+        <div class="chat-modal" id="chat-modal" onclick="event.stopPropagation()" style="display: none;">
+            <div class="chat-header">
+                <div class="chat-title">Ask about this story</div>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="chat-content" id="chat-content">
+                <!-- Chat messages will appear here -->
+            </div>
+            <div class="typing-indicator" id="typing-indicator">Thinking...</div>
+            <div class="chat-input-area">
+                <div class="chat-input-container">
+                    <input type="text" class="chat-input" id="chat-input" placeholder="Ask me more about this story..." onkeypress="handleKeyPress(event)">
+                    <button class="chat-send" id="chat-send" onclick="sendMessage()">Send</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // News Manager with Chat Integration
+        // News Manager with Modal Integration
         class NewsManager {
             constructor() {
                 this.articles = [];
@@ -435,11 +559,10 @@
 
                 this.currentArticle = article;
                 
-                // Open chat window and show it's loading
-                openChat();
-                document.getElementById('chat-title').textContent = 'Analyzing...';
-                document.getElementById('chat-content').innerHTML = '';
-                showTyping();
+                // Open modal and show loading
+                openModal();
+                document.getElementById('modal-title').textContent = article.title;
+                document.getElementById('analysis-content').innerHTML = '<div class="loading-analysis">Analyzing the real impact...</div>';
                 
                 try {
                     const response = await fetch('/api/personalize', {
@@ -458,15 +581,13 @@
                     const data = await response.json();
                     
                     if (data.impact) {
-                        hideTyping();
-                        displayAnalysis(article.title, data.impact);
+                        displayAnalysis(data.impact);
                     } else {
                         throw new Error('No analysis returned');
                     }
                 } catch (error) {
                     console.error('Error generating analysis:', error);
-                    hideTyping();
-                    displayError('Unable to generate analysis. Please try again.');
+                    document.getElementById('analysis-content').innerHTML = '<div class="error-analysis">Unable to generate analysis. Please try again later.</div>';
                 }
             }
 
@@ -544,47 +665,30 @@
             }
         }
 
-        // Chat functions
+        // Modal functions
+        function openModal() {
+            document.getElementById('modal-overlay').classList.add('show');
+            document.getElementById('analysis-modal').style.display = 'flex';
+            document.getElementById('chat-modal').style.display = 'none';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(event) {
+            if (event && event.target !== event.currentTarget && event.target.className !== 'modal-close') return;
+            document.getElementById('modal-overlay').classList.remove('show');
+            document.body.style.overflow = '';
+            // Clear chat content when closing
+            document.getElementById('chat-content').innerHTML = '';
+        }
+
+        function displayAnalysis(analysis) {
+            const content = analysis.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            document.getElementById('analysis-content').innerHTML = `<div class="analysis-text">${content}</div>`;
+        }
+
         function openChat() {
-            document.getElementById('chat-window').classList.add('open');
-            document.getElementById('main-content').classList.add('chat-open');
-            document.getElementById('container').classList.add('chat-open');
-        }
-
-        function closeChat() {
-            document.getElementById('chat-window').classList.remove('open');
-            document.getElementById('main-content').classList.remove('chat-open');
-            document.getElementById('container').classList.remove('chat-open');
-        }
-
-        function displayAnalysis(title, analysis) {
-            document.getElementById('chat-title').textContent = 'Analysis';
-            const chatContent = document.getElementById('chat-content');
-            chatContent.innerHTML = `
-                <div class="chat-message analysis">
-                    <strong>${title}</strong><br><br>
-                    ${analysis.replace(/\n/g, '<br>')}
-                </div>
-            `;
-            chatContent.scrollTop = chatContent.scrollHeight;
-        }
-
-        function displayError(message) {
-            document.getElementById('chat-title').textContent = 'Error';
-            const chatContent = document.getElementById('chat-content');
-            chatContent.innerHTML = `
-                <div class="chat-message" style="color: #ef4444;">
-                    ${message}
-                </div>
-            `;
-        }
-
-        function showTyping() {
-            document.getElementById('typing-indicator').classList.add('show');
-        }
-
-        function hideTyping() {
-            document.getElementById('typing-indicator').classList.remove('show');
+            document.getElementById('analysis-modal').style.display = 'none';
+            document.getElementById('chat-modal').style.display = 'flex';
         }
 
         function handleKeyPress(event) {
@@ -611,6 +715,7 @@
             chatContent.scrollTop = chatContent.scrollHeight;
 
             try {
+                // Check if chat API exists by making the request
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {
@@ -621,6 +726,10 @@
                         article: window.newsManager.currentArticle
                     })
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
                 const data = await response.json();
                 
@@ -651,10 +760,25 @@
             chatContent.scrollTop = chatContent.scrollHeight;
         }
 
+        function showTyping() {
+            document.getElementById('typing-indicator').classList.add('show');
+        }
+
+        function hideTyping() {
+            document.getElementById('typing-indicator').classList.remove('show');
+        }
+
         // Initialize app
         document.addEventListener('DOMContentLoaded', async () => {
             window.newsManager = new NewsManager();
             await window.newsManager.fetchNews();
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
         });
     </script>
 </body>
