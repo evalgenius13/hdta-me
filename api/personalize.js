@@ -1,6 +1,4 @@
-// api/personalize.js - Enhanced with Redis trend analysis
-import { trendTracker } from '../lib/trend-tracker.js';
-
+// api/personalize.js - "Bigger Picture" real-world impact analysis
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -26,34 +24,21 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Service unavailable' });
     }
 
-    // Generate trend context from Redis data (with fallback)
-    let trendContext = '';
-    try {
-      trendContext = await trendTracker.generateTrendContext(article);
-    } catch (error) {
-      console.error('Error generating trend context:', error);
-      // Continue without trend context if Redis fails
-    }
+    const prompt = `You're analyzing a policy change to show the bigger picture of how it affects real people's daily lives.
 
-    // Create enhanced prompt
-    let prompt = `You're explaining this administration policy news to a friend who wants to know what's really going on.
+Policy: "${article.title}"
+Details: "${article.description}"
 
-Title: ${article.title}
-Summary: ${article.description}`;
+Write a clear analysis that reveals what news articles typically miss - the concrete impact on regular people. Focus on:
 
-    if (trendContext) {
-      prompt += `\n\nTREND CONTEXT: ${trendContext}`;
-    }
+1. What this actually means for people's daily lives (specific costs, changes, timeline)
+2. Who gets hurt most and who benefits (be specific about groups of people)
+3. The bigger pattern - how this connects to other recent changes affecting the same people
+4. What officials aren't emphasizing about the real-world consequences
 
-    prompt += `\n\nWrite like you're having a conversation - cut through the political BS and show who actually wins and loses.`;
-    
-    if (trendContext) {
-      prompt += ` Naturally incorporate the trend context to show this is part of a larger pattern.`;
-    }
+Use plain English. Be factual and specific about impacts. Avoid jargon. Show the human side of policy changes.
 
-    prompt += `\n\nCover: What's really happening here, who gets screwed over, who benefits and how, and what they're not telling us.
-
-Keep it under 250 words. Use simple language. Be direct about the real impact on regular people.`;
+Keep it under 200 words. Write like a journalist who's done the research to connect the dots.`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -66,14 +51,14 @@ Keep it under 250 words. Use simple language. Be direct about the real impact on
         messages: [
           {
             role: 'system',
-            content: 'You explain administration policies like a smart friend who sees through political spin. You use simple words, show who really benefits vs who pays the price, and naturally incorporate trend context to show patterns.'
+            content: 'You are a policy analyst who specializes in showing the real-world impact of government decisions on regular people. You write in plain English and focus on concrete consequences that news articles often miss or downplay.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_tokens: 300,
+        max_tokens: 250,
         temperature: 0.3,
       }),
     });
@@ -81,14 +66,7 @@ Keep it under 250 words. Use simple language. Be direct about the real impact on
     const data = await response.json();
     
     if (data.choices?.[0]?.message?.content) {
-      const analysis = data.choices[0].message.content.trim();
-      
-      // Track this analysis in Redis (async - don't wait)
-      trendTracker.trackAnalysis(article, analysis).catch(error => {
-        console.error('Error tracking analysis:', error);
-      });
-      
-      return res.json({ impact: analysis });
+      return res.json({ impact: data.choices[0].message.content.trim() });
     } else {
       return res.status(500).json({ error: 'Unable to generate analysis' });
     }
