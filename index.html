@@ -551,6 +551,12 @@
                 // Animate open
                 setTimeout(() => {
                     chatContainer.classList.add('open');
+                    // Center the chat immediately when it opens, but only once
+                    setTimeout(() => {
+                        if (this.currentChatContainer) {
+                            this.currentChatContainer.scrollIntoView({ behavior: 'auto', block: 'center' });
+                        }
+                    }, 50);
                 }, 10);
 
                 // Start analysis
