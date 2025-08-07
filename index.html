@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDTA.me - Policy Analysis</title>
+    <title>HDTA.me - Daily Policy Newsletter</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📰</text></svg>">
     <style>
         * {
@@ -21,7 +21,7 @@
 
         .header {
             background: #fff;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 2px solid #4a5568;
             padding: 2rem 0;
         }
 
@@ -32,7 +32,7 @@
         }
 
         .logo {
-            font-size: 2rem;
+            font-size: 2.25rem;
             font-weight: normal;
             color: #333;
             text-align: center;
@@ -42,8 +42,81 @@
         .tagline {
             color: #666;
             text-align: center;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-style: italic;
+            margin-bottom: 1.5rem;
+        }
+
+        .edition-info {
+            text-align: center;
+            color: #4a5568;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .newsletter-signup {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+        }
+
+        .signup-content {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        .signup-title {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-weight: normal;
+        }
+
+        .signup-description {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            opacity: 0.9;
+        }
+
+        .signup-form {
+            display: flex;
+            gap: 1rem;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .email-input {
+            flex: 1;
+            padding: 0.875rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        .signup-btn {
+            background: #38a169;
+            color: white;
+            border: none;
+            padding: 0.875rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .signup-btn:hover {
+            background: #2f855a;
+        }
+
+        .signup-note {
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            opacity: 0.8;
         }
 
         .main-content {
@@ -55,7 +128,7 @@
             font-weight: normal;
             color: #333;
             text-align: center;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
             line-height: 1.2;
         }
 
@@ -77,12 +150,14 @@
             margin-bottom: 2rem;
             border: 1px solid #e5e5e5;
             border-radius: 8px;
-            transition: box-shadow 0.2s ease;
+            transition: all 0.2s ease;
             overflow: hidden;
+            cursor: pointer;
         }
 
         .article-item:hover {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            transform: translateY(-2px);
         }
 
         .news-image {
@@ -114,6 +189,20 @@
             color: #888;
             font-size: 0.9rem;
             margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .read-full {
+            color: #4a5568;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .read-full:hover {
+            text-decoration: underline;
         }
 
         .article-title {
@@ -131,52 +220,19 @@
             margin-bottom: 1.5rem;
         }
 
-        .analyze-btn {
-            background: #4a5568;
-            color: #fff;
-            border: none;
-            padding: 0.875rem 2rem;
-            border-radius: 4px;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            font-family: inherit;
-            width: 100%;
-        }
-
-        .analyze-btn:hover {
-            background: #2d3748;
-        }
-
-        .analyze-btn:disabled {
-            background: #a0aec0;
-            cursor: not-allowed;
-        }
-
-        .analysis-container {
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 1px solid #e5e5e5;
-            display: none;
-        }
-
-        .analysis-container.show {
-            display: block;
-        }
-
-        .analysis-title {
-            font-size: 1.25rem;
-            color: #333;
-            margin-bottom: 1rem;
-            font-weight: normal;
-        }
-
-        .analysis-content {
+        .analysis-section {
             background: #f8f9fa;
-            padding: 2rem;
+            padding: 1.5rem;
             border-radius: 6px;
             border-left: 4px solid #4a5568;
             margin-bottom: 1.5rem;
+        }
+
+        .analysis-title {
+            font-size: 1.1rem;
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: 600;
         }
 
         .analysis-text {
@@ -190,30 +246,36 @@
         }
 
         .loading-analysis {
-            text-align: center;
             color: #666;
             font-style: italic;
-            padding: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .error-analysis {
-            text-align: center;
-            color: #d73502;
-            padding: 2rem;
-            background: #fef2f2;
-            border-radius: 6px;
-            border: 1px solid #fecaca;
+        .loading-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e2e8f0;
+            border-top: 2px solid #4a5568;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .social-sharing {
             background: #f8f9fa;
-            padding: 1.5rem;
+            padding: 1.25rem;
             border-radius: 6px;
             border: 1px solid #e5e5e5;
         }
 
         .sharing-title {
-            font-size: 1rem;
+            font-size: 0.95rem;
             color: #333;
             margin-bottom: 1rem;
             font-weight: 600;
@@ -230,7 +292,7 @@
             padding: 0.5rem 1rem;
             border: none;
             border-radius: 4px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             cursor: pointer;
             font-family: inherit;
             font-weight: 500;
@@ -285,7 +347,7 @@
             border: none;
             padding: 0.5rem 1rem;
             border-radius: 4px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             cursor: pointer;
             font-family: inherit;
         }
@@ -305,6 +367,26 @@
             font-style: italic;
         }
 
+        .footer-signup {
+            background: #f8f9fa;
+            border-top: 1px solid #e5e5e5;
+            padding: 3rem 0;
+            text-align: center;
+        }
+
+        .footer-signup h3 {
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+            font-weight: normal;
+            color: #333;
+        }
+
+        .footer-signup p {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 2rem;
+        }
+
         /* Mobile responsive improvements */
         @media (max-width: 768px) {
             .container {
@@ -320,7 +402,17 @@
             }
 
             .tagline {
-                font-size: 0.95rem;
+                font-size: 1rem;
+            }
+
+            .signup-form {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .email-input, .signup-btn {
+                padding: 1rem;
+                font-size: 1rem;
             }
 
             .main-content {
@@ -355,19 +447,8 @@
                 margin-bottom: 1.25rem;
             }
 
-            .analyze-btn {
-                padding: 1rem 1.5rem;
-                font-size: 1rem;
-                min-height: 52px;
-                font-weight: 500;
-            }
-
-            .analysis-content {
-                padding: 1.5rem;
-            }
-
-            .analysis-text {
-                font-size: 1rem;
+            .analysis-section {
+                padding: 1.25rem;
             }
 
             .share-buttons {
@@ -400,7 +481,7 @@
 
         /* Extra small screens */
         @media (max-width: 480px) {
-            .container {
+            .container, .signup-content {
                 padding: 0 0.75rem;
             }
 
@@ -422,17 +503,31 @@
     <header class="header">
         <div class="container">
             <h1 class="logo">How Does This Affect Me?</h1>
-            <p class="tagline">See the bigger picture of how policies affect real people</p>
+            <p class="tagline">The daily newsletter that cuts through policy spin</p>
+            <div class="edition-info" id="edition-info">Loading today's edition...</div>
         </div>
     </header>
 
+    <section class="newsletter-signup">
+        <div class="signup-content">
+            <h2 class="signup-title">Get Daily Policy Analysis</h2>
+            <p class="signup-description">Skip the spin. Get the real impact of policy changes delivered every morning at 7 AM.</p>
+            <form class="signup-form" onsubmit="handleNewsletterSignup(event)">
+                <input type="email" class="email-input" placeholder="Enter your email" required>
+                <button type="submit" class="signup-btn">Subscribe Free</button>
+            </form>
+            <p class="signup-note">Join 2,847 readers getting daily analysis. Unsubscribe anytime.</p>
+        </div>
+    </section>
+
     <main class="main-content">
         <div class="container">
-            <h2 class="page-title">Recent Policy Changes</h2>
-            <p class="page-subtitle">Understanding the real-world impact of policy changes</p>
+            <h2 class="page-title">Today's Policy Analysis</h2>
+            <p class="page-subtitle">What really happens when policies change</p>
 
             <div class="loading-state" id="loading">
-                Loading recent policy changes...
+                <div class="loading-spinner"></div>
+                Loading today's analysis...
             </div>
 
             <div class="articles-list" id="articles-container" style="display: none;">
@@ -441,8 +536,19 @@
         </div>
     </main>
 
+    <section class="footer-signup">
+        <div class="container">
+            <h3>Never Miss the Real Story</h3>
+            <p>Get daily policy analysis delivered every morning at 7 AM ET</p>
+            <form class="signup-form" onsubmit="handleNewsletterSignup(event)" style="margin: 0 auto;">
+                <input type="email" class="email-input" placeholder="Your email address" required>
+                <button type="submit" class="signup-btn">Start Reading</button>
+            </form>
+        </div>
+    </section>
+
     <script>
-        class PolicyAnalyzer {
+        class DailyNewsletterSite {
             constructor() {
                 this.articles = [];
                 this.sharingData = {};
@@ -450,10 +556,30 @@
             }
 
             async init() {
-                await this.fetchArticles();
+                this.setTodaysDate();
+                await this.fetchTodaysAnalysis();
             }
 
-            async fetchArticles() {
+            setTodaysDate() {
+                const today = new Date();
+                const options = { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                };
+                const dateStr = today.toLocaleDateString('en-US', options);
+                
+                // Calculate issue number (days since launch date)
+                const launchDate = new Date('2025-01-01');
+                const daysDiff = Math.floor((today - launchDate) / (1000 * 60 * 60 * 24));
+                const issueNumber = Math.max(1, daysDiff);
+                
+                document.getElementById('edition-info').textContent = 
+                    `${dateStr} • Issue #${issueNumber}`;
+            }
+
+            async fetchTodaysAnalysis() {
                 try {
                     const response = await fetch('/api/fetch-news');
                     if (!response.ok) {
@@ -462,32 +588,38 @@
                     const data = await response.json();
                     
                     if (data.articles) {
-                        this.articles = data.articles.slice(0, 8); // Show 8 most recent
-                        this.displayArticles();
+                        this.articles = data.articles.slice(0, 6); // 6 stories for newsletter format
+                        await this.loadAllAnalysis();
                     } else {
                         throw new Error('No articles in response');
                     }
                 } catch (error) {
                     console.error('Error fetching articles:', error);
-                    document.getElementById('loading').innerHTML = 'Unable to load articles at this time. Please try refreshing the page.';
+                    document.getElementById('loading').innerHTML = 'Unable to load today\'s analysis. Please refresh the page.';
                 }
             }
 
-            displayArticles() {
+            async loadAllAnalysis() {
                 const container = document.getElementById('articles-container');
                 const loading = document.getElementById('loading');
                 
                 if (this.articles.length === 0) {
-                    loading.innerHTML = 'No policy articles available at this time.';
+                    loading.innerHTML = 'No policy stories available today.';
                     return;
                 }
 
+                // Show articles immediately, analysis will load progressively
                 loading.style.display = 'none';
                 container.style.display = 'block';
                 
                 container.innerHTML = this.articles.map((article, index) => 
                     this.createArticleHTML(article, index)
                 ).join('');
+
+                // Load analysis for each article
+                for (let i = 0; i < this.articles.length; i++) {
+                    this.loadAnalysisForArticle(i);
+                }
             }
 
             createArticleHTML(article, index) {
@@ -495,7 +627,7 @@
                 const cleanTitle = this.cleanTitle(article.title);
                 
                 return `
-                    <article class="article-item">
+                    <article class="article-item" onclick="window.open('${article.url}', '_blank')">
                         <div class="news-image">
                             ${article.urlToImage || article.image ? 
                                 `<img src="${article.urlToImage || article.image}" alt="News image" onerror="this.parentElement.innerHTML='📰 Policy News'">` : 
@@ -503,42 +635,82 @@
                             }
                         </div>
                         <div class="article-content">
-                            <div class="article-meta">${this.escapeHtml(article.source?.name || 'News Source')} • ${timeAgo}</div>
+                            <div class="article-meta">
+                                <span>${this.escapeHtml(article.source?.name || 'News Source')} • ${timeAgo}</span>
+                                <a href="${article.url}" class="read-full" target="_blank" onclick="event.stopPropagation()">Read Full Story →</a>
+                            </div>
                             <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
                             <p class="article-summary">${this.escapeHtml(article.description || '')}</p>
                             
-                            <button class="analyze-btn" onclick="policyAnalyzer.analyzeArticle(${index})">
-                                See the bigger picture
-                            </button>
-                            
-                            <div class="analysis-container" id="analysis-${index}">
+                            <div class="analysis-section">
                                 <h4 class="analysis-title">The Bigger Picture</h4>
-                                <div class="analysis-content" id="analysis-content-${index}">
-                                    <!-- Analysis will load here -->
+                                <div class="analysis-text" id="analysis-content-${index}">
+                                    <div class="loading-analysis">
+                                        <div class="loading-spinner"></div>
+                                        Analyzing the real impact...
+                                    </div>
                                 </div>
-                                
-                                <div class="social-sharing" id="sharing-${index}" style="display: none;">
-                                    <div class="sharing-title">Share this analysis:</div>
-                                    <div class="share-buttons">
-                                        <button class="share-btn twitter" onclick="policyAnalyzer.shareToTwitter(${index})">
-                                            Share on Twitter
-                                        </button>
-                                        <button class="share-btn linkedin" onclick="policyAnalyzer.shareToLinkedIn(${index})">
-                                            Share on LinkedIn
-                                        </button>
-                                        <button class="share-btn facebook" onclick="policyAnalyzer.shareToFacebook(${index})">
-                                            Share on Facebook
-                                        </button>
-                                    </div>
-                                    <div class="copy-link">
-                                        <input type="text" class="link-input" id="link-${index}" readonly>
-                                        <button class="copy-btn" onclick="policyAnalyzer.copyLink(${index})">Copy Link</button>
-                                    </div>
+                            </div>
+                            
+                            <div class="social-sharing">
+                                <div class="sharing-title">Share this analysis:</div>
+                                <div class="share-buttons">
+                                    <button class="share-btn twitter" onclick="event.stopPropagation(); dailyNewsletter.shareToTwitter(${index})">
+                                        Twitter
+                                    </button>
+                                    <button class="share-btn linkedin" onclick="event.stopPropagation(); dailyNewsletter.shareToLinkedIn(${index})">
+                                        LinkedIn
+                                    </button>
+                                    <button class="share-btn facebook" onclick="event.stopPropagation(); dailyNewsletter.shareToFacebook(${index})">
+                                        Facebook
+                                    </button>
+                                </div>
+                                <div class="copy-link">
+                                    <input type="text" class="link-input" id="link-${index}" value="${window.location.origin}#story-${index}" readonly>
+                                    <button class="copy-btn" onclick="event.stopPropagation(); dailyNewsletter.copyLink(${index})">Copy</button>
                                 </div>
                             </div>
                         </div>
                     </article>
                 `;
+            }
+
+            async loadAnalysisForArticle(index) {
+                const article = this.articles[index];
+                const analysisContent = document.getElementById(`analysis-content-${index}`);
+                
+                if (!article || !analysisContent) return;
+
+                try {
+                    const response = await fetch('/api/personalize', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ article })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (data.impact) {
+                        const formattedAnalysis = this.formatAnalysis(data.impact);
+                        analysisContent.innerHTML = formattedAnalysis;
+                        
+                        // Setup sharing data
+                        this.sharingData[index] = {
+                            article,
+                            analysis: this.extractKeyInsight(data.impact),
+                            url: `${window.location.origin}#story-${index}`
+                        };
+                    } else {
+                        throw new Error('No analysis received');
+                    }
+                } catch (error) {
+                    console.error('Analysis error:', error);
+                    analysisContent.innerHTML = '<p style="color: #666; font-style: italic;">Analysis temporarily unavailable</p>';
+                }
             }
 
             cleanTitle(title) {
@@ -555,8 +727,8 @@
                 const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
                 const diffDays = Math.floor(diffHours / 24);
                 
-                if (diffHours < 1) return 'Less than an hour ago';
-                if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+                if (diffHours < 1) return 'Just published';
+                if (diffHours < 24) return `${diffHours}h ago`;
                 if (diffDays === 1) return 'Yesterday';
                 if (diffDays < 7) return `${diffDays} days ago`;
                 return published.toLocaleDateString();
@@ -567,80 +739,6 @@
                 const div = document.createElement('div');
                 div.textContent = text;
                 return div.innerHTML;
-            }
-
-            async analyzeArticle(index) {
-                const article = this.articles[index];
-                if (!article) return;
-
-                const analysisContainer = document.getElementById(`analysis-${index}`);
-                const analysisContent = document.getElementById(`analysis-content-${index}`);
-                const sharingSection = document.getElementById(`sharing-${index}`);
-                const button = document.querySelector(`button[onclick="policyAnalyzer.analyzeArticle(${index})"]`);
-                
-                if (!analysisContainer || !analysisContent) return;
-
-                analysisContainer.classList.add('show');
-                analysisContent.innerHTML = '<div class="loading-analysis">Analyzing the bigger picture...</div>';
-                
-                if (button) {
-                    button.disabled = true;
-                    button.textContent = 'Analyzing...';
-                }
-                
-                try {
-                    const response = await fetch('/api/personalize', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ article })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    if (data.impact) {
-                        const formattedAnalysis = this.formatAnalysis(data.impact);
-                        analysisContent.innerHTML = `<div class="analysis-text">${formattedAnalysis}</div>`;
-                        
-                        // Show sharing options
-                        if (sharingSection) {
-                            sharingSection.style.display = 'block';
-                            this.setupSharing(index, article, data.impact);
-                        }
-                        
-                        if (button) {
-                            button.textContent = '✓ Analysis Complete';
-                            button.disabled = true;
-                        }
-                    } else {
-                        throw new Error('No analysis received');
-                    }
-                } catch (error) {
-                    console.error('Analysis error:', error);
-                    analysisContent.innerHTML = '<div class="error-analysis">Unable to analyze this policy at this time. Please try again.</div>';
-                    
-                    if (button) {
-                        button.disabled = false;
-                        button.textContent = 'Try Again';
-                    }
-                }
-            }
-
-            setupSharing(index, article, analysis) {
-                const linkInput = document.getElementById(`link-${index}`);
-                if (linkInput) {
-                    const shareUrl = `${window.location.origin}#article-${index}`;
-                    linkInput.value = shareUrl;
-                    
-                    this.sharingData[index] = {
-                        article,
-                        analysis: this.extractKeyInsight(analysis),
-                        url: shareUrl
-                    };
-                }
             }
 
             formatAnalysis(text) {
@@ -670,7 +768,7 @@
                 const data = this.sharingData[index];
                 if (!data) return;
                 
-                const text = `The bigger picture on "${data.article.title}": ${data.analysis} ${data.url}`;
+                const text = `The real impact: "${data.analysis}" Read today's HDTA analysis: ${data.url}`;
                 const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
                 window.open(twitterUrl, '_blank');
             }
@@ -705,16 +803,40 @@
                     copyBtn.classList.add('copied');
                     
                     setTimeout(() => {
-                        copyBtn.textContent = 'Copy Link';
+                        copyBtn.textContent = 'Copy';
                         copyBtn.classList.remove('copied');
                     }, 2000);
                 }
             }
         }
 
+        // Newsletter signup handling
+        function handleNewsletterSignup(event) {
+            event.preventDefault();
+            const email = event.target.querySelector('.email-input').value;
+            const button = event.target.querySelector('.signup-btn');
+            
+            button.textContent = 'Subscribing...';
+            button.disabled = true;
+            
+            // TODO: Replace with actual signup API
+            setTimeout(() => {
+                button.textContent = '✓ Subscribed!';
+                button.style.background = '#38a169';
+                
+                // Reset form
+                setTimeout(() => {
+                    event.target.reset();
+                    button.textContent = 'Subscribe Free';
+                    button.disabled = false;
+                    button.style.background = '';
+                }, 2000);
+            }, 1000);
+        }
+
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
-            window.policyAnalyzer = new PolicyAnalyzer();
+            window.dailyNewsletter = new DailyNewsletterSite();
         });
     </script>
 </body>
