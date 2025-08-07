@@ -528,14 +528,19 @@
                 const article = this.articles[articleIndex];
                 if (!article) return;
 
-                // Close any existing chat
-                this.closeChat();
+                // Close any existing chat first and wait for cleanup
+                if (this.currentChatContainer) {
+                    await this.closeChatAndWait();
+                }
 
                 this.currentArticle = article;
                 
                 // Mark article as active
                 const articleElement = document.querySelector(`[data-article-index="${articleIndex}"]`);
-                if (!articleElement) return;
+                if (!articleElement) {
+                    console.error('Article element not found');
+                    return;
+                }
                 articleElement.classList.add('active');
 
                 // Create and insert chat container after the clicked article
@@ -644,6 +649,32 @@
                         this.currentArticle = null;
                     }, 400);
                 }
+            }
+
+            closeChatAndWait() {
+                return new Promise((resolve) => {
+                    if (this.currentChatContainer) {
+                        // Remove active state from article
+                        document.querySelectorAll('.news-card.active').forEach(card => {
+                            card.classList.remove('active');
+                        });
+
+                        // Animate close
+                        this.currentChatContainer.classList.remove('open');
+                        
+                        // Remove after animation
+                        setTimeout(() => {
+                            if (this.currentChatContainer && this.currentChatContainer.parentNode) {
+                                this.currentChatContainer.remove();
+                            }
+                            this.currentChatContainer = null;
+                            this.currentArticle = null;
+                            resolve();
+                        }, 400);
+                    } else {
+                        resolve();
+                    }
+                });
             }
 
             // Remove the getNextRowIndex method - not needed anymore
