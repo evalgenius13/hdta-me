@@ -625,7 +625,7 @@
                 // Auto-scroll to chat after content loads
                 setTimeout(() => {
                     if (this.currentChatContainer) {
-                        this.currentChatContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        this.currentChatContainer.scrollIntoView({ behavior: 'auto', block: 'center' });
                     }
                 }, 100);
             }
