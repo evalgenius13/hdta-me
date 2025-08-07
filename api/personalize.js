@@ -1,4 +1,6 @@
-// api/personalize.js - Simple, working version
+// api/personalize.js - Enhanced with real trend analysis
+import { trendTracker } from '../lib/trend-tracker.js';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -24,16 +26,28 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Service unavailable' });
     }
 
-    const prompt = `You're explaining this news story to a friend who wants to know what's really going on.
+    // Generate trend context from real analyzed data
+    const trendContext = trendTracker.generateTrendContext(article);
+
+    // Create enhanced prompt
+    let prompt = `You're explaining this administration policy news to a friend who wants to know what's really going on.
 
 Title: ${article.title}
-Summary: ${article.description}
+Summary: ${article.description}`;
 
-Write like you're having a conversation - cut through the political BS and show who actually wins and loses. 
+    if (trendContext) {
+      prompt += `\n\nTREND CONTEXT: ${trendContext}`;
+    }
 
-Cover: What's really happening here, who gets screwed over, who benefits and how, and what they're not telling us.
+    prompt += `\n\nWrite like you're having a conversation - cut through the political BS and show who actually wins and loses.`;
+    
+    if (trendContext) {
+      prompt += ` Naturally incorporate the trend context to show this is part of a larger pattern.`;
+    }
 
-Keep it under 200 words. Use simple language. Be direct about the real impact on regular people.`;
+    prompt += `\n\nCover: What's really happening here, who gets screwed over, who benefits and how, and what they're not telling us.
+
+Keep it under 250 words. Use simple language. Be direct about the real impact on regular people.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -46,14 +60,14 @@ Keep it under 200 words. Use simple language. Be direct about the real impact on
         messages: [
           {
             role: 'system',
-            content: 'You explain complex news like a smart friend who sees through political spin. You use simple words and show who really benefits vs who pays the price.'
+            content: 'You explain administration policies like a smart friend who sees through political spin. You use simple words, show who really benefits vs who pays the price, and naturally incorporate trend context to show patterns.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_tokens: 250,
+        max_tokens: 300,
         temperature: 0.3,
       }),
     });
@@ -61,7 +75,12 @@ Keep it under 200 words. Use simple language. Be direct about the real impact on
     const data = await response.json();
     
     if (data.choices?.[0]?.message?.content) {
-      return res.json({ impact: data.choices[0].message.content.trim() });
+      const analysis = data.choices[0].message.content.trim();
+      
+      // Track this analysis for future trend detection
+      trendTracker.trackAnalysis(article, analysis);
+      
+      return res.json({ impact: analysis });
     } else {
       return res.status(500).json({ error: 'Unable to generate analysis' });
     }
