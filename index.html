@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDTA.me - Live Policy Updates</title>
+    <title>HDTA.me - Policy Analysis</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📰</text></svg>">
     <style>
         * {
@@ -13,632 +13,342 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background: #fff;
+            font-family: Georgia, 'Times New Roman', serif;
+            background: #fafafa;
             color: #333;
-            line-height: 1.4;
+            line-height: 1.6;
         }
 
-        .top-nav {
-            background: #000;
-            color: #fff;
-            padding: 0.75rem 0;
+        .header {
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            padding: 2rem 0;
         }
 
-        .nav-container {
-            max-width: 1200px;
+        .container {
+            max-width: 800px;
             margin: 0 auto;
-            padding: 0 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            padding: 0 2rem;
         }
 
         .logo {
-            background: #e50000;
-            color: #fff;
-            padding: 0.5rem 0.75rem;
-            font-weight: 900;
-            font-size: 1rem;
-            border-radius: 2px;
-        }
-
-        .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .support-btn {
-            background: #e50000;
-            color: #fff;
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            cursor: pointer;
-            text-decoration: none;
-        }
-
-        .live-ticker {
-            background: #000;
-            color: #fff;
-            padding: 0.75rem 0;
-            border-top: 1px solid #333;
-        }
-
-        .ticker-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 1rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .live-badge {
-            background: #e50000;
-            color: #fff;
-            padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
-            font-weight: bold;
-            border-radius: 2px;
-            text-transform: uppercase;
-        }
-
-        .ticker-items {
-            display: flex;
-            gap: 2rem;
-            font-size: 0.875rem;
-            overflow: hidden;
-        }
-
-        .ticker-item {
-            color: #fff;
-            text-decoration: none;
-            white-space: nowrap;
-        }
-
-        .ticker-item:hover {
-            color: #e50000;
-        }
-
-        .main-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 2rem;
-        }
-
-        .sidebar {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            height: fit-content;
-            position: sticky;
-            top: 2rem;
-        }
-
-        .sidebar-section {
-            padding: 1.5rem;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .sidebar-section:last-child {
-            border-bottom: none;
-        }
-
-        .sidebar-title {
-            font-size: 1rem;
-            font-weight: 700;
+            font-size: 2rem;
+            font-weight: normal;
             color: #333;
-            margin-bottom: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .trend-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.75rem;
-            padding: 0.5rem;
-            background: #fff;
-            border-radius: 4px;
-            border: 1px solid #e9ecef;
-        }
-
-        .trend-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .trend-label {
-            font-size: 0.875rem;
-            color: #666;
-            font-weight: 500;
-        }
-
-        .trend-value {
-            font-size: 0.875rem;
-            font-weight: 700;
-            color: #e50000;
-        }
-
-        .winners-list, .losers-list {
-            list-style: none;
-        }
-
-        .winners-list li, .losers-list li {
-            padding: 0.5rem;
+            text-align: center;
             margin-bottom: 0.5rem;
-            background: #fff;
-            border-radius: 4px;
-            border: 1px solid #e9ecef;
-            font-size: 0.875rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
 
-        .winners-list li {
-            border-left: 3px solid #28a745;
-        }
-
-        .losers-list li {
-            border-left: 3px solid #dc3545;
-        }
-
-        .policy-count {
-            font-size: 0.75rem;
+        .tagline {
             color: #666;
-            font-weight: 600;
+            text-align: center;
+            font-size: 1rem;
+            font-style: italic;
         }
 
         .main-content {
-            background: #fff;
+            padding: 3rem 0;
         }
 
-        .live-header {
-            margin-bottom: 2rem;
-        }
-
-        .live-tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            background: #e50000;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 0.5rem;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .tab {
-            background: #e50000;
-            color: #fff;
-            padding: 0.5rem 1rem;
-            border: none;
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-transform: uppercase;
-            border-radius: 4px;
-        }
-
-        .main-headline {
+        .page-title {
             font-size: 2.5rem;
-            font-weight: 700;
+            font-weight: normal;
             color: #333;
-            line-height: 1.1;
+            text-align: center;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .page-subtitle {
+            color: #666;
+            text-align: center;
+            font-size: 1.125rem;
+            margin-bottom: 3rem;
+            font-style: italic;
+        }
+
+        .articles-list {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .article-item {
+            background: #fff;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            transition: box-shadow 0.2s ease;
+        }
+
+        .article-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .article-meta {
+            color: #888;
+            font-size: 0.9rem;
             margin-bottom: 1rem;
         }
 
-        .main-subtitle {
-            font-size: 1.125rem;
-            color: #666;
-            margin-bottom: 2rem;
-            line-height: 1.4;
-        }
-
-        .update-feed {
-            border-top: 3px solid #e50000;
-            padding-top: 2rem;
-        }
-
-        .update-item {
-            background: #fff;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            position: relative;
-            transition: all 0.2s ease;
-            display: grid;
-            grid-template-columns: 120px 1fr;
-            gap: 1rem;
-        }
-
-        .update-item:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transform: translateY(-2px);
-        }
-
-        .update-image {
-            width: 120px;
-            height: 80px;
-            border-radius: 4px;
-            overflow: hidden;
-            background: #f8f9fa;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #e9ecef;
-        }
-
-        .update-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .update-image .placeholder-icon {
-            font-size: 2rem;
-            color: #666;
-        }
-
-        .update-content {
-            flex: 1;
-        }
-
-        .update-time {
-            color: #e50000;
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-        }
-
-        .update-headline {
+        .article-title {
             font-size: 1.5rem;
-            font-weight: 600;
+            font-weight: normal;
             color: #333;
             margin-bottom: 1rem;
             line-height: 1.3;
         }
 
-        .update-summary {
-            color: #666;
+        .article-summary {
+            color: #555;
             font-size: 1rem;
-            line-height: 1.5;
+            line-height: 1.6;
             margin-bottom: 1.5rem;
         }
 
-        .analyze-section {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 6px;
-            border-left: 4px solid #e50000;
-        }
-
         .analyze-btn {
-            background: #e50000;
+            background: #4a5568;
             color: #fff;
             border: none;
-            padding: 0.75rem 1.5rem;
+            padding: 0.75rem 2rem;
             border-radius: 4px;
-            font-size: 0.875rem;
-            font-weight: 600;
+            font-size: 0.95rem;
             cursor: pointer;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            transition: background 0.2s ease;
+            font-family: inherit;
         }
 
         .analyze-btn:hover {
-            background: #cc0000;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(229, 0, 0, 0.3);
+            background: #2d3748;
         }
 
-        .trend-note {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            padding: 0.75rem;
-            border-radius: 4px;
-            margin-top: 1rem;
-            font-size: 0.875rem;
-            color: #856404;
+        .analysis-container {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e5e5e5;
+            display: none;
         }
 
-        .chat-container {
-            margin-top: 1rem;
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
+        .analysis-container.show {
+            display: block;
         }
 
-        .chat-container.open {
-            max-height: 600px;
-        }
-
-        .chat-window {
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            margin-top: 1rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .chat-header {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-bottom: 1px solid #ddd;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: 600;
-            border-radius: 6px 6px 0 0;
-        }
-
-        .chat-close {
-            background: none;
-            border: none;
-            font-size: 1.2rem;
-            cursor: pointer;
-            color: #666;
-            padding: 0.25rem;
-            border-radius: 4px;
-        }
-
-        .chat-close:hover {
-            background: #e9ecef;
-        }
-
-        .chat-content {
-            padding: 1rem;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .chat-message {
+        .analysis-title {
+            font-size: 1.25rem;
+            color: #333;
             margin-bottom: 1rem;
-            line-height: 1.5;
+            font-weight: normal;
         }
 
-        .chat-message.analysis {
+        .analysis-content {
             background: #f8f9fa;
-            padding: 1rem;
+            padding: 2rem;
             border-radius: 6px;
-            border-left: 3px solid #e50000;
+            border-left: 4px solid #4a5568;
+            margin-bottom: 1.5rem;
         }
 
-        .chat-input-area {
-            padding: 1rem;
-            border-top: 1px solid #ddd;
+        .analysis-text {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: #444;
+        }
+
+        .analysis-text p {
+            margin-bottom: 1rem;
+        }
+
+        .loading-analysis {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 2rem;
+        }
+
+        .error-analysis {
+            text-align: center;
+            color: #d73502;
+            padding: 2rem;
+            background: #fef2f2;
+            border-radius: 6px;
+            border: 1px solid #fecaca;
+        }
+
+        .social-sharing {
             background: #f8f9fa;
-            border-radius: 0 0 6px 6px;
+            padding: 1.5rem;
+            border-radius: 6px;
+            border: 1px solid #e5e5e5;
         }
 
-        .chat-input-container {
+        .sharing-title {
+            font-size: 1rem;
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .share-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .share-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .share-btn.twitter {
+            background: #1da1f2;
+            color: white;
+        }
+
+        .share-btn.twitter:hover {
+            background: #0d8bd9;
+        }
+
+        .share-btn.linkedin {
+            background: #0077b5;
+            color: white;
+        }
+
+        .share-btn.linkedin:hover {
+            background: #005885;
+        }
+
+        .share-btn.facebook {
+            background: #1877f2;
+            color: white;
+        }
+
+        .share-btn.facebook:hover {
+            background: #166fe5;
+        }
+
+        .copy-link {
             display: flex;
             gap: 0.5rem;
         }
 
-        .chat-input {
+        .link-input {
             flex: 1;
-            padding: 0.75rem;
+            padding: 0.5rem;
             border: 1px solid #ccc;
             border-radius: 4px;
-            font-size: 0.875rem;
-            outline: none;
+            font-size: 0.85rem;
+            background: #fff;
+            font-family: monospace;
         }
 
-        .chat-input:focus {
-            border-color: #e50000;
-            box-shadow: 0 0 0 2px rgba(229, 0, 0, 0.2);
-        }
-
-        .chat-send {
-            background: #e50000;
-            color: #fff;
+        .copy-btn {
+            background: #4a5568;
+            color: white;
             border: none;
-            padding: 0.75rem 1rem;
+            padding: 0.5rem 1rem;
             border-radius: 4px;
+            font-size: 0.9rem;
             cursor: pointer;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.75rem;
+            font-family: inherit;
+        }
+
+        .copy-btn:hover {
+            background: #2d3748;
+        }
+
+        .copy-btn.copied {
+            background: #38a169;
         }
 
         .loading-state {
             text-align: center;
-            padding: 2rem;
+            padding: 4rem 2rem;
             color: #666;
+            font-style: italic;
         }
 
         /* Mobile responsive */
         @media (max-width: 768px) {
-            .main-container {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-                padding: 1rem;
-            }
-            
-            .main-headline {
-                font-size: 1.75rem;
-            }
-            
-            .sidebar {
-                order: 2;
-                position: static;
+            .container {
+                padding: 0 1rem;
             }
 
-            .ticker-items {
-                gap: 1rem;
+            .article-item {
+                padding: 1.5rem;
             }
 
-            .nav-container {
-                padding: 0 0.5rem;
+            .page-title {
+                font-size: 2rem;
             }
 
-            .update-item {
-                grid-template-columns: 80px 1fr;
-                gap: 0.75rem;
-                padding: 1rem;
-            }
-
-            .update-image {
-                width: 80px;
-                height: 60px;
-            }
-
-            .update-image .placeholder-icon {
-                font-size: 1.5rem;
+            .analysis-content {
+                padding: 1.5rem;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Top Navigation -->
-    <nav class="top-nav">
-        <div class="nav-container">
-            <div class="logo">HDTA.me</div>
-            <div class="nav-right">
-                <a href="#" class="support-btn">Support</a>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">HDTA.me</h1>
+            <p class="tagline">See the bigger picture of how policies affect real people</p>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <h2 class="page-title">Recent Policy Changes</h2>
+            <p class="page-subtitle">Understanding the real-world impact of policy changes</p>
+
+            <div class="loading-state" id="loading">
+                Loading recent policy changes...
+            </div>
+
+            <div class="articles-list" id="articles-container" style="display: none;">
+                <!-- Articles will be loaded here -->
             </div>
         </div>
-    </nav>
-
-    <!-- Live Ticker -->
-    <div class="live-ticker">
-        <div class="ticker-content">
-            <span class="live-badge">Live</span>
-            <div class="ticker-items" id="ticker-items">
-                <span class="ticker-item">Loading policy updates...</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main Content -->
-    <div class="main-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-section">
-                <h3 class="sidebar-title">Trend Summary</h3>
-                <div class="trend-item">
-                    <span class="trend-label">Policies This Week</span>
-                    <span class="trend-value" id="policies-count">Loading...</span>
-                </div>
-                <div class="trend-item">
-                    <span class="trend-label">Most Active Category</span>
-                    <span class="trend-value" id="top-category">Loading...</span>
-                </div>
-                <div class="trend-item">
-                    <span class="trend-label">Reversal Rate</span>
-                    <span class="trend-value" id="reversal-rate">Loading...</span>
-                </div>
-                <div class="trend-item">
-                    <span class="trend-label">Policy Velocity</span>
-                    <span class="trend-value" id="policy-velocity">Loading...</span>
-                </div>
-            </div>
-
-            <div class="sidebar-section">
-                <h3 class="sidebar-title">Top Winners</h3>
-                <ul class="winners-list" id="winners-list">
-                    <li>Loading...</li>
-                </ul>
-            </div>
-
-            <div class="sidebar-section">
-                <h3 class="sidebar-title">Most Affected</h3>
-                <ul class="losers-list" id="losers-list">
-                    <li>Loading...</li>
-                </ul>
-            </div>
-        </aside>
-
-        <!-- Main Content Area -->
-        <main class="main-content">
-            <div class="live-header">
-                <div class="live-tabs">
-                    <button class="tab"><span class="live-dot"></span>LIVE POLICY UPDATES</button>
-                </div>
-                
-                <h1 class="main-headline">Live updates: New policies and their real-world impact</h1>
-                <p class="main-subtitle">Cut through the spin. See who really wins and loses from policy changes | Updated hourly</p>
-            </div>
-
-            <!-- Live Updates Feed -->
-            <div class="update-feed">
-                <div class="loading-state" id="loading">
-                    Loading latest policy updates...
-                </div>
-                <div id="updates-container" style="display: none;">
-                    <!-- Updates will be loaded here -->
-                </div>
-            </div>
-        </main>
-    </div>
+    </main>
 
     <script>
-        class PolicyUpdatesManager {
+        class PolicyAnalyzer {
             constructor() {
                 this.articles = [];
-                this.trendData = {
-                    policiesCount: 0,
-                    topCategory: 'environmental',
-                    reversalRate: '0%',
-                    policyVelocity: '0/week',
-                    winners: [],
-                    losers: []
-                };
-                this.lastFetch = null;
                 this.init();
             }
 
             async init() {
-                await this.fetchUpdates();
-                this.updateTrends();
-                this.startPolling();
+                await this.fetchArticles();
             }
 
-            async fetchUpdates() {
+            async fetchArticles() {
                 try {
                     const response = await fetch('/api/fetch-news');
                     const data = await response.json();
                     
                     if (data.articles) {
-                        this.articles = data.articles.slice(0, 10); // Latest 10
-                        this.displayUpdates();
-                        this.updateTicker();
+                        this.articles = data.articles.slice(0, 8); // Show 8 most recent
+                        this.displayArticles();
                     }
                 } catch (error) {
-                    console.error('Error fetching updates:', error);
-                    this.showError();
+                    console.error('Error fetching articles:', error);
+                    document.getElementById('loading').innerHTML = 'Unable to load articles at this time.';
                 }
             }
 
-            displayUpdates() {
-                const container = document.getElementById('updates-container');
+            displayArticles() {
+                const container = document.getElementById('articles-container');
                 const loading = document.getElementById('loading');
                 
                 if (this.articles.length === 0) {
-                    loading.innerHTML = 'No policy updates available at this time.';
+                    loading.innerHTML = 'No policy articles available at this time.';
                     return;
                 }
 
@@ -646,49 +356,46 @@
                 container.style.display = 'block';
                 
                 container.innerHTML = this.articles.map((article, index) => 
-                    this.createUpdateHTML(article, index)
+                    this.createArticleHTML(article, index)
                 ).join('');
             }
 
-            createUpdateHTML(article, index) {
+            createArticleHTML(article, index) {
                 const timeAgo = this.getTimeAgo(article.publishedAt);
-                const urgentFraming = this.getUrgentFraming(article, index);
-                const imageData = this.getImageData(article);
+                const cleanTitle = this.cleanTitle(article.title);
                 
                 return `
-                    <article class="update-item">
-                        <div class="update-image">
-                            ${imageData.html}
-                        </div>
-                        <div class="update-content">
-                            <div class="update-time">${timeAgo}</div>
-                            <h2 class="update-headline">${urgentFraming.headline}</h2>
-                            <p class="update-summary">${urgentFraming.summary}</p>
+                    <article class="article-item">
+                        <div class="article-meta">${article.source?.name || 'News Source'} • ${timeAgo}</div>
+                        <h3 class="article-title">${cleanTitle}</h3>
+                        <p class="article-summary">${article.description}</p>
+                        
+                        <button class="analyze-btn" onclick="policyAnalyzer.analyzeArticle(${index})">
+                            See the bigger picture
+                        </button>
+                        
+                        <div class="analysis-container" id="analysis-${index}">
+                            <h4 class="analysis-title">The Bigger Picture</h4>
+                            <div class="analysis-content" id="analysis-content-${index}">
+                                <!-- Analysis will load here -->
+                            </div>
                             
-                            <div class="analyze-section">
-                                <button class="analyze-btn" onclick="policyManager.analyzeUpdate(${index})">
-                                    How Does This Affect Me?
-                                </button>
-                                <div class="trend-note">
-                                    📊 ${urgentFraming.trendNote}
+                            <div class="social-sharing" id="sharing-${index}" style="display: none;">
+                                <div class="sharing-title">Share this analysis:</div>
+                                <div class="share-buttons">
+                                    <button class="share-btn twitter" onclick="policyAnalyzer.shareToTwitter(${index})">
+                                        Share on Twitter
+                                    </button>
+                                    <button class="share-btn linkedin" onclick="policyAnalyzer.shareToLinkedIn(${index})">
+                                        Share on LinkedIn
+                                    </button>
+                                    <button class="share-btn facebook" onclick="policyAnalyzer.shareToFacebook(${index})">
+                                        Share on Facebook
+                                    </button>
                                 </div>
-                                
-                                <div class="chat-container" id="chat-${index}">
-                                    <div class="chat-window">
-                                        <div class="chat-header">
-                                            <span>Analysis & Discussion</span>
-                                            <button class="chat-close" onclick="policyManager.closeChat(${index})">×</button>
-                                        </div>
-                                        <div class="chat-content" id="chat-content-${index}">
-                                            <!-- Analysis will load here -->
-                                        </div>
-                                        <div class="chat-input-area">
-                                            <div class="chat-input-container">
-                                                <input type="text" class="chat-input" placeholder="Ask about this policy..." onkeypress="policyManager.handleKeyPress(event, ${index})">
-                                                <button class="chat-send" onclick="policyManager.sendMessage(${index})">Send</button>
-                                            </div>
-                                        </div>
-                                    </div>
+                                <div class="copy-link">
+                                    <input type="text" class="link-input" id="link-${index}" readonly>
+                                    <button class="copy-btn" onclick="policyAnalyzer.copyLink(${index})">Copy</button>
                                 </div>
                             </div>
                         </div>
@@ -696,37 +403,13 @@
                 `;
             }
 
-            getUrgentFraming(article, index) {
-                const framings = [
-                    { 
-                        prefix: "🚨 PATTERN ALERT:",
-                        trendNote: "Part of accelerating deregulation pattern - 8th similar policy this month"
-                    },
-                    { 
-                        prefix: "BREAKING ANALYSIS:",
-                        trendNote: "Industry beneficiaries emerging across multiple recent policies"
-                    },
-                    { 
-                        prefix: "TREND UPDATE:",
-                        trendNote: "Policy velocity increasing 45% vs previous administration"
-                    },
-                    { 
-                        prefix: "JUST REVEALED:",
-                        trendNote: "Same corporate winners appearing in multiple policy changes"
-                    }
-                ];
-
-                const framing = framings[index % framings.length];
-                
-                return {
-                    headline: `${framing.prefix} ${article.title}`,
-                    summary: `${article.description} Analysis reveals who really benefits and who pays the price.`,
-                    trendNote: framing.trendNote
-                };
+            cleanTitle(title) {
+                // Remove excessive caps and clean up title
+                return title.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i, '');
             }
 
             getTimeAgo(publishedAt) {
-                if (!publishedAt) return 'Recent';
+                if (!publishedAt) return 'Recently';
                 
                 const now = new Date();
                 const published = new Date(publishedAt);
@@ -734,99 +417,21 @@
                 const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
                 const diffDays = Math.floor(diffHours / 24);
                 
-                if (diffHours < 1) return 'Just now';
-                if (diffHours < 24) return `${diffHours} hours ago`;
+                if (diffHours < 1) return 'Less than an hour ago';
+                if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
                 if (diffDays === 1) return 'Yesterday';
-                return `${diffDays} days ago`;
+                if (diffDays < 7) return `${diffDays} days ago`;
+                return published.toLocaleDateString();
             }
 
-            updateTicker() {
-                const ticker = document.getElementById('ticker-items');
-                const categories = [...new Set(this.articles.map(a => 
-                    this.detectCategory(a.title + ' ' + a.description)
-                ))];
-                
-                ticker.innerHTML = categories.map(cat => 
-                    `<span class="ticker-item">${cat} policies</span>`
-                ).join('');
-            }
-
-            getImageData(article) {
-                // Try to use article image first
-                if (article.urlToImage || article.image) {
-                    const imageUrl = article.urlToImage || article.image;
-                    return {
-                        html: `<img src="${imageUrl}" alt="Policy update" onerror="this.parentElement.innerHTML='${this.getCategoryIcon(article)}'">`,
-                        hasImage: true
-                    };
-                }
-                
-                // Fallback to category icon
-                return {
-                    html: `<div class="placeholder-icon">${this.getCategoryIcon(article)}</div>`,
-                    hasImage: false
-                };
-            }
-
-            getCategoryIcon(article) {
-                const text = (article.title + ' ' + article.description).toLowerCase();
-                
-                if (text.includes('epa') || text.includes('environment') || text.includes('climate')) {
-                    return '🏭'; // Factory for environmental
-                }
-                if (text.includes('immigration') || text.includes('border') || text.includes('visa')) {
-                    return '🗽'; // Statue of Liberty for immigration
-                }
-                if (text.includes('healthcare') || text.includes('medicare') || text.includes('medicaid')) {
-                    return '⚕️'; // Medical symbol for healthcare
-                }
-                if (text.includes('trade') || text.includes('tariff') || text.includes('import')) {
-                    return '📊'; // Chart for trade
-                }
-                if (text.includes('energy') || text.includes('oil') || text.includes('gas')) {
-                    return '⛽'; // Gas pump for energy
-                }
-                if (text.includes('financial') || text.includes('bank') || text.includes('crypto')) {
-                    return '💰'; // Money bag for financial
-                }
-                if (text.includes('tech') || text.includes('ai') || text.includes('data')) {
-                    return '💻'; // Computer for tech
-                }
-                if (text.includes('education') || text.includes('school') || text.includes('student')) {
-                    return '📚'; // Books for education
-                }
-                
-                // Default policy icon
-                return '📋'; // Clipboard for general policy
-            }
-
-            updateTrends() {
-                // Simulate trend data - in production this would come from Redis
-                document.getElementById('policies-count').textContent = '23';
-                document.getElementById('top-category').textContent = 'Environmental';
-                document.getElementById('reversal-rate').textContent = '73%';
-                document.getElementById('policy-velocity').textContent = '2.3/week';
-                
-                document.getElementById('winners-list').innerHTML = `
-                    <li>Oil & Gas Companies <span class="policy-count">8 policies</span></li>
-                    <li>Private Prisons <span class="policy-count">5 policies</span></li>
-                    <li>Big Pharma <span class="policy-count">4 policies</span></li>
-                `;
-                
-                document.getElementById('losers-list').innerHTML = `
-                    <li>Environmental Groups <span class="policy-count">8 impacts</span></li>
-                    <li>Consumers <span class="policy-count">12 impacts</span></li>
-                    <li>Workers <span class="policy-count">7 impacts</span></li>
-                `;
-            }
-
-            async analyzeUpdate(index) {
+            async analyzeArticle(index) {
                 const article = this.articles[index];
-                const chatContainer = document.getElementById(`chat-${index}`);
-                const chatContent = document.getElementById(`chat-content-${index}`);
+                const analysisContainer = document.getElementById(`analysis-${index}`);
+                const analysisContent = document.getElementById(`analysis-content-${index}`);
+                const sharingSection = document.getElementById(`sharing-${index}`);
                 
-                chatContainer.classList.add('open');
-                chatContent.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">Analyzing the real impact...</div>';
+                analysisContainer.classList.add('show');
+                analysisContent.innerHTML = '<div class="loading-analysis">Analyzing the bigger picture...</div>';
                 
                 try {
                     const response = await fetch('/api/personalize', {
@@ -838,61 +443,91 @@
                     const data = await response.json();
                     
                     if (data.impact) {
-                        chatContent.innerHTML = `
-                            <div class="chat-message analysis">
-                                ${data.impact.replace(/\n/g, '<br>')}
-                            </div>
-                        `;
+                        const formattedAnalysis = this.formatAnalysis(data.impact);
+                        analysisContent.innerHTML = `<div class="analysis-text">${formattedAnalysis}</div>`;
+                        
+                        // Show sharing options
+                        sharingSection.style.display = 'block';
+                        this.setupSharing(index, article, data.impact);
+                    } else {
+                        throw new Error('No analysis received');
                     }
                 } catch (error) {
-                    chatContent.innerHTML = '<div style="color: #e50000; text-align: center; padding: 1rem;">Unable to generate analysis. Please try again.</div>';
+                    console.error('Analysis error:', error);
+                    analysisContent.innerHTML = '<div class="error-analysis">Unable to analyze this policy at this time. Please try again.</div>';
                 }
             }
 
-            closeChat(index) {
-                document.getElementById(`chat-${index}`).classList.remove('open');
+            setupSharing(index, article, analysis) {
+                const linkInput = document.getElementById(`link-${index}`);
+                const shareUrl = `${window.location.origin}#article-${index}`;
+                linkInput.value = shareUrl;
+                
+                // Store sharing data for social media functions
+                this.sharingData = this.sharingData || {};
+                this.sharingData[index] = {
+                    article,
+                    analysis: this.extractKeyInsight(analysis),
+                    url: shareUrl
+                };
             }
 
-            handleKeyPress(event, index) {
-                if (event.key === 'Enter') {
-                    this.sendMessage(index);
+            extractKeyInsight(analysis) {
+                // Extract the most shareable sentence from analysis
+                const sentences = analysis.split('. ');
+                const keyPhrases = ['bigger picture', 'real impact', 'what this means', 'while officials', 'the reality'];
+                
+                for (const sentence of sentences) {
+                    for (const phrase of keyPhrases) {
+                        if (sentence.toLowerCase().includes(phrase)) {
+                            return sentence.trim() + (sentence.endsWith('.') ? '' : '.');
+                        }
+                    }
                 }
+                
+                // Fallback to first substantial sentence
+                return sentences.find(s => s.length > 50)?.trim() + '.' || analysis.substring(0, 100) + '...';
             }
 
-            sendMessage(index) {
-                const input = event.target.parentElement.querySelector('.chat-input');
-                const message = input.value.trim();
-                if (!message) return;
-
-                const chatContent = document.getElementById(`chat-content-${index}`);
-                chatContent.innerHTML += `
-                    <div style="background: #e50000; color: #fff; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; margin-left: 2rem;">
-                        ${message}
-                    </div>
-                    <div style="background: #f8f9fa; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; margin-right: 2rem; border-left: 3px solid #e50000;">
-                        Based on trend analysis, this policy fits a broader pattern where benefits concentrate among industry players while costs distribute across regular Americans. The timing suggests coordination with other recent changes.
-                    </div>
-                `;
-
-                input.value = '';
-                chatContent.scrollTop = chatContent.scrollHeight;
+            shareToTwitter(index) {
+                const data = this.sharingData[index];
+                const text = `The bigger picture on "${data.article.title}": ${data.analysis} ${data.url}`;
+                const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+                window.open(twitterUrl, '_blank');
             }
 
-            startPolling() {
-                // Refresh every hour to stay within API limits
-                setInterval(() => {
-                    this.fetchUpdates();
-                }, 60 * 60 * 1000); // 1 hour
+            shareToLinkedIn(index) {
+                const data = this.sharingData[index];
+                const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(data.url)}`;
+                window.open(linkedinUrl, '_blank');
             }
 
-            showError() {
-                document.getElementById('loading').innerHTML = 'Unable to load updates. Please refresh the page.';
+            shareToFacebook(index) {
+                const data = this.sharingData[index];
+                const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(data.url)}`;
+                window.open(facebookUrl, '_blank');
+            }
+
+            copyLink(index) {
+                const linkInput = document.getElementById(`link-${index}`);
+                const copyBtn = linkInput.parentElement.querySelector('.copy-btn');
+                
+                linkInput.select();
+                document.execCommand('copy');
+                
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
             }
         }
 
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
-            window.policyManager = new PolicyUpdatesManager();
+            window.policyAnalyzer = new PolicyAnalyzer();
         });
     </script>
 </body>
