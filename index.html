@@ -622,12 +622,7 @@
                 const content = analysis.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 chatContent.innerHTML = `<div class="chat-message analysis">${content}</div>`;
                 
-                // Auto-scroll to chat after content loads
-                setTimeout(() => {
-                    if (this.currentChatContainer) {
-                        this.currentChatContainer.scrollIntoView({ behavior: 'auto', block: 'center' });
-                    }
-                }, 100);
+                // Don't auto-scroll after analysis loads - user may have already scrolled
             }
 
             closeChat() {
