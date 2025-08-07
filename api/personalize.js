@@ -24,18 +24,16 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Service unavailable' });
     }
 
-    const prompt = `Analyze this news story:
+    const prompt = `You're explaining this news story to a friend who wants to know what's really going on.
 
 Title: ${article.title}
 Summary: ${article.description}
 
-Write a plain English analysis that shows:
-1. What's actually happening
-2. Who gets hurt most 
-3. Who benefits
-4. What's not being said
+Write like you're having a conversation - cut through the political BS and show who actually wins and loses. 
 
-Keep it under 250 words and be direct about winners and losers.`;
+Cover: What's really happening here, who gets screwed over, who benefits and how, and what they're not telling us.
+
+Keep it under 200 words. Use simple language. Be direct about the real impact on regular people.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -48,14 +46,14 @@ Keep it under 250 words and be direct about winners and losers.`;
         messages: [
           {
             role: 'system',
-            content: 'You cut through political spin to show who really wins and loses from policy changes.'
+            content: 'You explain complex news like a smart friend who sees through political spin. You use simple words and show who really benefits vs who pays the price.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_tokens: 300,
+        max_tokens: 250,
         temperature: 0.3,
       }),
     });
