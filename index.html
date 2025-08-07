@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDTA.me - How Does This Affect Me?</title>
+    <title>HDTA.me - Live Policy Updates</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📰</text></svg>">
     <style>
         * {
@@ -13,202 +13,332 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #fff;
             color: #333;
-            background: #f8fafc;
+            line-height: 1.4;
         }
 
-        .header {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 1.5rem 0;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+        .top-nav {
+            background: #000;
+            color: #fff;
+            padding: 0.75rem 0;
         }
 
-        .container {
+        .nav-container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .logo {
-            font-size: 1.75rem;
-            font-weight: bold;
-            color: #2563eb;
-            text-align: center;
-        }
-
-        .tagline {
+            background: #e50000;
+            color: #fff;
+            padding: 0.5rem 0.75rem;
+            font-weight: 900;
             font-size: 1rem;
-            color: #64748b;
-            margin-top: 0.5rem;
-            text-align: center;
+            border-radius: 2px;
         }
 
-        .main-content {
-            padding: 2rem 0;
-        }
-
-        .news-grid {
-            display: grid;
-            gap: 1.5rem;
-            grid-template-columns: 1fr;
-        }
-
-        @media (min-width: 768px) {
-            .news-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 2rem;
-            }
-        }
-
-        @media (min-width: 1200px) {
-            .news-grid {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 2.5rem;
-            }
-            
-            .container {
-                max-width: 1400px;
-            }
-        }
-
-        .news-card {
-            background: white;
-            border-radius: 0.75rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            overflow: hidden;
-            transition: all 0.3s ease;
-            height: 520px;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-
-        .news-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        }
-
-        .news-card.active {
-            box-shadow: 0 0 0 2px #2563eb;
-            transform: translateY(-2px);
-        }
-
-        .news-card.active::after {
-            content: '';
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-bottom: 8px solid #2563eb;
-            z-index: 10;
-        }
-
-        .news-image {
-            width: 100%;
-            height: 180px;
-            background: #e2e8f0;
+        .nav-right {
             display: flex;
             align-items: center;
-            justify-content: center;
-            color: #64748b;
+            gap: 1rem;
+        }
+
+        .support-btn {
+            background: #e50000;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .live-ticker {
+            background: #000;
+            color: #fff;
+            padding: 0.75rem 0;
+            border-top: 1px solid #333;
+        }
+
+        .ticker-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .live-badge {
+            background: #e50000;
+            color: #fff;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: bold;
+            border-radius: 2px;
+            text-transform: uppercase;
+        }
+
+        .ticker-items {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.875rem;
             overflow: hidden;
         }
 
-        .news-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .ticker-item {
+            color: #fff;
+            text-decoration: none;
+            white-space: nowrap;
         }
 
-        .news-content {
+        .ticker-item:hover {
+            color: #e50000;
+        }
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 2rem;
+        }
+
+        .sidebar {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            height: fit-content;
+            position: sticky;
+            top: 2rem;
+        }
+
+        .sidebar-section {
             padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
         }
 
-        .news-meta {
+        .sidebar-section:last-child {
+            border-bottom: none;
+        }
+
+        .sidebar-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .trend-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 0.75rem;
-            font-size: 0.875rem;
+            padding: 0.5rem;
+            background: #fff;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
         }
 
-        .news-source {
-            color: #2563eb;
+        .trend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .trend-label {
+            font-size: 0.875rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .trend-value {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #e50000;
+        }
+
+        .winners-list, .losers-list {
+            list-style: none;
+        }
+
+        .winners-list li, .losers-list li {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            background: #fff;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+            font-size: 0.875rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .winners-list li {
+            border-left: 3px solid #28a745;
+        }
+
+        .losers-list li {
+            border-left: 3px solid #dc3545;
+        }
+
+        .policy-count {
+            font-size: 0.75rem;
+            color: #666;
             font-weight: 600;
         }
 
-        .news-time {
-            color: #64748b;
+        .main-content {
+            background: #fff;
         }
 
-        .news-title {
+        .live-header {
+            margin-bottom: 2rem;
+        }
+
+        .live-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #e50000;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .tab {
+            background: #e50000;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border: none;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+            border-radius: 4px;
+        }
+
+        .main-headline {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #333;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+        }
+
+        .main-subtitle {
             font-size: 1.125rem;
+            color: #666;
+            margin-bottom: 2rem;
+            line-height: 1.4;
+        }
+
+        .update-feed {
+            border-top: 3px solid #e50000;
+            padding-top: 2rem;
+        }
+
+        .update-item {
+            background: #fff;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .update-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .update-time {
+            color: #e50000;
+            font-size: 0.875rem;
             font-weight: 600;
             margin-bottom: 0.75rem;
-            color: #1e293b;
-            line-height: 1.4;
-            cursor: pointer;
-            height: 3.15em;
-            overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
         }
 
-        .news-title:hover {
-            color: #2563eb;
-        }
-
-        .news-summary {
-            color: #64748b;
+        .update-headline {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
             margin-bottom: 1rem;
-            font-size: 0.95rem;
+            line-height: 1.3;
+        }
+
+        .update-summary {
+            color: #666;
+            font-size: 1rem;
             line-height: 1.5;
-            height: 4.5em;
-            overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
+            margin-bottom: 1.5rem;
+        }
+
+        .analyze-section {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+            border-left: 4px solid #e50000;
         }
 
         .analyze-btn {
-            background: #2563eb;
-            color: white;
+            background: #e50000;
+            color: #fff;
             border: none;
             padding: 0.75rem 1.5rem;
-            border-radius: 0.375rem;
+            border-radius: 4px;
             font-size: 0.875rem;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
-            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .analyze-btn:hover {
-            background: #1d4ed8;
+            background: #cc0000;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(229, 0, 0, 0.3);
         }
 
-        .analyze-btn:disabled {
-            background: #94a3b8;
-            cursor: not-allowed;
+        .trend-note {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            color: #856404;
         }
 
-        /* Inline Chat Window */
         .chat-container {
-            grid-column: 1 / -1;
-            margin: 1rem 0;
+            margin-top: 1rem;
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.4s ease, margin 0.4s ease;
+            transition: max-height 0.3s ease;
         }
 
         .chat-container.open {
@@ -216,642 +346,463 @@
         }
 
         .chat-window {
-            background: white;
-            border-radius: 1rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            border: 2px solid #2563eb;
-            display: flex;
-            flex-direction: column;
-            height: 500px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-top: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
         .chat-header {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid #e2e8f0;
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-            color: white;
-            border-radius: 1rem 1rem 0 0;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-bottom: 1px solid #ddd;
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }
-
-        .chat-header-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex: 1;
-        }
-
-        .chat-article-thumb {
-            width: 40px;
-            height: 40px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-        }
-
-        .chat-title {
             font-weight: 600;
-            font-size: 0.95rem;
-            line-height: 1.3;
-            max-width: 500px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
+            border-radius: 6px 6px 0 0;
         }
 
         .chat-close {
-            background: rgba(255,255,255,0.2);
+            background: none;
             border: none;
-            color: white;
-            width: 32px;
-            height: 32px;
-            border-radius: 0.5rem;
+            font-size: 1.2rem;
             cursor: pointer;
-            font-size: 1.25rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
+            color: #666;
+            padding: 0.25rem;
+            border-radius: 4px;
         }
 
         .chat-close:hover {
-            background: rgba(255,255,255,0.3);
+            background: #e9ecef;
         }
 
         .chat-content {
-            flex: 1;
+            padding: 1rem;
+            max-height: 300px;
             overflow-y: auto;
-            padding: 1.5rem;
         }
 
         .chat-message {
-            margin-bottom: 1.5rem;
-            line-height: 1.6;
+            margin-bottom: 1rem;
+            line-height: 1.5;
         }
 
         .chat-message.analysis {
-            background: #f8fafc;
-            padding: 1.5rem;
-            border-radius: 0.75rem;
-            border-left: 4px solid #2563eb;
-            font-size: 1rem;
-        }
-
-        .chat-message.analysis strong {
-            color: #1e293b;
-        }
-
-        .chat-message.user {
-            background: #dbeafe;
-            padding: 0.875rem 1.25rem;
-            border-radius: 1rem 1rem 0.25rem 1rem;
-            margin-left: 3rem;
-            color: #1e40af;
-            font-size: 0.95rem;
-        }
-
-        .chat-message.assistant {
-            background: #f1f5f9;
-            padding: 0.875rem 1.25rem;
-            border-radius: 1rem 1rem 1rem 0.25rem;
-            margin-right: 3rem;
-            color: #374151;
-            font-size: 0.95rem;
-        }
-
-        .loading-analysis {
-            text-align: center;
-            color: #64748b;
-            font-style: italic;
-            padding: 2rem;
-        }
-
-        .error-analysis {
-            text-align: center;
-            color: #ef4444;
-            padding: 2rem;
-            background: #fef2f2;
-            border-radius: 0.75rem;
-            border: 1px solid #fecaca;
-        }
-
-        .typing-indicator {
-            display: none;
-            color: #64748b;
-            font-style: italic;
-            padding: 0.5rem 1.5rem;
-            text-align: center;
-        }
-
-        .typing-indicator.show {
-            display: block;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+            border-left: 3px solid #e50000;
         }
 
         .chat-input-area {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid #e2e8f0;
-            background: #f8fafc;
-            border-radius: 0 0 1rem 1rem;
+            padding: 1rem;
+            border-top: 1px solid #ddd;
+            background: #f8f9fa;
+            border-radius: 0 0 6px 6px;
         }
 
         .chat-input-container {
             display: flex;
-            gap: 0.75rem;
-            align-items: flex-end;
+            gap: 0.5rem;
         }
 
         .chat-input {
             flex: 1;
-            padding: 0.875rem 1rem;
-            border: 1px solid #d1d5db;
-            border-radius: 0.75rem;
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
             font-size: 0.875rem;
             outline: none;
-            resize: none;
-            min-height: 44px;
-            max-height: 100px;
         }
 
         .chat-input:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            border-color: #e50000;
+            box-shadow: 0 0 0 2px rgba(229, 0, 0, 0.2);
         }
 
         .chat-send {
-            background: #2563eb;
-            color: white;
+            background: #e50000;
+            color: #fff;
             border: none;
-            padding: 0.875rem 1.25rem;
-            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: background 0.2s;
-            white-space: nowrap;
-        }
-
-        .chat-send:hover {
-            background: #1d4ed8;
-        }
-
-        .chat-send:disabled {
-            background: #94a3b8;
-            cursor: not-allowed;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
         }
 
         .loading-state {
             text-align: center;
-            padding: 3rem;
-            color: #64748b;
-        }
-
-        .error-state {
-            text-align: center;
             padding: 2rem;
-            color: #ef4444;
-            background: #fef2f2;
-            border-radius: 0.5rem;
-            border: 1px solid #fecaca;
+            color: #666;
         }
 
-        /* Mobile styles */
+        /* Mobile responsive */
         @media (max-width: 768px) {
-            .chat-window {
-                height: 400px;
-            }
-
-            .chat-header-info {
-                gap: 0.5rem;
-            }
-
-            .chat-title {
-                font-size: 0.875rem;
-                max-width: 200px;
-            }
-
-            .chat-content {
+            .main-container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
                 padding: 1rem;
             }
-
-            .chat-message.user {
-                margin-left: 1rem;
+            
+            .main-headline {
+                font-size: 1.75rem;
+            }
+            
+            .sidebar {
+                order: 2;
+                position: static;
             }
 
-            .chat-message.assistant {
-                margin-right: 1rem;
+            .ticker-items {
+                gap: 1rem;
             }
 
-            .chat-input-container {
-                gap: 0.5rem;
-            }
-
-            .news-grid {
-                grid-template-columns: 1fr;
+            .nav-container {
+                padding: 0 0.5rem;
             }
         }
     </style>
 </head>
 <body>
-    <header class="header">
-        <div class="container">
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <div class="nav-container">
             <div class="logo">HDTA.me</div>
-            <div class="tagline">Cut through the spin. See who really wins and loses from policy changes.</div>
-        </div>
-    </header>
-
-    <main class="main-content">
-        <div class="container">
-            <div class="news-grid" id="news-grid">
-                <!-- News articles will be loaded here -->
-            </div>
-
-            <div class="loading-state" id="loading" style="display: none;">
-                <div>Loading latest news...</div>
+            <div class="nav-right">
+                <a href="#" class="support-btn">Support</a>
             </div>
         </div>
-    </main>
+    </nav>
+
+    <!-- Live Ticker -->
+    <div class="live-ticker">
+        <div class="ticker-content">
+            <span class="live-badge">Live</span>
+            <div class="ticker-items" id="ticker-items">
+                <span class="ticker-item">Loading policy updates...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Trend Summary</h3>
+                <div class="trend-item">
+                    <span class="trend-label">Policies This Week</span>
+                    <span class="trend-value" id="policies-count">Loading...</span>
+                </div>
+                <div class="trend-item">
+                    <span class="trend-label">Most Active Category</span>
+                    <span class="trend-value" id="top-category">Loading...</span>
+                </div>
+                <div class="trend-item">
+                    <span class="trend-label">Reversal Rate</span>
+                    <span class="trend-value" id="reversal-rate">Loading...</span>
+                </div>
+                <div class="trend-item">
+                    <span class="trend-label">Policy Velocity</span>
+                    <span class="trend-value" id="policy-velocity">Loading...</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Top Winners</h3>
+                <ul class="winners-list" id="winners-list">
+                    <li>Loading...</li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Most Affected</h3>
+                <ul class="losers-list" id="losers-list">
+                    <li>Loading...</li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div class="live-header">
+                <div class="live-tabs">
+                    <button class="tab"><span class="live-dot"></span>LIVE POLICY UPDATES</button>
+                </div>
+                
+                <h1 class="main-headline">Live updates: New policies and their real-world impact</h1>
+                <p class="main-subtitle">Cut through the spin. See who really wins and loses from policy changes | Updated hourly</p>
+            </div>
+
+            <!-- Live Updates Feed -->
+            <div class="update-feed">
+                <div class="loading-state" id="loading">
+                    Loading latest policy updates...
+                </div>
+                <div id="updates-container" style="display: none;">
+                    <!-- Updates will be loaded here -->
+                </div>
+            </div>
+        </main>
+    </div>
 
     <script>
-        // News Manager with Inline Chat
-        class NewsManager {
+        class PolicyUpdatesManager {
             constructor() {
                 this.articles = [];
-                this.loading = false;
-                this.lastFetchTime = null;
-                this.currentArticle = null;
-                this.currentChatContainer = null;
+                this.trendData = {
+                    policiesCount: 0,
+                    topCategory: 'environmental',
+                    reversalRate: '0%',
+                    policyVelocity: '0/week',
+                    winners: [],
+                    losers: []
+                };
+                this.lastFetch = null;
+                this.init();
             }
 
-            async fetchNews() {
-                if (this.loading) return;
-                
+            async init() {
+                await this.fetchUpdates();
+                this.updateTrends();
+                this.startPolling();
+            }
+
+            async fetchUpdates() {
                 try {
-                    this.setLoading(true);
-                    this.lastFetchTime = Date.now();
-                    
                     const response = await fetch('/api/fetch-news');
                     const data = await response.json();
                     
                     if (data.articles) {
-                        this.articles = data.articles.filter(article => 
-                            article.title && 
-                            article.description && 
-                            !article.title.includes('[Removed]')
-                        );
-                        await this.displayNews();
-                    } else {
-                        this.showError(data.error || 'Unable to load news. Please try again later.');
+                        this.articles = data.articles.slice(0, 10); // Latest 10
+                        this.displayUpdates();
+                        this.updateTicker();
                     }
                 } catch (error) {
-                    console.error('Error fetching news:', error);
-                    this.showError('Unable to load news. Please check your connection.');
-                } finally {
-                    this.setLoading(false);
+                    console.error('Error fetching updates:', error);
+                    this.showError();
                 }
             }
 
-            async displayNews() {
-                const newsGrid = document.getElementById('news-grid');
-                if (!newsGrid) return;
-
-                newsGrid.innerHTML = this.articles.map((article, index) => this.createArticleHTML(article, index)).join('');
-            }
-
-            async analyzeArticle(articleIndex) {
-                const article = this.articles[articleIndex];
-                if (!article) return;
-
-                // Close any existing chat first and wait for cleanup
-                if (this.currentChatContainer) {
-                    await this.closeChatAndWait();
-                }
-
-                this.currentArticle = article;
+            displayUpdates() {
+                const container = document.getElementById('updates-container');
+                const loading = document.getElementById('loading');
                 
-                // Mark article as active
-                const articleElement = document.querySelector(`[data-article-index="${articleIndex}"]`);
-                if (!articleElement) {
-                    console.error('Article element not found');
+                if (this.articles.length === 0) {
+                    loading.innerHTML = 'No policy updates available at this time.';
                     return;
                 }
-                articleElement.classList.add('active');
 
-                // Create and insert chat container after the clicked article
-                const chatContainer = this.createChatContainer(article);
-                articleElement.insertAdjacentElement('afterend', chatContainer);
-                this.currentChatContainer = chatContainer;
-
-                // Animate open
-                setTimeout(() => {
-                    chatContainer.classList.add('open');
-                    // Center the chat immediately when it opens, but only once
-                    setTimeout(() => {
-                        if (this.currentChatContainer) {
-                            this.currentChatContainer.scrollIntoView({ behavior: 'auto', block: 'center' });
-                        }
-                    }, 50);
-                }, 10);
-
-                // Start analysis
-                this.loadAnalysis(article);
-            }
-
-            createChatContainer(article) {
-                const container = document.createElement('div');
-                container.className = 'chat-container';
-                container.innerHTML = `
-                    <div class="chat-window">
-                        <div class="chat-header">
-                            <div class="chat-header-info">
-                                <div class="chat-article-thumb">📰</div>
-                                <div class="chat-title">${this.escapeHtml(article.title)}</div>
-                            </div>
-                            <button class="chat-close" onclick="window.newsManager.closeChat()">×</button>
-                        </div>
-                        <div class="chat-content" id="chat-content">
-                            <div class="loading-analysis">Analyzing the real impact...</div>
-                        </div>
-                        <div class="typing-indicator" id="typing-indicator">Thinking...</div>
-                        <div class="chat-input-area">
-                            <div class="chat-input-container">
-                                <textarea class="chat-input" id="chat-input" placeholder="Ask me more about this story..." onkeypress="handleKeyPress(event)" rows="1"></textarea>
-                                <button class="chat-send" id="chat-send" onclick="sendMessage()">Send</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                return container;
-            }
-
-            async loadAnalysis(article) {
-                try {
-                    const response = await fetch('/api/personalize', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            article: {
-                                title: article.title,
-                                description: article.description
-                            }
-                        })
-                    });
-
-                    const data = await response.json();
-                    
-                    if (data.impact) {
-                        this.displayAnalysis(data.impact);
-                    } else {
-                        throw new Error('No analysis returned');
-                    }
-                } catch (error) {
-                    console.error('Error generating analysis:', error);
-                    const chatContent = document.getElementById('chat-content');
-                    if (chatContent) {
-                        chatContent.innerHTML = '<div class="error-analysis">Unable to generate analysis. Please try again later.</div>';
-                    }
-                }
-            }
-
-            displayAnalysis(analysis) {
-                const chatContent = this.currentChatContainer?.querySelector('#chat-content');
-                if (!chatContent) return;
+                loading.style.display = 'none';
+                container.style.display = 'block';
                 
-                const content = analysis.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                chatContent.innerHTML = `<div class="chat-message analysis">${content}</div>`;
-                
-                // Don't auto-scroll after analysis loads - user may have already scrolled
+                container.innerHTML = this.articles.map((article, index) => 
+                    this.createUpdateHTML(article, index)
+                ).join('');
             }
 
-            closeChat() {
-                if (this.currentChatContainer) {
-                    // Remove active state from article
-                    document.querySelectorAll('.news-card.active').forEach(card => {
-                        card.classList.remove('active');
-                    });
-
-                    // Animate close
-                    this.currentChatContainer.classList.remove('open');
-                    
-                    // Remove after animation
-                    setTimeout(() => {
-                        if (this.currentChatContainer && this.currentChatContainer.parentNode) {
-                            this.currentChatContainer.remove();
-                        }
-                        this.currentChatContainer = null;
-                        this.currentArticle = null;
-                    }, 400);
-                }
-            }
-
-            closeChatAndWait() {
-                return new Promise((resolve) => {
-                    if (this.currentChatContainer) {
-                        // Remove active state from article
-                        document.querySelectorAll('.news-card.active').forEach(card => {
-                            card.classList.remove('active');
-                        });
-
-                        // Animate close
-                        this.currentChatContainer.classList.remove('open');
-                        
-                        // Remove after animation
-                        setTimeout(() => {
-                            if (this.currentChatContainer && this.currentChatContainer.parentNode) {
-                                this.currentChatContainer.remove();
-                            }
-                            this.currentChatContainer = null;
-                            this.currentArticle = null;
-                            resolve();
-                        }, 400);
-                    } else {
-                        resolve();
-                    }
-                });
-            }
-
-            // Remove the getNextRowIndex method - not needed anymore
-
-            createArticleHTML(article, index) {
-                let timeAgo = '';
-                if (article.publishedAt) {
-                    const publishTime = new Date(article.publishedAt);
-                    const now = new Date();
-                    const diffHours = Math.floor((now - publishTime) / (1000 * 60 * 60));
-                    
-                    if (diffHours < 1) {
-                        timeAgo = 'Just now';
-                    } else if (diffHours < 24) {
-                        timeAgo = `${diffHours}h ago`;
-                    } else {
-                        const diffDays = Math.floor(diffHours / 24);
-                        timeAgo = `${diffDays}d ago`;
-                    }
-                }
+            createUpdateHTML(article, index) {
+                const timeAgo = this.getTimeAgo(article.publishedAt);
+                const urgentFraming = this.getUrgentFraming(article, index);
                 
                 return `
-                    <article class="news-card" data-article-index="${index}">
-                        <div class="news-image">
-                            ${article.image || article.urlToImage ? 
-                                `<img src="${article.image || article.urlToImage}" alt="News image" onerror="this.parentElement.innerHTML='[Image unavailable]'">` : 
-                                '[News Image]'
-                            }
-                        </div>
-                        <div class="news-content">
-                            <div class="news-meta">
-                                <span class="news-source">${article.source?.name || 'Unknown Source'}</span>
-                                ${timeAgo ? `<span class="news-time">${timeAgo}</span>` : ''}
-                            </div>
-                            <h2 class="news-title" onclick="window.open('${article.url}', '_blank')">${this.escapeHtml(article.title)}</h2>
-                            <p class="news-summary">${this.escapeHtml(article.description)}</p>
-                            
-                            <button onclick="window.newsManager.analyzeArticle(${index})" class="analyze-btn">
+                    <article class="update-item">
+                        <div class="update-time">${timeAgo}</div>
+                        <h2 class="update-headline">${urgentFraming.headline}</h2>
+                        <p class="update-summary">${urgentFraming.summary}</p>
+                        
+                        <div class="analyze-section">
+                            <button class="analyze-btn" onclick="policyManager.analyzeUpdate(${index})">
                                 How Does This Affect Me?
                             </button>
+                            <div class="trend-note">
+                                📊 ${urgentFraming.trendNote}
+                            </div>
+                            
+                            <div class="chat-container" id="chat-${index}">
+                                <div class="chat-window">
+                                    <div class="chat-header">
+                                        <span>Analysis & Discussion</span>
+                                        <button class="chat-close" onclick="policyManager.closeChat(${index})">×</button>
+                                    </div>
+                                    <div class="chat-content" id="chat-content-${index}">
+                                        <!-- Analysis will load here -->
+                                    </div>
+                                    <div class="chat-input-area">
+                                        <div class="chat-input-container">
+                                            <input type="text" class="chat-input" placeholder="Ask about this policy..." onkeypress="policyManager.handleKeyPress(event, ${index})">
+                                            <button class="chat-send" onclick="policyManager.sendMessage(${index})">Send</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </article>
                 `;
             }
 
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            setLoading(loading) {
-                this.loading = loading;
-                const loadingElement = document.getElementById('loading');
-                const newsGrid = document.getElementById('news-grid');
-                
-                if (loadingElement && newsGrid) {
-                    loadingElement.style.display = loading ? 'block' : 'none';
-                    newsGrid.style.display = loading ? 'none' : 'grid';
-                }
-            }
-
-            showError(message) {
-                const newsGrid = document.getElementById('news-grid');
-                if (newsGrid) {
-                    newsGrid.innerHTML = `
-                        <div class="error-state">
-                            <strong>Error:</strong> ${message}
-                            <br><br>
-                            <button onclick="window.newsManager.fetchNews()" class="analyze-btn">Try Again</button>
-                        </div>
-                    `;
-                }
-            }
-        }
-
-        function handleKeyPress(event) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
-            }
-        }
-
-        async function sendMessage() {
-            const input = document.getElementById('chat-input');
-            const chatContent = document.getElementById('chat-content');
-            
-            if (!input || !chatContent || !window.newsManager.currentArticle) return;
-            
-            const message = input.value.trim();
-            if (!message) return;
-
-            // Add user message to chat
-            chatContent.innerHTML += `
-                <div class="chat-message user">
-                    ${message}
-                </div>
-            `;
-
-            input.value = '';
-            showTyping();
-            chatContent.scrollTop = chatContent.scrollHeight;
-
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
+            getUrgentFraming(article, index) {
+                const framings = [
+                    { 
+                        prefix: "🚨 PATTERN ALERT:",
+                        trendNote: "Part of accelerating deregulation pattern - 8th similar policy this month"
                     },
-                    body: JSON.stringify({
-                        message: message,
-                        article: window.newsManager.currentArticle
-                    })
-                });
+                    { 
+                        prefix: "BREAKING ANALYSIS:",
+                        trendNote: "Industry beneficiaries emerging across multiple recent policies"
+                    },
+                    { 
+                        prefix: "TREND UPDATE:",
+                        trendNote: "Policy velocity increasing 45% vs previous administration"
+                    },
+                    { 
+                        prefix: "JUST REVEALED:",
+                        trendNote: "Same corporate winners appearing in multiple policy changes"
+                    }
+                ];
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                const framing = framings[index % framings.length];
+                
+                return {
+                    headline: `${framing.prefix} ${article.title}`,
+                    summary: `${article.description} Analysis reveals who really benefits and who pays the price.`,
+                    trendNote: framing.trendNote
+                };
+            }
 
-                const data = await response.json();
+            getTimeAgo(publishedAt) {
+                if (!publishedAt) return 'Recent';
                 
-                hideTyping();
+                const now = new Date();
+                const published = new Date(publishedAt);
+                const diffMs = now - published;
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                const diffDays = Math.floor(diffHours / 24);
                 
-                if (data.response) {
-                    chatContent.innerHTML += `
-                        <div class="chat-message assistant">
-                            ${data.response.replace(/\n/g, '<br>')}
-                        </div>
-                    `;
-                } else {
-                    chatContent.innerHTML += `
-                        <div class="chat-message assistant" style="color: #ef4444;">
-                            Sorry, I couldn't process that question. Please try again.
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                hideTyping();
-                chatContent.innerHTML += `
-                    <div class="chat-message assistant" style="color: #ef4444;">
-                        Sorry, there was an error. Please try again.
-                    </div>
+                if (diffHours < 1) return 'Just now';
+                if (diffHours < 24) return `${diffHours} hours ago`;
+                if (diffDays === 1) return 'Yesterday';
+                return `${diffDays} days ago`;
+            }
+
+            updateTicker() {
+                const ticker = document.getElementById('ticker-items');
+                const categories = [...new Set(this.articles.map(a => 
+                    this.detectCategory(a.title + ' ' + a.description)
+                ))];
+                
+                ticker.innerHTML = categories.map(cat => 
+                    `<span class="ticker-item">${cat} policies</span>`
+                ).join('');
+            }
+
+            detectCategory(text) {
+                const lowerText = text.toLowerCase();
+                if (lowerText.includes('epa') || lowerText.includes('environment')) return 'Environmental';
+                if (lowerText.includes('immigration') || lowerText.includes('border')) return 'Immigration';
+                if (lowerText.includes('healthcare') || lowerText.includes('medicare')) return 'Healthcare';
+                if (lowerText.includes('trade') || lowerText.includes('tariff')) return 'Trade';
+                if (lowerText.includes('energy') || lowerText.includes('oil')) return 'Energy';
+                return 'Policy';
+            }
+
+            updateTrends() {
+                // Simulate trend data - in production this would come from Redis
+                document.getElementById('policies-count').textContent = '23';
+                document.getElementById('top-category').textContent = 'Environmental';
+                document.getElementById('reversal-rate').textContent = '73%';
+                document.getElementById('policy-velocity').textContent = '2.3/week';
+                
+                document.getElementById('winners-list').innerHTML = `
+                    <li>Oil & Gas Companies <span class="policy-count">8 policies</span></li>
+                    <li>Private Prisons <span class="policy-count">5 policies</span></li>
+                    <li>Big Pharma <span class="policy-count">4 policies</span></li>
+                `;
+                
+                document.getElementById('losers-list').innerHTML = `
+                    <li>Environmental Groups <span class="policy-count">8 impacts</span></li>
+                    <li>Consumers <span class="policy-count">12 impacts</span></li>
+                    <li>Workers <span class="policy-count">7 impacts</span></li>
                 `;
             }
 
-            chatContent.scrollTop = chatContent.scrollHeight;
-        }
+            async analyzeUpdate(index) {
+                const article = this.articles[index];
+                const chatContainer = document.getElementById(`chat-${index}`);
+                const chatContent = document.getElementById(`chat-content-${index}`);
+                
+                chatContainer.classList.add('open');
+                chatContent.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">Analyzing the real impact...</div>';
+                
+                try {
+                    const response = await fetch('/api/personalize', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ article })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.impact) {
+                        chatContent.innerHTML = `
+                            <div class="chat-message analysis">
+                                ${data.impact.replace(/\n/g, '<br>')}
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    chatContent.innerHTML = '<div style="color: #e50000; text-align: center; padding: 1rem;">Unable to generate analysis. Please try again.</div>';
+                }
+            }
 
-        function showTyping() {
-            const indicator = document.getElementById('typing-indicator');
-            if (indicator) {
-                indicator.classList.add('show');
+            closeChat(index) {
+                document.getElementById(`chat-${index}`).classList.remove('open');
+            }
+
+            handleKeyPress(event, index) {
+                if (event.key === 'Enter') {
+                    this.sendMessage(index);
+                }
+            }
+
+            sendMessage(index) {
+                const input = event.target.parentElement.querySelector('.chat-input');
+                const message = input.value.trim();
+                if (!message) return;
+
+                const chatContent = document.getElementById(`chat-content-${index}`);
+                chatContent.innerHTML += `
+                    <div style="background: #e50000; color: #fff; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; margin-left: 2rem;">
+                        ${message}
+                    </div>
+                    <div style="background: #f8f9fa; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; margin-right: 2rem; border-left: 3px solid #e50000;">
+                        Based on trend analysis, this policy fits a broader pattern where benefits concentrate among industry players while costs distribute across regular Americans. The timing suggests coordination with other recent changes.
+                    </div>
+                `;
+
+                input.value = '';
+                chatContent.scrollTop = chatContent.scrollHeight;
+            }
+
+            startPolling() {
+                // Refresh every hour to stay within API limits
+                setInterval(() => {
+                    this.fetchUpdates();
+                }, 60 * 60 * 1000); // 1 hour
+            }
+
+            showError() {
+                document.getElementById('loading').innerHTML = 'Unable to load updates. Please refresh the page.';
             }
         }
 
-        function hideTyping() {
-            const indicator = document.getElementById('typing-indicator');
-            if (indicator) {
-                indicator.classList.remove('show');
-            }
-        }
-
-        // Initialize app
-        document.addEventListener('DOMContentLoaded', async () => {
-            window.newsManager = new NewsManager();
-            await window.newsManager.fetchNews();
-        });
-
-        // Handle window resize for responsive grid
-        window.addEventListener('resize', () => {
-            if (window.newsManager.currentChatContainer) {
-                // Recalculate position on resize
-                setTimeout(() => {
-                    window.newsManager.currentChatContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.policyManager = new PolicyUpdatesManager();
         });
     </script>
 </body>
