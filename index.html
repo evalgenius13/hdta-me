@@ -297,7 +297,7 @@
 <body>
     <header class="header">
         <div class="container">
-            <h1 class="logo">HDTA.me</h1>
+            <h1 class="logo">How Does This Affect Me?</h1>
             <p class="tagline">See the bigger picture of how policies affect real people</p>
         </div>
     </header>
@@ -470,6 +470,15 @@
                     analysis: this.extractKeyInsight(analysis),
                     url: shareUrl
                 };
+            }
+
+            formatAnalysis(text) {
+                // Convert line breaks to paragraphs and clean up formatting
+                return text
+                    .split('\n\n')
+                    .filter(p => p.trim())
+                    .map(p => `<p>${p.trim()}</p>`)
+                    .join('');
             }
 
             extractKeyInsight(analysis) {
