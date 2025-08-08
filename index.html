@@ -10,16 +10,13 @@
     body{font-family:Georgia,"Times New Roman",serif;background:#fafafa;color:#111;line-height:1.6}
     .wrap{max-width:640px;margin:0 auto;padding:0 16px}
 
-    .masthead{background:#fff;border-bottom:1px solid #e5e5e5;padding:28px 0 16px}
+    .masthead{background:#fff;border-bottom:1px solid #e5e5e5;padding:24px 0 14px}
     .brand{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;font-size:36px;line-height:1.1;font-weight:800;text-align:center;letter-spacing:.2px}
     .tagline{text-align:center;font-size:16px;color:#64748b;margin-top:6px}
     .edition-info{text-align:center;color:#6b7280;font-size:12px;margin-top:8px;text-transform:uppercase;letter-spacing:.06em}
 
-    .main-content{padding:24px 0}
-    .page-title{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;text-align:center;font-size:28px;font-weight:800;color:#111;margin-bottom:6px;line-height:1.2}
-    .page-subtitle{text-align:center;color:#64748b;font-size:15px;margin-bottom:20px}
-
-    .articles-list{max-width:640px;margin:0 auto}
+    .main-content{padding:16px 0}
+    .articles-list{max-width:640px;margin:4px auto 0}
     .article-item{background:#fff;padding:0 0 16px}
     .articles-list>article+article{border-top:1px solid #e5e5e5;padding-top:16px;margin-top:16px}
 
@@ -34,7 +31,7 @@
     .article-summary{color:#1f2937;font-size:16px;line-height:1.6;margin-bottom:12px}
 
     .analysis{border-top:1px solid #e5e5e5;margin-top:12px;padding-top:12px}
-    .analysis-label{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#111;margin-bottom:6px;font-weight:600}
+    .analysis-label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#111;margin-bottom:6px;font-weight:600}
     .analysis-text{font-size:16px;line-height:1.7;color:#1f2937}
     .analysis-text p{margin-bottom:12px}
 
@@ -66,14 +63,10 @@
 
   <main class="main-content">
     <div class="wrap">
-      <h2 class="page-title">Today’s analysis</h2>
-      <p class="page-subtitle">Plain facts. Real impact.</p>
-
       <div class="loading-state" id="loading">
         <span class="loading-spinner"></span>
         Loading today’s analysis...
       </div>
-
       <div class="articles-list" id="articles-container" style="display:none"></div>
     </div>
   </main>
