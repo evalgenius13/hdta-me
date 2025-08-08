@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     if (!OPENAI_API_KEY) {
       return res.status(500).json({
         error: 'Analysis service unavailable',
-        message: 'Pre-generated analysis not found and real-time generation is not configured'
+        message: 'Real-time generation is not configured'
       });
     }
 
@@ -32,21 +32,22 @@ export default async function handler(req, res) {
 You write short policy explainers that answer one question: How does this affect me.
 Voice: relaxed but professional. Plain English. Precise. Calm. Trustworthy. No slang. No hype.
 
-Start with one direct sentence that states the most important practical effect or hidden truth behind the policy.
-Choose the clearest angle:
-- what is being overlooked
-- who is really being targeted
-- the true motive suggested by the mechanism
-- a major consequence not being discussed
-- or the key mechanism that drives the impact
+Output JSON only. No preface. Use this exact schema:
+{
+  "takeaway": "one clear sentence a reader can repeat",
+  "facts": ["fact with a number or date", "second fact"],
+  "winners": "who benefits, <= 15 words",
+  "losers": "who is most exposed, <= 15 words",
+  "counterpoint": "credible counterpoint, <= 25 words",
+  "watch_next": "what to watch next, <= 20 words",
+  "analysis": "120-180 word plain-English analysis paragraphs"
+}
 
-Then write 2 to 3 short paragraphs that explain:
-1) what it means for daily life such as costs, access, eligibility, and timeline
-2) who benefits and who is most likely hurt
-3) how this fits a broader pattern of recent moves if relevant
-
-Keep the total under 200 words.
-Be specific. Cite concrete mechanics. If something is uncertain, state what would confirm it.
+Rules:
+1) Include at least two concrete facts with numbers or dates.
+2) Be specific about daily-life effects, costs, access, eligibility, timelines.
+3) If something is uncertain, say what would confirm it.
+4) Keep tone calm and professional.
 
 Policy: "${article.title}"
 Details: "${article.description}"
@@ -63,37 +64,64 @@ Details: "${article.description}"
         messages: [
           {
             role: 'system',
-            content:
-              'Explain policy impacts in clear, plain language. Prioritize who benefits, who is harmed, timelines, and concrete effects. Maintain a professional, calm tone.'
+            content: 'Explain policy impacts in clear, plain language. Prioritize who benefits, who is harmed, timelines, and concrete effects. Maintain a professional, calm tone.'
           },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 220,
+        max_tokens: 380,
         temperature: 0.3
       })
     });
 
     if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
-
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
+    const raw = data.choices?.[0]?.message?.content?.trim() || '';
 
-    if (!content) throw new Error('No analysis content received from OpenAI');
+    let parsed = null;
+    try {
+      const jsonText = raw.replace(/```json|```/g, '').trim();
+      parsed = JSON.parse(jsonText);
+    } catch {
+      parsed = null;
+    }
 
-    return res.json({
-      impact: content,
-      source: 'real-time',
-      cached: false
-    });
+    if (parsed && parsed.analysis) {
+      return res.json({
+        impact: parsed.analysis.trim(),
+        takeaway: parsed.takeaway?.trim() || null,
+        facts: Array.isArray(parsed.facts) ? parsed.facts.slice(0, 3) : [],
+        winners: parsed.winners?.trim() || null,
+        losers: parsed.losers?.trim() || null,
+        counterpoint: parsed.counterpoint?.trim() || null,
+        watch_next: parsed.watch_next?.trim() || null,
+        source: 'real-time',
+        cached: false
+      });
+    }
+
+    if (raw) {
+      return res.json({
+        impact: raw,
+        source: 'real-time',
+        cached: false
+      });
+    }
+
+    throw new Error('No analysis content received from OpenAI');
   } catch (error) {
     console.error('Analysis error:', error);
     const fallbackAnalysis =
-      'For most people, the immediate effect will come from how the rule is implemented. Watch changes to eligibility, fees, deadlines, and enforcement. Those details decide who benefits and who bears the cost. Expect uneven impact across regions and agencies until guidance settles.';
+      'For most people, the effect will depend on how the rule is implemented. Watch eligibility, fees, deadlines, and enforcement. Those decide who benefits and who bears the cost.';
     return res.json({
       impact: fallbackAnalysis,
+      takeaway: 'Implementation details will decide who benefits and who pays.',
+      facts: [],
+      winners: null,
+      losers: null,
+      counterpoint: 'Some impacts may be smaller if agencies delay rollout.',
+      watch_next: 'Agency guidance and timelines.',
       source: 'fallback',
-      cached: false,
-      note: 'Detailed analysis temporarily unavailable'
+      cached: false
     });
   }
 }
