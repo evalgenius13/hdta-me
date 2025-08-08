@@ -1,19 +1,247 @@
-<!-- 1) Inline newsletter signup: place AFTER the first article in #articles-container -->
-<section class="signup-inline" id="signup-inline" aria-labelledby="signup-title-inline">
-  <h2 class="signup-h" id="signup-title-inline">Get the brief</h2>
-  <p class="signup-sub">Plain English impact. Daily or weekly.</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How Does This Affect Me?</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='black'/><text x='50%' y='60%' text-anchor='middle' font-size='42' fill='white' font-family='system-ui'>HD</text></svg>">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Georgia,"Times New Roman",serif;background:#fafafa;color:#111;line-height:1.6}
+    .wrap{max-width:640px;margin:0 auto;padding:0 16px}
 
-  <form class="signup-form" id="signup-form-inline" novalidate>
-    <input type="email" class="email-input" id="email-inline" name="email" placeholder="Your email" required autocomplete="email" />
-    <fieldset class="frequency">
-      <legend class="sr-only">Frequency</legend>
-      <label class="freq"><input type="radio" name="freq" value="daily" checked /> Daily</label>
-      <label class="freq"><input type="radio" name="freq" value="weekly" /> Weekly</label>
-    </fieldset>
+    .masthead{background:#fff;border-bottom:1px solid #e5e5e5;padding:24px 0 14px}
+    .brand{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;font-size:32px;line-height:1.1;font-weight:800;text-align:center;letter-spacing:.2px}
+    .tagline{text-align:center;font-size:15px;color:#64748b;margin-top:6px}
+    .edition-info{text-align:center;color:#6b7280;font-size:12px;margin-top:8px;text-transform:uppercase;letter-spacing:.06em}
 
-    <input type="text" name="company" class="hp" autocomplete="off" tabindex="-1" aria-hidden="true" />
-    <button type="submit" class="signup-btn" id="btn-inline">Subscribe</button>
-  </form>
+    .main-content{padding:16px 0}
+    .articles-list{max-width:640px;margin:4px auto 0}
+    .article-item{background:#fff;padding:0 0 16px}
+    .articles-list>article+article{border-top:1px solid #e5e5e5;padding-top:16px;margin-top:16px}
 
-  <p class="signup-note" id="note-inline">No spam. Unsubscribe anytime.</p>
-</section>
+    .news-image{width:100%;height:160px;background:#f8f9fa;display:flex;align-items:center;justify-content:center;color:#666;font-size:1rem;overflow:hidden}
+    .news-image img{width:100%;height:100%;object-fit:cover;object-position:center}
+
+    .article-content{padding:12px 0}
+    .article-meta{color:#6b7280;font-size:.9rem;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+    .read-full{color:#0ea5e9;text-decoration:none;font-weight:600;font-size:.9rem}
+    .read-full:hover{text-decoration:underline}
+    .article-title{font-size:20px;font-weight:700;color:#111;margin-bottom:8px;line-height:1.35}
+    .article-summary{color:#1f2937;font-size:16px;line-height:1.6;margin-bottom:12px}
+
+    .analysis{border-top:1px solid #e5e5e5;margin-top:12px;padding-top:12px}
+    .analysis-label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#111;margin-bottom:6px;font-weight:600}
+    .analysis-text{font-size:16px;line-height:1.7;color:#1f2937}
+    .analysis-text p{margin-bottom:12px}
+
+    .loading-state{text-align:center;padding:36px 16px;color:#64748b;font-style:italic}
+    .loading-spinner{width:16px;height:16px;border:2px solid #e2e8f0;border-top:2px solid #0ea5e9;border-radius:50%;animation:spin 1s linear infinite;display:inline-block;margin-right:8px;vertical-align:-3px}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+
+    .social-sharing{background:#f8fafc;padding:10px;border-radius:6px;border:1px solid #e5e5e5;margin-top:10px}
+    .sharing-title{font-size:.95rem;color:#0f172a;margin-bottom:8px;font-weight:700}
+    .share-buttons{display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap}
+    .share-btn{padding:.45rem .9rem;border:0;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600}
+    .share-btn.twitter{background:#1da1f2;color:#fff}
+    .share-btn.linkedin{background:#0077b5;color:#fff}
+    .share-btn.facebook{background:#1877f2;color:#fff}
+    .copy-link{display:flex;gap:.5rem}
+    .link-input{flex:1;padding:.5rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.9rem;background:#fff;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .copy-btn{background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:6px;font-size:.9rem;cursor:pointer}
+    .copy-btn.copied{background:#10b981}
+
+    .takeaway{font-weight:700;margin:0 0 8px 0}
+    .facts{margin:0 0 12px 18px}
+    .facts li{margin:2px 0}
+    .impact-footer{margin-top:10px;font-size:14px;color:#374151}
+    .impact-footer span+span::before{content:" · ";padding:0 6px}
+  </style>
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap">
+      <h1 class="brand">How Does This Affect Me?</h1>
+      <p class="tagline">Clear, practical impact from today’s policy news</p>
+      <div class="edition-info" id="edition-info">Thursday, August 7, 2025 • Issue #1</div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="wrap">
+      <div class="loading-state" id="loading">
+        <span class="loading-spinner"></span>
+        Loading today’s analysis...
+      </div>
+      <div class="articles-list" id="articles-container" style="display:none"></div>
+    </div>
+  </main>
+
+  <script>
+    class DailyNewsletterSite {
+      constructor(){ this.articles=[]; this.sharingData={}; this.init(); }
+
+      async init(){ this.setTodaysDate(); await this.fetchTodaysContent(); }
+
+      setTodaysDate(){
+        const today=new Date();
+        const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
+        const dateStr=today.toLocaleDateString('en-US',options);
+        const issueNumber=Math.floor((today - new Date('2025-01-01'))/86400000)+1;
+        document.getElementById('edition-info').textContent=`${dateStr} • Issue #${issueNumber}`;
+      }
+
+      async fetchTodaysContent(){
+        try{
+          const response=await fetch('/api/fetch-news');
+          if(!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data=await response.json();
+          if(data.articles){
+            this.articles=data.articles.slice(0,6);
+            if(data.edition_info) this.updateEditionInfo(data.edition_info);
+            this.displayArticles();
+          } else { throw new Error('No articles'); }
+        }catch(e){
+          console.error('Error fetching articles:',e);
+          document.getElementById('loading').innerHTML='Unable to load today’s analysis. Please refresh.';
+        }
+      }
+
+      updateEditionInfo(editionInfo){
+        const today=new Date();
+        const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
+        const dateStr=today.toLocaleDateString('en-US',options);
+        const statusText=editionInfo.is_automated ? (editionInfo.is_today ? '' : ' (Latest Edition)') : ' (Live Updates)';
+        document.getElementById('edition-info').textContent=`${dateStr} • Issue #${editionInfo.issue_number}${statusText}`;
+      }
+
+      displayArticles(){
+        const container=document.getElementById('articles-container');
+        const loading=document.getElementById('loading');
+        if(this.articles.length===0){ loading.innerHTML='No policy stories today.'; return; }
+        loading.style.display='none'; container.style.display='block';
+        container.innerHTML=this.articles.map((a,i)=>this.createArticleHTML(a,i)).join('');
+        for(let i=0;i<this.articles.length;i++){
+          if(this.articles[i].preGeneratedAnalysis){ this.showPreGeneratedAnalysis(i); }
+          else if(this.articles[i].isAnalyzed===false){
+            const el=document.getElementById(`analysis-content-${i}`);
+            if(el){ el.innerHTML=`<div style="color:#64748b;font-style:italic">Analyzing…</div>`; }
+            setTimeout(()=>this.loadAnalysisForArticle(i),800*(i+1));
+          }
+        }
+      }
+
+      createArticleHTML(article,index){
+        const timeAgo=this.getTimeAgo(article.publishedAt);
+        const cleanTitle=this.cleanTitle(article.title);
+        return `
+        <article class="article-item" onclick="window.open('${article.url}','_blank')">
+          <div class="news-image">
+            ${article.urlToImage||article.image ? `<img src="${article.urlToImage||article.image}" alt="News image" onerror="this.parentElement.innerHTML='📰'">` : '📰'}
+          </div>
+          <div class="article-content">
+            <div class="article-meta">
+              <span>${this.escapeHtml(article.source?.name||'News Source')} • ${timeAgo}</span>
+              <a href="${article.url}" class="read-full" target="_blank" onclick="event.stopPropagation()">Read full story →</a>
+            </div>
+            <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
+            <p class="article-summary">${this.escapeHtml(article.description||'')}</p>
+
+            <div class="analysis">
+              <div class="analysis-label">How Does This Affect Me?</div>
+              <div class="analysis-text" id="analysis-content-${index}"></div>
+            </div>
+
+            <div class="social-sharing">
+              <div class="sharing-title">Share this analysis</div>
+              <div class="share-buttons">
+                <button class="share-btn twitter" onclick="event.stopPropagation(); dailyNewsletter.shareToTwitter(${index})">Twitter</button>
+                <button class="share-btn linkedin" onclick="event.stopPropagation(); dailyNewsletter.shareToLinkedIn(${index})">LinkedIn</button>
+                <button class="share-btn facebook" onclick="event.stopPropagation(); dailyNewsletter.shareToFacebook(${index})">Facebook</button>
+              </div>
+              <div class="copy-link">
+                <input type="text" class="link-input" id="link-${index}" value="${window.location.origin}#story-${index}" readonly>
+                <button class="copy-btn" onclick="event.stopPropagation(); dailyNewsletter.copyLink(${index})">Copy</button>
+              </div>
+            </div>
+          </div>
+        </article>`;
+      }
+
+      showPreGeneratedAnalysis(i){
+        const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`);
+        if(a.preGeneratedAnalysis&&el){
+          const formatted=this.renderAnalysisBlock({ impact: a.preGeneratedAnalysis });
+          el.innerHTML=formatted;
+          this.sharingData[i]={article:a,analysis:this.extractKeyInsight(a.preGeneratedAnalysis,null),url:`${window.location.origin}#story-${i}`};
+        }
+      }
+
+      async loadAnalysisForArticle(i){
+        const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`); if(!a||!el) return;
+        el.innerHTML=`<div style="color:#64748b;font-style:italic">Analyzing…</div>`;
+        try{
+          const res=await fetch('/api/personalize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({article:a})});
+          if(!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data=await res.json();
+          el.innerHTML=this.renderAnalysisBlock(data);
+          this.sharingData[i]={article:a,analysis:this.extractKeyInsight(data.impact,data),url:`${window.location.origin}#story-${i}`};
+        }catch(e){
+          console.error('Analysis error:',e);
+          el.innerHTML='<p style="color:#64748b;font-style:italic">Analysis temporarily unavailable</p>';
+        }
+      }
+
+      renderAnalysisBlock(data){
+        const parts=[];
+        if(data.takeaway){ parts.push(`<p class="takeaway">${this.escapeHtml(data.takeaway)}</p>`); }
+        if(Array.isArray(data.facts)&&data.facts.length){
+          const items=data.facts.slice(0,3).map(f=>`<li>${this.escapeHtml(f)}</li>`).join('');
+          parts.push(`<ol class="facts">${items}</ol>`);
+        }
+        if(data.impact){ parts.push(this.formatAnalysis(data.impact)); }
+        const footer=[];
+        if(data.winners) footer.push(`<span><strong>Winners:</strong> ${this.escapeHtml(data.winners)}</span>`);
+        if(data.losers) footer.push(`<span><strong>Losers:</strong> ${this.escapeHtml(data.losers)}</span>`);
+        if(data.watch_next) footer.push(`<span><strong>Watch next:</strong> ${this.escapeHtml(data.watch_next)}</span>`);
+        if(footer.length){ parts.push(`<div class="impact-footer">${footer.join('')}</div>`); }
+        return parts.join('');
+      }
+
+      extractKeyInsight(a,structured){
+        if(structured?.takeaway) return structured.takeaway;
+        const s=(a||'').split('. ');
+        return s.find(x=>x.length>50)?.trim()+'.' || (a||'').substring(0,100)+'...';
+      }
+
+      cleanTitle(t){ if(!t) return ''; return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i,''); }
+
+      getTimeAgo(p){
+        if(!p) return 'Recently';
+        const now=new Date(), pub=new Date(p); const hrs=Math.floor((now-pub)/3600000); const days=Math.floor(hrs/24);
+        if(hrs<1) return 'Just published'; if(hrs<24) return `${hrs}h ago`; if(days===1) return 'Yesterday'; if(days<7) return `${days} days ago`;
+        return pub.toLocaleDateString();
+      }
+
+      escapeHtml(t){ if(!t) return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+
+      formatAnalysis(t){ return t.split('\n\n').filter(p=>p.trim()).map(p=>`<p>${this.escapeHtml(p.trim())}</p>`).join(''); }
+
+      shareToTwitter(i){
+        const d=this.sharingData[i]; if(!d) return;
+        const text=`How Does This Affect Me: "${d.analysis}" Read more: ${d.url}`;
+        const u=`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`; window.open(u,'_blank');
+      }
+      shareToLinkedIn(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
+      shareToFacebook(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
+      copyLink(i){
+        const input=document.getElementById(`link-${i}`); if(!input) return; const btn=input.parentElement.querySelector('.copy-btn');
+        input.select(); document.execCommand('copy');
+        if(btn){ btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='Copy'; btn.classList.remove('copied')},2000); }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded',()=>{ window.dailyNewsletter=new DailyNewsletterSite(); });
+  </script>
+</body>
+</html>
