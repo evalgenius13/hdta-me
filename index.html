@@ -112,14 +112,137 @@
         }
 
         .main-content {
-            padding: 2.5rem 0;
+            padding: 3rem 0;
         }
 
-        .loading-state {
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: normal;
+            color: #333;
             text-align: center;
-            padding: 4rem 2rem;
+            margin-bottom: 0.5rem;
+            line-height: 1.2;
+        }
+
+        .page-subtitle {
+            color: #666;
+            text-align: center;
+            font-size: 1.125rem;
+            margin-bottom: 3rem;
+            font-style: italic;
+        }
+
+        .articles-list {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .article-item {
+            background: #fff;
+            margin-bottom: 2rem;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .article-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            transform: translateY(-2px);
+        }
+
+        .news-image {
+            width: 100%;
+            height: 240px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 1rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .news-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .article-content {
+            padding: 2rem;
+        }
+
+        .article-meta {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .read-full {
+            color: #4a5568;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .read-full:hover {
+            text-decoration: underline;
+        }
+
+        .article-title {
+            font-size: 1.5rem;
+            font-weight: normal;
+            color: #333;
+            margin-bottom: 1rem;
+            line-height: 1.3;
+        }
+
+        .article-summary {
+            color: #555;
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .analysis-section {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 6px;
+            border-left: 4px solid #4a5568;
+            margin-bottom: 1.5rem;
+        }
+
+        .analysis-title {
+            font-size: 1.1rem;
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .analysis-text {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: #444;
+        }
+
+        .analysis-text p {
+            margin-bottom: 1rem;
+        }
+
+        .loading-analysis {
             color: #666;
             font-style: italic;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .loading-spinner {
@@ -129,13 +252,111 @@
             border-top: 2px solid #4a5568;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-right: 0.5rem;
         }
 
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        .social-sharing {
+            background: #f8f9fa;
+            padding: 1.25rem;
+            border-radius: 6px;
+            border: 1px solid #e5e5e5;
+        }
+
+        .sharing-title {
+            font-size: 0.95rem;
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .share-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .share-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .share-btn.twitter {
+            background: #1da1f2;
+            color: white;
+        }
+
+        .share-btn.twitter:hover {
+            background: #0d8bd9;
+        }
+
+        .share-btn.linkedin {
+            background: #0077b5;
+            color: white;
+        }
+
+        .share-btn.linkedin:hover {
+            background: #005885;
+        }
+
+        .share-btn.facebook {
+            background: #1877f2;
+            color: white;
+        }
+
+        .share-btn.facebook:hover {
+            background: #166fe5;
+        }
+
+        .copy-link {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .link-input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            background: #fff;
+            font-family: monospace;
+        }
+
+        .copy-btn {
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .copy-btn:hover {
+            background: #2d3748;
+        }
+
+        .copy-btn.copied {
+            background: #38a169;
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #666;
+            font-style: italic;
         }
 
         .footer-signup {
@@ -185,12 +406,83 @@
             .main-content {
                 padding: 2rem 0;
             }
+
+            .page-title {
+                font-size: 2rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .page-subtitle {
+                font-size: 1rem;
+                margin-bottom: 2rem;
+            }
+
+            .article-content {
+                padding: 1.5rem;
+            }
+
+            .news-image {
+                height: 200px;
+            }
+
+            .article-title {
+                font-size: 1.35rem;
+                line-height: 1.25;
+            }
+
+            .article-summary {
+                font-size: 1rem;
+                margin-bottom: 1.25rem;
+            }
+
+            .analysis-section {
+                padding: 1.25rem;
+            }
+
+            .share-buttons {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .share-btn {
+                padding: 0.875rem 1rem;
+                width: 100%;
+                text-align: center;
+                min-height: 48px;
+                font-size: 0.95rem;
+            }
+
+            .copy-link {
+                margin-top: 0.5rem;
+            }
+
+            .link-input {
+                font-size: 0.9rem;
+                padding: 0.75rem;
+            }
+
+            .copy-btn {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
         }
 
         /* Extra small screens */
         @media (max-width: 480px) {
             .container, .signup-content {
                 padding: 0 0.75rem;
+            }
+
+            .article-content {
+                padding: 1.25rem;
+            }
+
+            .page-title {
+                font-size: 1.75rem;
+            }
+
+            .news-image {
+                height: 180px;
             }
         }
     </style>
@@ -200,31 +492,36 @@
         <div class="container">
             <h1 class="logo">How Does This Affect Me?</h1>
             <div class="edition-info" id="edition-info">Thursday, August 7, 2025 • Issue #1</div>
-            <div class="articles-list" id="articles-container" style="display: none;">
-                <!-- Articles will be loaded here -->
-            </div>
-    </header>
-
-    <main class="main-content">
-        <div class="container">
-            <div class="loading-state" id="loading">
-                <div class="loading-spinner"></div>
-                Loading today's analysis...
-            </div>
         </div>
-    </main>
+    </header>
 
     <section class="newsletter-signup">
         <div class="signup-content">
-            <h2 class="signup-title">Get Tomorrow's Analysis First</h2>
-            <p class="signup-description">Join 2,847 readers who get daily policy analysis delivered at 7 AM ET.</p>
+            <h2 class="signup-title">Get Daily Policy Analysis</h2>
+            <p class="signup-description">Skip the spin. Get the real impact of policy changes delivered every morning at 7 AM.</p>
             <form class="signup-form" onsubmit="handleNewsletterSignup(event)">
                 <input type="email" class="email-input" placeholder="Enter your email" required>
                 <button type="submit" class="signup-btn">Subscribe Free</button>
             </form>
-            <p class="signup-note">Unsubscribe anytime. No spam, just analysis.</p>
+            <p class="signup-note">Join 2,847 readers getting daily analysis. Unsubscribe anytime.</p>
         </div>
     </section>
+
+    <main class="main-content">
+        <div class="container">
+            <h2 class="page-title">Today's Policy Analysis</h2>
+            <p class="page-subtitle">What really happens when policies change</p>
+
+            <div class="loading-state" id="loading">
+                <div class="loading-spinner"></div>
+                Loading today's analysis...
+            </div>
+
+            <div class="articles-list" id="articles-container" style="display: none;">
+                <!-- Articles will be loaded here -->
+            </div>
+        </div>
+    </main>
 
     <section class="footer-signup">
         <div class="container">
