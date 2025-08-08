@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Real Reason</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='black'/><text x='50%' y='60%' text-anchor='middle' font-size='56' fill='white' font-family='system-ui'>R</text></svg>">
+  <title>How Does This Affect Me?</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='black'/><text x='50%' y='60%' text-anchor='middle' font-size='42' fill='white' font-family='system-ui'>HD</text></svg>">
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:Georgia,"Times New Roman",serif;background:#fafafa;color:#111;line-height:1.6}
     .wrap{max-width:640px;margin:0 auto;padding:0 16px}
 
     .masthead{background:#fff;border-bottom:1px solid #e5e5e5;padding:24px 0 14px}
-    .brand{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;font-size:36px;line-height:1.1;font-weight:800;text-align:center;letter-spacing:.2px}
-    .tagline{text-align:center;font-size:16px;color:#64748b;margin-top:6px}
+    .brand{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;font-size:32px;line-height:1.1;font-weight:800;text-align:center;letter-spacing:.2px}
+    .tagline{text-align:center;font-size:15px;color:#64748b;margin-top:6px}
     .edition-info{text-align:center;color:#6b7280;font-size:12px;margin-top:8px;text-transform:uppercase;letter-spacing:.06em}
 
     .main-content{padding:16px 0}
@@ -55,8 +55,8 @@
 <body>
   <header class="masthead">
     <div class="wrap">
-      <h1 class="brand">The Real Reason</h1>
-      <p class="tagline">Why it’s really happening, and who it really impacts</p>
+      <h1 class="brand">How Does This Affect Me?</h1>
+      <p class="tagline">Clear, practical impact from today’s policy news</p>
       <div class="edition-info" id="edition-info">Thursday, August 7, 2025 • Issue #1</div>
     </div>
   </header>
@@ -142,7 +142,7 @@
             <p class="article-summary">${this.escapeHtml(article.description||'')}</p>
 
             <div class="analysis">
-              <div class="analysis-label">The Real Reason</div>
+              <div class="analysis-label">How Does This Affect Me?</div>
               <div class="analysis-text" id="analysis-content-${index}"></div>
             </div>
 
@@ -203,14 +203,13 @@
       formatAnalysis(t){ return t.split('\n\n').filter(p=>p.trim()).map(p=>`<p>${this.escapeHtml(p.trim())}</p>`).join(''); }
 
       extractKeyInsight(a){
-        const s=a.split('. '); const keys=['real reason','real impact','what this means','bigger picture','the reality'];
-        for(const x of s){ for(const k of keys){ if(x.toLowerCase().includes(k)) return x.trim()+(x.endsWith('.')?'':'.'); } }
+        const s=a.split('. ');
         return s.find(x=>x.length>50)?.trim()+'.' || a.substring(0,100)+'...';
       }
 
       shareToTwitter(i){
         const d=this.sharingData[i]; if(!d) return;
-        const text=`The Real Reason: "${d.analysis}" Read more: ${d.url}`;
+        const text=`How Does This Affect Me: "${d.analysis}" Read more: ${d.url}`;
         const u=`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`; window.open(u,'_blank');
       }
       shareToLinkedIn(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
