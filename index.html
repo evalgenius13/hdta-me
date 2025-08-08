@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDTA.me - Daily Policy Newsletter</title>
+    <title>HDTA.me - Policy Analysis</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📰</text></svg>">
     <style>
         * {
@@ -391,100 +391,6 @@
         @media (max-width: 768px) {
             .container {
                 padding: 0 1rem;
-            cleanTitle(title) {
-                if (!title) return '';
-                return title.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i, '');
-            }
-
-            getTimeAgo(publishedAt) {
-                if (!publishedAt) return 'Recently';
-                
-                const now = new Date();
-                const published = new Date(publishedAt);
-                const diffMs = now - published;
-                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                const diffDays = Math.floor(diffHours / 24);
-                
-                if (diffHours < 1) return 'Just published';
-                if (diffHours < 24) return `${diffHours}h ago`;
-                if (diffDays === 1) return 'Yesterday';
-                if (diffDays < 7) return `${diffDays} days ago`;
-                return published.toLocaleDateString();
-            }
-
-            escapeHtml(text) {
-                if (!text) return '';
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            formatAnalysis(text) {
-                return text
-                    .split('\n\n')
-                    .filter(p => p.trim())
-                    .map(p => `<p>${this.escapeHtml(p.trim())}</p>`)
-                    .join('');
-            }
-
-            extractKeyInsight(analysis) {
-                const sentences = analysis.split('. ');
-                const keyPhrases = ['bigger picture', 'real impact', 'what this means', 'while officials', 'the reality'];
-                
-                for (const sentence of sentences) {
-                    for (const phrase of keyPhrases) {
-                        if (sentence.toLowerCase().includes(phrase)) {
-                            return sentence.trim() + (sentence.endsWith('.') ? '' : '.');
-                        }
-                    }
-                }
-                
-                return sentences.find(s => s.length > 50)?.trim() + '.' || analysis.substring(0, 100) + '...';
-            }
-
-            shareToTwitter(index) {
-                const data = this.sharingData[index];
-                if (!data) return;
-                
-                const text = `The real impact: "${data.analysis}" Read today's HDTA analysis: ${data.url}`;
-                const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-                window.open(twitterUrl, '_blank');
-            }
-
-            shareToLinkedIn(index) {
-                const data = this.sharingData[index];
-                if (!data) return;
-                
-                const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(data.url)}`;
-                window.open(linkedinUrl, '_blank');
-            }
-
-            shareToFacebook(index) {
-                const data = this.sharingData[index];
-                if (!data) return;
-                
-                const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(data.url)}`;
-                window.open(facebookUrl, '_blank');
-            }
-
-            copyLink(index) {
-                const linkInput = document.getElementById(`link-${index}`);
-                if (!linkInput) return;
-                
-                const copyBtn = linkInput.parentElement.querySelector('.copy-btn');
-                
-                linkInput.select();
-                document.execCommand('copy');
-                
-                if (copyBtn) {
-                    copyBtn.textContent = 'Copied!';
-                    copyBtn.classList.add('copied');
-                    
-                    setTimeout(() => {
-                        copyBtn.textContent = 'Copy';
-                        copyBtn.classList.remove('copied');
-                    }, 2000);
-                }
             }
 
             .header {
@@ -664,7 +570,6 @@
                 };
                 const dateStr = today.toLocaleDateString('en-US', options);
                 
-                // Default issue number (will be updated if we get edition info)
                 let issueNumber = Math.floor((today - new Date('2025-01-01')) / (1000 * 60 * 60 * 24)) + 1;
                 
                 document.getElementById('edition-info').textContent = 
@@ -682,7 +587,6 @@
                     if (data.articles) {
                         this.articles = data.articles.slice(0, 6);
                         
-                        // Update edition info if we have it
                         if (data.edition_info) {
                             this.updateEditionInfo(data.edition_info);
                         }
@@ -734,13 +638,10 @@
                     this.createArticleHTML(article, index)
                 ).join('');
 
-                // Load analysis based on article type
                 for (let i = 0; i < this.articles.length; i++) {
                     if (this.articles[i].preGeneratedAnalysis) {
-                        // Show pre-generated analysis immediately
                         this.showPreGeneratedAnalysis(i);
                     } else if (this.articles[i].isAnalyzed === false) {
-                        // Show that analysis is available but not loaded yet
                         const analysisContent = document.getElementById(`analysis-content-${i}`);
                         if (analysisContent) {
                             analysisContent.innerHTML = `
@@ -749,7 +650,6 @@
                                 </div>
                             `;
                         }
-                        // Load real-time analysis
                         setTimeout(() => this.loadAnalysisForArticle(i), 1000 * (i + 1));
                     }
                 }
@@ -785,57 +685,7 @@
                             <div class="social-sharing">
                                 <div class="sharing-title">Share this analysis:</div>
                                 <div class="share-buttons">
-                                    <button class="share-btn facebook" onclick="event.stopPropagation(); dailyNewsletter.shareToFacebook(${index})">
-                                        Facebook
-                                    </button>
-                                </div>
-                                <div class="copy-link">
-                                    <input type="text" class="link-input" id="link-${index}" value="${window.location.origin}#story-${index}" readonly>
-                                    <button class="copy-btn" onclick="event.stopPropagation(); dailyNewsletter.copyLink(${index})">Copy</button>
-                                </div>
-                            </div>
-                        </div>
-                    </article>
-                `;
-            }
-
-            async loadAnalysisForArticle(index) {
-                const article = this.articles[index];
-                const analysisContent = document.getElementById(`analysis-content-${index}`);
-                
-                if (!article || !analysisContent) return;
-
-                try {
-                    const response = await fetch('/api/personalize', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ article })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    if (data.impact) {
-                        const formattedAnalysis = this.formatAnalysis(data.impact);
-                        analysisContent.innerHTML = formattedAnalysis;
-                        
-                        // Setup sharing data
-                        this.sharingData[index] = {
-                            article,
-                            analysis: this.extractKeyInsight(data.impact),
-                            url: `${window.location.origin}#story-${index}`
-                        };
-                    } else {
-                        throw new Error('No analysis received');
-                    }
-                } catch (error) {
-                    console.error('Analysis error:', error);
-                    analysisContent.innerHTML = '<p style="color: #666; font-style: italic;">Analysis temporarily unavailable</p>';
-                }
-            } twitter" onclick="event.stopPropagation(); dailyNewsletter.shareToTwitter(${index})">
+                                    <button class="share-btn twitter" onclick="event.stopPropagation(); dailyNewsletter.shareToTwitter(${index})">
                                         Twitter
                                     </button>
                                     <button class="share-btn linkedin" onclick="event.stopPropagation(); dailyNewsletter.shareToLinkedIn(${index})">
@@ -863,7 +713,6 @@
                     const formattedAnalysis = this.formatAnalysis(article.preGeneratedAnalysis);
                     analysisContent.innerHTML = formattedAnalysis;
                     
-                    // Setup sharing data immediately
                     this.sharingData[index] = {
                         article,
                         analysis: this.extractKeyInsight(article.preGeneratedAnalysis),
@@ -873,13 +722,11 @@
             }
 
             async loadAnalysisForArticle(index) {
-                // This method is now only called for articles without pre-generated analysis
                 const article = this.articles[index];
                 const analysisContent = document.getElementById(`analysis-content-${index}`);
                 
                 if (!article || !analysisContent) return;
 
-                // Show loading state
                 analysisContent.innerHTML = `
                     <div class="loading-analysis">
                         <div class="loading-spinner"></div>
@@ -904,57 +751,6 @@
                         const formattedAnalysis = this.formatAnalysis(data.impact);
                         analysisContent.innerHTML = formattedAnalysis;
                         
-                        // Setup sharing data
-                        this.sharingData[index] = {
-                            article,
-                            analysis: this.extractKeyInsight(data.impact),
-                            url: `${window.location.origin}#story-${index}`
-                        };
-                    } else {
-                        throw new Error('No analysis received');
-                    }
-                } catch (error) {
-                    console.error('Analysis error:', error);
-                    analysisContent.innerHTML = '<p style="color: #666; font-style: italic;">Analysis temporarily unavailable</p>';
-                }
-            } facebook" onclick="event.stopPropagation(); dailyNewsletter.shareToFacebook(${index})">
-                                        Facebook
-                                    </button>
-                                </div>
-                                <div class="copy-link">
-                                    <input type="text" class="link-input" id="link-${index}" value="${window.location.origin}#story-${index}" readonly>
-                                    <button class="copy-btn" onclick="event.stopPropagation(); dailyNewsletter.copyLink(${index})">Copy</button>
-                                </div>
-                            </div>
-                        </div>
-                    </article>
-                `;
-            }
-
-            async loadAnalysisForArticle(index) {
-                const article = this.articles[index];
-                const analysisContent = document.getElementById(`analysis-content-${index}`);
-                
-                if (!article || !analysisContent) return;
-
-                try {
-                    const response = await fetch('/api/personalize', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ article })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    if (data.impact) {
-                        const formattedAnalysis = this.formatAnalysis(data.impact);
-                        analysisContent.innerHTML = formattedAnalysis;
-                        
-                        // Setup sharing data
                         this.sharingData[index] = {
                             article,
                             analysis: this.extractKeyInsight(data.impact),
@@ -1045,9 +841,27 @@
                 window.open(facebookUrl, '_blank');
             }
 
+            copyLink(index) {
+                const linkInput = document.getElementById(`link-${index}`);
+                if (!linkInput) return;
+                
+                const copyBtn = linkInput.parentElement.querySelector('.copy-btn');
+                
+                linkInput.select();
+                document.execCommand('copy');
+                
+                if (copyBtn) {
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy';
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                }
+            }
         }
 
-        // Newsletter signup handling
         function handleNewsletterSignup(event) {
             event.preventDefault();
             const email = event.target.querySelector('.email-input').value;
@@ -1056,12 +870,10 @@
             button.textContent = 'Subscribing...';
             button.disabled = true;
             
-            // TODO: Replace with actual signup API
             setTimeout(() => {
                 button.textContent = '✓ Subscribed!';
                 button.style.background = '#38a169';
                 
-                // Reset form
                 setTimeout(() => {
                     event.target.reset();
                     button.textContent = 'Subscribe Free';
@@ -1071,7 +883,6 @@
             }, 1000);
         }
 
-        // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             window.dailyNewsletter = new DailyNewsletterSite();
         });
