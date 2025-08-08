@@ -21,8 +21,8 @@
 
         .header {
             background: #fff;
-            border-bottom: 2px solid #4a5568;
-            padding: 2rem 0;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 1.5rem 0;
         }
 
         .container {
@@ -32,26 +32,18 @@
         }
 
         .logo {
-            font-size: 2.25rem;
+            font-size: 1.875rem;
             font-weight: normal;
             color: #333;
             text-align: center;
-            margin-bottom: 0.5rem;
-        }
-
-        .tagline {
-            color: #666;
-            text-align: center;
-            font-size: 1.1rem;
-            font-style: italic;
-            margin-bottom: 1.5rem;
+            margin-bottom: 0.75rem;
         }
 
         .edition-info {
             text-align: center;
-            color: #4a5568;
+            color: #666;
             font-size: 0.95rem;
-            font-weight: 600;
+            font-weight: 500;
         }
 
         .newsletter-signup {
@@ -120,24 +112,7 @@
         }
 
         .main-content {
-            padding: 3rem 0;
-        }
-
-        .page-title {
-            font-size: 2.5rem;
-            font-weight: normal;
-            color: #333;
-            text-align: center;
-            margin-bottom: 0.5rem;
-            line-height: 1.2;
-        }
-
-        .page-subtitle {
-            color: #666;
-            text-align: center;
-            font-size: 1.125rem;
-            margin-bottom: 3rem;
-            font-style: italic;
+            padding: 2.5rem 0;
         }
 
         .articles-list {
@@ -401,10 +376,6 @@
                 font-size: 1.75rem;
             }
 
-            .tagline {
-                font-size: 1rem;
-            }
-
             .signup-form {
                 flex-direction: column;
                 gap: 0.75rem;
@@ -417,16 +388,6 @@
 
             .main-content {
                 padding: 2rem 0;
-            }
-
-            .page-title {
-                font-size: 2rem;
-                margin-bottom: 0.75rem;
-            }
-
-            .page-subtitle {
-                font-size: 1rem;
-                margin-bottom: 2rem;
             }
 
             .article-content {
@@ -489,10 +450,6 @@
                 padding: 1.25rem;
             }
 
-            .page-title {
-                font-size: 1.75rem;
-            }
-
             .news-image {
                 height: 180px;
             }
@@ -503,28 +460,12 @@
     <header class="header">
         <div class="container">
             <h1 class="logo">How Does This Affect Me?</h1>
-            <p class="tagline">The daily newsletter that cuts through policy spin</p>
-            <div class="edition-info" id="edition-info">Loading today's edition...</div>
+            <div class="edition-info" id="edition-info">Thursday, August 7, 2025 • Issue #1</div>
         </div>
     </header>
 
-    <section class="newsletter-signup">
-        <div class="signup-content">
-            <h2 class="signup-title">Get Daily Policy Analysis</h2>
-            <p class="signup-description">Skip the spin. Get the real impact of policy changes delivered every morning at 7 AM.</p>
-            <form class="signup-form" onsubmit="handleNewsletterSignup(event)">
-                <input type="email" class="email-input" placeholder="Enter your email" required>
-                <button type="submit" class="signup-btn">Subscribe Free</button>
-            </form>
-            <p class="signup-note">Join 2,847 readers getting daily analysis. Unsubscribe anytime.</p>
-        </div>
-    </section>
-
     <main class="main-content">
         <div class="container">
-            <h2 class="page-title">Today's Policy Analysis</h2>
-            <p class="page-subtitle">What really happens when policies change</p>
-
             <div class="loading-state" id="loading">
                 <div class="loading-spinner"></div>
                 Loading today's analysis...
@@ -535,6 +476,18 @@
             </div>
         </div>
     </main>
+
+    <section class="newsletter-signup">
+        <div class="signup-content">
+            <h2 class="signup-title">Get Tomorrow's Analysis First</h2>
+            <p class="signup-description">Join 2,847 readers who get daily policy analysis delivered at 7 AM ET.</p>
+            <form class="signup-form" onsubmit="handleNewsletterSignup(event)">
+                <input type="email" class="email-input" placeholder="Enter your email" required>
+                <button type="submit" class="signup-btn">Subscribe Free</button>
+            </form>
+            <p class="signup-note">Unsubscribe anytime. No spam, just analysis.</p>
+        </div>
+    </section>
 
     <section class="footer-signup">
         <div class="container">
@@ -857,35 +810,6 @@
                     setTimeout(() => {
                         copyBtn.textContent = 'Copy';
                         copyBtn.classList.remove('copied');
-                    }, 2000);
-                }
-            }
-        }
-
-        function handleNewsletterSignup(event) {
-            event.preventDefault();
-            const email = event.target.querySelector('.email-input').value;
-            const button = event.target.querySelector('.signup-btn');
-            
-            button.textContent = 'Subscribing...';
-            button.disabled = true;
-            
-            setTimeout(() => {
-                button.textContent = '✓ Subscribed!';
-                button.style.background = '#38a169';
-                
-                setTimeout(() => {
-                    event.target.reset();
-                    button.textContent = 'Subscribe Free';
-                    button.disabled = false;
-                    button.style.background = '';
-                }, 2000);
-            }, 1000);
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            window.dailyNewsletter = new DailyNewsletterSite();
-        });
-    </script>
+                    </script>
 </body>
 </html>
