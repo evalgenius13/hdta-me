@@ -6,6 +6,6 @@
     "dev": "vercel dev"
   },
   "dependencies": {
-    "@upstash/redis": "^1.28.2"
+    "@supabase/supabase-js": "^2.38.0"
   }
 }
