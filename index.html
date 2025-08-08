@@ -1,878 +1,258 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDTA.me - Policy Analysis</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📰</text></svg>">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: Georgia, 'Times New Roman', serif;
-            background: #fafafa;
-            color: #333;
-            line-height: 1.6;
-        }
-
-        .header {
-            background: #fff;
-            border-bottom: 1px solid #e5e5e5;
-            padding: 1.5rem 0;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 0 2rem;
-        }
-
-        .logo {
-            font-size: 1.875rem;
-            font-weight: normal;
-            color: #333;
-            text-align: center;
-            margin-bottom: 0.75rem;
-        }
-
-        .edition-info {
-            text-align: center;
-            color: #666;
-            font-size: 0.95rem;
-            font-weight: 500;
-        }
-
-        .newsletter-signup {
-            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
-            color: white;
-            padding: 2rem 0;
-            text-align: center;
-        }
-
-        .signup-content {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 0 1rem;
-        }
-
-        .signup-title {
-            font-size: 1.5rem;
-            margin-bottom: 0.75rem;
-            font-weight: normal;
-        }
-
-        .signup-description {
-            font-size: 1.1rem;
-            margin-bottom: 1.5rem;
-            opacity: 0.9;
-        }
-
-        .signup-form {
-            display: flex;
-            gap: 1rem;
-            max-width: 400px;
-            margin: 0 auto;
-        }
-
-        .email-input {
-            flex: 1;
-            padding: 0.875rem 1rem;
-            border: none;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-family: inherit;
-        }
-
-        .signup-btn {
-            background: #38a169;
-            color: white;
-            border: none;
-            padding: 0.875rem 1.5rem;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            font-family: inherit;
-            white-space: nowrap;
-        }
-
-        .signup-btn:hover {
-            background: #2f855a;
-        }
-
-        .signup-note {
-            font-size: 0.85rem;
-            margin-top: 1rem;
-            opacity: 0.8;
-        }
-
-        .main-content {
-            padding: 3rem 0;
-        }
-
-        .page-title {
-            font-size: 2.5rem;
-            font-weight: normal;
-            color: #333;
-            text-align: center;
-            margin-bottom: 0.5rem;
-            line-height: 1.2;
-        }
-
-        .page-subtitle {
-            color: #666;
-            text-align: center;
-            font-size: 1.125rem;
-            margin-bottom: 3rem;
-            font-style: italic;
-        }
-
-        .articles-list {
-            max-width: 700px;
-            margin: 0 auto;
-        }
-
-        .article-item {
-            background: #fff;
-            margin-bottom: 2rem;
-            border: 1px solid #e5e5e5;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-            overflow: hidden;
-            cursor: pointer;
-        }
-
-        .article-item:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-            transform: translateY(-2px);
-        }
-
-        .news-image {
-            width: 100%;
-            height: 240px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e5e5e5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #666;
-            font-size: 1rem;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .news-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center;
-        }
-
-        .article-content {
-            padding: 2rem;
-        }
-
-        .article-meta {
-            color: #888;
-            font-size: 0.9rem;
-            margin-bottom: 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .read-full {
-            color: #4a5568;
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.85rem;
-        }
-
-        .read-full:hover {
-            text-decoration: underline;
-        }
-
-        .article-title {
-            font-size: 1.5rem;
-            font-weight: normal;
-            color: #333;
-            margin-bottom: 1rem;
-            line-height: 1.3;
-        }
-
-        .article-summary {
-            color: #555;
-            font-size: 1rem;
-            line-height: 1.6;
-            margin-bottom: 1.5rem;
-        }
-
-        .analysis-section {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 6px;
-            border-left: 4px solid #4a5568;
-            margin-bottom: 1.5rem;
-        }
-
-        .analysis-title {
-            font-size: 1.1rem;
-            color: #333;
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }
-
-        .analysis-text {
-            font-size: 1rem;
-            line-height: 1.7;
-            color: #444;
-        }
-
-        .analysis-text p {
-            margin-bottom: 1rem;
-        }
-
-        .loading-analysis {
-            color: #666;
-            font-style: italic;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .loading-spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid #e2e8f0;
-            border-top: 2px solid #4a5568;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .social-sharing {
-            background: #f8f9fa;
-            padding: 1.25rem;
-            border-radius: 6px;
-            border: 1px solid #e5e5e5;
-        }
-
-        .sharing-title {
-            font-size: 0.95rem;
-            color: #333;
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }
-
-        .share-buttons {
-            display: flex;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .share-btn {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            font-family: inherit;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .share-btn.twitter {
-            background: #1da1f2;
-            color: white;
-        }
-
-        .share-btn.twitter:hover {
-            background: #0d8bd9;
-        }
-
-        .share-btn.linkedin {
-            background: #0077b5;
-            color: white;
-        }
-
-        .share-btn.linkedin:hover {
-            background: #005885;
-        }
-
-        .share-btn.facebook {
-            background: #1877f2;
-            color: white;
-        }
-
-        .share-btn.facebook:hover {
-            background: #166fe5;
-        }
-
-        .copy-link {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .link-input {
-            flex: 1;
-            padding: 0.5rem;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            background: #fff;
-            font-family: monospace;
-        }
-
-        .copy-btn {
-            background: #4a5568;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            font-family: inherit;
-        }
-
-        .copy-btn:hover {
-            background: #2d3748;
-        }
-
-        .copy-btn.copied {
-            background: #38a169;
-        }
-
-        .loading-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: #666;
-            font-style: italic;
-        }
-
-        .footer-signup {
-            background: #f8f9fa;
-            border-top: 1px solid #e5e5e5;
-            padding: 3rem 0;
-            text-align: center;
-        }
-
-        .footer-signup h3 {
-            font-size: 1.75rem;
-            margin-bottom: 1rem;
-            font-weight: normal;
-            color: #333;
-        }
-
-        .footer-signup p {
-            font-size: 1.1rem;
-            color: #666;
-            margin-bottom: 2rem;
-        }
-
-        /* Mobile responsive improvements */
-        @media (max-width: 768px) {
-            .container {
-                padding: 0 1rem;
-            }
-
-            .header {
-                padding: 1.5rem 0;
-            }
-
-            .logo {
-                font-size: 1.75rem;
-            }
-
-            .signup-form {
-                flex-direction: column;
-                gap: 0.75rem;
-            }
-
-            .email-input, .signup-btn {
-                padding: 1rem;
-                font-size: 1rem;
-            }
-
-            .main-content {
-                padding: 2rem 0;
-            }
-
-            .page-title {
-                font-size: 2rem;
-                margin-bottom: 0.75rem;
-            }
-
-            .page-subtitle {
-                font-size: 1rem;
-                margin-bottom: 2rem;
-            }
-
-            .article-content {
-                padding: 1.5rem;
-            }
-
-            .news-image {
-                height: 200px;
-            }
-
-            .article-title {
-                font-size: 1.35rem;
-                line-height: 1.25;
-            }
-
-            .article-summary {
-                font-size: 1rem;
-                margin-bottom: 1.25rem;
-            }
-
-            .analysis-section {
-                padding: 1.25rem;
-            }
-
-            .share-buttons {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-
-            .share-btn {
-                padding: 0.875rem 1rem;
-                width: 100%;
-                text-align: center;
-                min-height: 48px;
-                font-size: 0.95rem;
-            }
-
-            .copy-link {
-                margin-top: 0.5rem;
-            }
-
-            .link-input {
-                font-size: 0.9rem;
-                padding: 0.75rem;
-            }
-
-            .copy-btn {
-                padding: 0.75rem 1rem;
-                font-size: 0.9rem;
-            }
-        }
-
-        /* Extra small screens */
-        @media (max-width: 480px) {
-            .container, .signup-content {
-                padding: 0 0.75rem;
-            }
-
-            .article-content {
-                padding: 1.25rem;
-            }
-
-            .page-title {
-                font-size: 1.75rem;
-            }
-
-            .news-image {
-                height: 180px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Real Reason</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='black'/><text x='50%' y='60%' text-anchor='middle' font-size='56' fill='white' font-family='system-ui'>R</text></svg>">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:#fafafa;color:#111;line-height:1.6}
+    .wrap{max-width:800px;margin:0 auto;padding:0 16px}
+    .masthead{background:#fff;border-bottom:1px solid #e5e5e5;padding:28px 0 16px}
+    .brand{font-size:36px;line-height:1.1;font-weight:800;text-align:center;letter-spacing:.2px}
+    .tagline{text-align:center;font-size:16px;color:#64748b;margin-top:6px}
+    .edition-info{text-align:center;color:#64748b;font-size:14px;margin-top:8px}
+    .signup-band{background:#f8fafc;border-bottom:1px solid #e5e5e5;padding:28px 0}
+    .signup-title{text-align:center;font-size:22px;font-weight:700;margin-bottom:6px}
+    .signup-description{text-align:center;font-size:16px;color:#64748b;margin-bottom:16px}
+    .signup-form{display:flex;gap:10px;justify-content:center;max-width:420px;margin:0 auto}
+    .email-input{flex:1;height:44px;border:1px solid #e5e7eb;border-radius:8px;padding:0 12px;font-size:16px;background:#fff}
+    .signup-btn{height:44px;padding:0 16px;border:0;border-radius:8px;font-weight:700;font-size:15px;background:#0ea5e9;color:#fff;cursor:pointer}
+    .signup-btn:hover{background:#0284c7}
+    .main-content{padding:32px 0}
+    .page-title{text-align:center;font-size:32px;font-weight:800;color:#111;margin-bottom:6px;line-height:1.2}
+    .page-subtitle{text-align:center;color:#64748b;font-size:16px;margin-bottom:28px}
+    .articles-list{max-width:760px;margin:0 auto}
+    .article-item{background:#fff;margin-bottom:20px;border:1px solid #e5e5e5;border-radius:10px;transition:transform .15s ease, box-shadow .15s ease;overflow:hidden;cursor:pointer}
+    .article-item:hover{box-shadow:0 6px 18px rgba(0,0,0,.12);transform:translateY(-2px)}
+    .news-image{width:100%;height:240px;background:#f8f9fa;border-bottom:1px solid #e5e5e5;display:flex;align-items:center;justify-content:center;color:#666;font-size:1rem;overflow:hidden}
+    .news-image img{width:100%;height:100%;object-fit:cover;object-position:center}
+    .article-content{padding:20px}
+    .article-meta{color:#6b7280;font-size:.9rem;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+    .read-full{color:#1f2937;text-decoration:none;font-weight:600;font-size:.9rem}
+    .read-full:hover{text-decoration:underline}
+    .article-title{font-size:22px;font-weight:800;color:#111;margin-bottom:10px;line-height:1.25}
+    .article-summary{color:#374151;font-size:16px;line-height:1.6;margin-bottom:16px}
+    .analysis-section{background:#f8fafc;padding:16px;border-radius:8px;border-left:4px solid #0ea5e9;margin-bottom:14px}
+    .analysis-title{font-size:16px;color:#0f172a;margin-bottom:8px;font-weight:800}
+    .analysis-text{font-size:16px;line-height:1.7;color:#1f2937}
+    .analysis-text p{margin-bottom:12px}
+    .loading-analysis{color:#64748b;font-style:italic;display:flex;align-items:center;gap:8px}
+    .loading-spinner{width:16px;height:16px;border:2px solid #e2e8f0;border-top:2px solid #0ea5e9;border-radius:50%;animation:spin 1s linear infinite}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    .social-sharing{background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e5e5e5}
+    .sharing-title{font-size:.95rem;color:#0f172a;margin-bottom:10px;font-weight:700}
+    .share-buttons{display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap}
+    .share-btn{padding:.5rem 1rem;border:0;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600}
+    .share-btn.twitter{background:#1da1f2;color:#fff}
+    .share-btn.linkedin{background:#0077b5;color:#fff}
+    .share-btn.facebook{background:#1877f2;color:#fff}
+    .copy-link{display:flex;gap:.5rem}
+    .link-input{flex:1;padding:.5rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.9rem;background:#fff;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .copy-btn{background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:6px;font-size:.9rem;cursor:pointer}
+    .copy-btn.copied{background:#10b981}
+    .loading-state{text-align:center;padding:48px 16px;color:#64748b;font-style:italic}
+    .footer-signup{background:#f8fafc;border-top:1px solid #e5e5e5;padding:32px 0;text-align:center}
+    .footer-signup h3{font-size:22px;margin-bottom:8px;font-weight:800;color:#0f172a}
+    .footer-signup p{font-size:16px;color:#64748b;margin-bottom:18px}
+    @media (max-width:768px){
+      .signup-form{flex-direction:column}
+      .email-input,.signup-btn{width:100%}
+      .news-image{height:200px}
+      .article-title{font-size:20px}
+    }
+  </style>
 </head>
 <body>
-    <header class="header">
-        <div class="container">
-            <h1 class="logo">How Does This Affect Me?</h1>
-            <div class="edition-info" id="edition-info">Thursday, August 7, 2025 • Issue #1</div>
-        </div>
-    </header>
+  <header class="masthead">
+    <div class="wrap">
+      <h1 class="brand">The Real Reason</h1>
+      <p class="tagline">Why it’s really happening, and who it really impacts</p>
+      <div class="edition-info" id="edition-info">Thursday, August 7, 2025 • Issue #1</div>
+    </div>
+  </header>
 
-    <section class="newsletter-signup">
-        <div class="signup-content">
-            <h2 class="signup-title">Get Daily Policy Analysis</h2>
-            <p class="signup-description">Skip the spin. Get the real impact of policy changes delivered every morning at 7 AM.</p>
-            <form class="signup-form" onsubmit="handleNewsletterSignup(event)">
-                <input type="email" class="email-input" placeholder="Enter your email" required>
-                <button type="submit" class="signup-btn">Subscribe Free</button>
-            </form>
-            <p class="signup-note">Join 2,847 readers getting daily analysis. Unsubscribe anytime.</p>
-        </div>
-    </section>
+  <section class="signup-band">
+    <div class="wrap">
+      <h2 class="signup-title">Get the morning brief</h2>
+      <p class="signup-description">Two minutes. Real impact. In your inbox at 7 AM ET.</p>
+      <form class="signup-form" onsubmit="handleNewsletterSignup(event)">
+        <input type="email" class="email-input" placeholder="Your email" required>
+        <button type="submit" class="signup-btn">Subscribe free</button>
+      </form>
+    </div>
+  </section>
 
-    <main class="main-content">
-        <div class="container">
-            <h2 class="page-title">Today's Policy Analysis</h2>
-            <p class="page-subtitle">What really happens when policies change</p>
+  <main class="main-content">
+    <div class="wrap">
+      <h2 class="page-title">Today’s analysis</h2>
+      <p class="page-subtitle">Stripped of spin. Focused on impact.</p>
 
-            <div class="loading-state" id="loading">
-                <div class="loading-spinner"></div>
-                Loading today's analysis...
-            </div>
+      <div class="loading-state" id="loading">
+        <div class="loading-spinner"></div>
+        Loading today’s analysis...
+      </div>
 
-            <div class="articles-list" id="articles-container" style="display: none;">
-                <!-- Articles will be loaded here -->
-            </div>
-        </div>
-    </main>
+      <div class="articles-list" id="articles-container" style="display:none"></div>
+    </div>
+  </main>
 
-    <section class="footer-signup">
-        <div class="container">
-            <h3>Never Miss the Real Story</h3>
-            <p>Get daily policy analysis delivered every morning at 7 AM ET</p>
-            <form class="signup-form" onsubmit="handleNewsletterSignup(event)" style="margin: 0 auto;">
-                <input type="email" class="email-input" placeholder="Your email address" required>
-                <button type="submit" class="signup-btn">Start Reading</button>
-            </form>
-        </div>
-    </section>
+  <section class="footer-signup">
+    <div class="wrap">
+      <h3>Never miss The Real Reason</h3>
+      <p>One email at 7 AM ET</p>
+      <form class="signup-form" onsubmit="handleNewsletterSignup(event)" style="margin:0 auto">
+        <input type="email" class="email-input" placeholder="Your email address" required>
+        <button type="submit" class="signup-btn">Start reading</button>
+      </form>
+    </div>
+  </section>
 
-    <script>
-        class DailyNewsletterSite {
-            constructor() {
-                this.articles = [];
-                this.sharingData = {};
-                this.init();
-            }
-
-            async init() {
-                this.setTodaysDate();
-                await this.fetchTodaysContent();
-            }
-
-            setTodaysDate() {
-                const today = new Date();
-                const options = { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                };
-                const dateStr = today.toLocaleDateString('en-US', options);
-                
-                let issueNumber = Math.floor((today - new Date('2025-01-01')) / (1000 * 60 * 60 * 24)) + 1;
-                
-                document.getElementById('edition-info').textContent = 
-                    `${dateStr} • Issue #${issueNumber}`;
-            }
-
-            async fetchTodaysContent() {
-                try {
-                    const response = await fetch('/api/fetch-news');
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    const data = await response.json();
-                    
-                    if (data.articles) {
-                        this.articles = data.articles.slice(0, 6);
-                        
-                        if (data.edition_info) {
-                            this.updateEditionInfo(data.edition_info);
-                        }
-                        
-                        this.displayArticles();
-                    } else {
-                        throw new Error('No articles in response');
-                    }
-                } catch (error) {
-                    console.error('Error fetching articles:', error);
-                    document.getElementById('loading').innerHTML = 'Unable to load today\'s analysis. Please refresh the page.';
-                }
-            }
-
-            updateEditionInfo(editionInfo) {
-                const today = new Date();
-                const options = { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                };
-                const dateStr = today.toLocaleDateString('en-US', options);
-                
-                let statusText = '';
-                if (editionInfo.is_automated) {
-                    statusText = editionInfo.is_today ? '' : ' (Latest Edition)';
-                } else {
-                    statusText = ' (Live Updates)';
-                }
-                
-                document.getElementById('edition-info').textContent = 
-                    `${dateStr} • Issue #${editionInfo.issue_number}${statusText}`;
-            }
-
-            displayArticles() {
-                const container = document.getElementById('articles-container');
-                const loading = document.getElementById('loading');
-                
-                if (this.articles.length === 0) {
-                    loading.innerHTML = 'No policy stories available today.';
-                    return;
-                }
-
-                loading.style.display = 'none';
-                container.style.display = 'block';
-                
-                container.innerHTML = this.articles.map((article, index) => 
-                    this.createArticleHTML(article, index)
-                ).join('');
-
-                for (let i = 0; i < this.articles.length; i++) {
-                    if (this.articles[i].preGeneratedAnalysis) {
-                        this.showPreGeneratedAnalysis(i);
-                    } else if (this.articles[i].isAnalyzed === false) {
-                        const analysisContent = document.getElementById(`analysis-content-${i}`);
-                        if (analysisContent) {
-                            analysisContent.innerHTML = `
-                                <div style="color: #666; font-style: italic; padding: 1rem; text-align: center;">
-                                    Analysis will load when the page finishes loading...
-                                </div>
-                            `;
-                        }
-                        setTimeout(() => this.loadAnalysisForArticle(i), 1000 * (i + 1));
-                    }
-                }
-            }
-
-            createArticleHTML(article, index) {
-                const timeAgo = this.getTimeAgo(article.publishedAt);
-                const cleanTitle = this.cleanTitle(article.title);
-                
-                return `
-                    <article class="article-item" onclick="window.open('${article.url}', '_blank')">
-                        <div class="news-image">
-                            ${article.urlToImage || article.image ? 
-                                `<img src="${article.urlToImage || article.image}" alt="News image" onerror="this.parentElement.innerHTML='📰 Policy News'">` : 
-                                '📰 Policy News'
-                            }
-                        </div>
-                        <div class="article-content">
-                            <div class="article-meta">
-                                <span>${this.escapeHtml(article.source?.name || 'News Source')} • ${timeAgo}</span>
-                                <a href="${article.url}" class="read-full" target="_blank" onclick="event.stopPropagation()">Read Full Story →</a>
-                            </div>
-                            <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
-                            <p class="article-summary">${this.escapeHtml(article.description || '')}</p>
-                            
-                            <div class="analysis-section">
-                                <h4 class="analysis-title">The Bigger Picture</h4>
-                                <div class="analysis-text" id="analysis-content-${index}">
-                                    <!-- Analysis will be loaded here -->
-                                </div>
-                            </div>
-                            
-                            <div class="social-sharing">
-                                <div class="sharing-title">Share this analysis:</div>
-                                <div class="share-buttons">
-                                    <button class="share-btn twitter" onclick="event.stopPropagation(); dailyNewsletter.shareToTwitter(${index})">
-                                        Twitter
-                                    </button>
-                                    <button class="share-btn linkedin" onclick="event.stopPropagation(); dailyNewsletter.shareToLinkedIn(${index})">
-                                        LinkedIn
-                                    </button>
-                                    <button class="share-btn facebook" onclick="event.stopPropagation(); dailyNewsletter.shareToFacebook(${index})">
-                                        Facebook
-                                    </button>
-                                </div>
-                                <div class="copy-link">
-                                    <input type="text" class="link-input" id="link-${index}" value="${window.location.origin}#story-${index}" readonly>
-                                    <button class="copy-btn" onclick="event.stopPropagation(); dailyNewsletter.copyLink(${index})">Copy</button>
-                                </div>
-                            </div>
-                        </div>
-                    </article>
-                `;
-            }
-
-            showPreGeneratedAnalysis(index) {
-                const article = this.articles[index];
-                const analysisContent = document.getElementById(`analysis-content-${index}`);
-                
-                if (article.preGeneratedAnalysis && analysisContent) {
-                    const formattedAnalysis = this.formatAnalysis(article.preGeneratedAnalysis);
-                    analysisContent.innerHTML = formattedAnalysis;
-                    
-                    this.sharingData[index] = {
-                        article,
-                        analysis: this.extractKeyInsight(article.preGeneratedAnalysis),
-                        url: `${window.location.origin}#story-${index}`
-                    };
-                }
-            }
-
-            async loadAnalysisForArticle(index) {
-                const article = this.articles[index];
-                const analysisContent = document.getElementById(`analysis-content-${index}`);
-                
-                if (!article || !analysisContent) return;
-
-                analysisContent.innerHTML = `
-                    <div class="loading-analysis">
-                        <div class="loading-spinner"></div>
-                        Analyzing the real impact...
-                    </div>
-                `;
-
-                try {
-                    const response = await fetch('/api/personalize', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ article })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    if (data.impact) {
-                        const formattedAnalysis = this.formatAnalysis(data.impact);
-                        analysisContent.innerHTML = formattedAnalysis;
-                        
-                        this.sharingData[index] = {
-                            article,
-                            analysis: this.extractKeyInsight(data.impact),
-                            url: `${window.location.origin}#story-${index}`
-                        };
-                    } else {
-                        throw new Error('No analysis received');
-                    }
-                } catch (error) {
-                    console.error('Analysis error:', error);
-                    analysisContent.innerHTML = '<p style="color: #666; font-style: italic;">Analysis temporarily unavailable</p>';
-                }
-            }
-
-            cleanTitle(title) {
-                if (!title) return '';
-                return title.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i, '');
-            }
-
-            getTimeAgo(publishedAt) {
-                if (!publishedAt) return 'Recently';
-                
-                const now = new Date();
-                const published = new Date(publishedAt);
-                const diffMs = now - published;
-                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                const diffDays = Math.floor(diffHours / 24);
-                
-                if (diffHours < 1) return 'Just published';
-                if (diffHours < 24) return `${diffHours}h ago`;
-                if (diffDays === 1) return 'Yesterday';
-                if (diffDays < 7) return `${diffDays} days ago`;
-                return published.toLocaleDateString();
-            }
-
-            escapeHtml(text) {
-                if (!text) return '';
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            formatAnalysis(text) {
-                return text
-                    .split('\n\n')
-                    .filter(p => p.trim())
-                    .map(p => `<p>${this.escapeHtml(p.trim())}</p>`)
-                    .join('');
-            }
-
-            extractKeyInsight(analysis) {
-                const sentences = analysis.split('. ');
-                const keyPhrases = ['bigger picture', 'real impact', 'what this means', 'while officials', 'the reality'];
-                
-                for (const sentence of sentences) {
-                    for (const phrase of keyPhrases) {
-                        if (sentence.toLowerCase().includes(phrase)) {
-                            return sentence.trim() + (sentence.endsWith('.') ? '' : '.');
-                        }
-                    }
-                }
-                
-                return sentences.find(s => s.length > 50)?.trim() + '.' || analysis.substring(0, 100) + '...';
-            }
-
-            shareToTwitter(index) {
-                const data = this.sharingData[index];
-                if (!data) return;
-                
-                const text = `The real impact: "${data.analysis}" Read today's HDTA analysis: ${data.url}`;
-                const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-                window.open(twitterUrl, '_blank');
-            }
-
-            shareToLinkedIn(index) {
-                const data = this.sharingData[index];
-                if (!data) return;
-                
-                const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(data.url)}`;
-                window.open(linkedinUrl, '_blank');
-            }
-
-            shareToFacebook(index) {
-                const data = this.sharingData[index];
-                if (!data) return;
-                
-                const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(data.url)}`;
-                window.open(facebookUrl, '_blank');
-            }
-
-            copyLink(index) {
-                const linkInput = document.getElementById(`link-${index}`);
-                if (!linkInput) return;
-                
-                const copyBtn = linkInput.parentElement.querySelector('.copy-btn');
-                
-                linkInput.select();
-                document.execCommand('copy');
-                
-                if (copyBtn) {
-                    copyBtn.textContent = 'Copied!';
-                    copyBtn.classList.add('copied');
-                    
-                    setTimeout(() => {
-                        copyBtn.textContent = 'Copy';
-                        copyBtn.classList.remove('copied');
-                    }, 2000);
-                }
-            }
+  <script>
+    class DailyNewsletterSite {
+      constructor(){ this.articles=[]; this.sharingData={}; this.init(); }
+      async init(){ this.setTodaysDate(); await this.fetchTodaysContent(); }
+      setTodaysDate(){
+        const today=new Date();
+        const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
+        const dateStr=today.toLocaleDateString('en-US',options);
+        const issueNumber=Math.floor((today - new Date('2025-01-01'))/86400000)+1;
+        document.getElementById('edition-info').textContent=`${dateStr} • Issue #${issueNumber}`;
+      }
+      async fetchTodaysContent(){
+        try{
+          const response=await fetch('/api/fetch-news');
+          if(!response.ok) throw new Error(`HTTP error ${response.status}`);
+          const data=await response.json();
+          if(data.articles){
+            this.articles=data.articles.slice(0,6);
+            if(data.edition_info) this.updateEditionInfo(data.edition_info);
+            this.displayArticles();
+          } else { throw new Error('No articles'); }
+        }catch(e){
+          console.error('Error fetching articles:',e);
+          document.getElementById('loading').innerHTML='Unable to load today’s analysis. Please refresh.';
         }
-
-        function handleNewsletterSignup(event) {
-            event.preventDefault();
-            const email = event.target.querySelector('.email-input').value;
-            const button = event.target.querySelector('.signup-btn');
-            
-            button.textContent = 'Subscribing...';
-            button.disabled = true;
-            
-            setTimeout(() => {
-                button.textContent = '✓ Subscribed!';
-                button.style.background = '#38a169';
-                
-                setTimeout(() => {
-                    event.target.reset();
-                    button.textContent = 'Subscribe Free';
-                    button.disabled = false;
-                    button.style.background = '';
-                }, 2000);
-            }, 1000);
+      }
+      updateEditionInfo(editionInfo){
+        const today=new Date();
+        const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
+        const dateStr=today.toLocaleDateString('en-US',options);
+        const statusText=editionInfo.is_automated ? (editionInfo.is_today ? '' : ' (Latest Edition)') : ' (Live Updates)';
+        document.getElementById('edition-info').textContent=`${dateStr} • Issue #${editionInfo.issue_number}${statusText}`;
+      }
+      displayArticles(){
+        const container=document.getElementById('articles-container');
+        const loading=document.getElementById('loading');
+        if(this.articles.length===0){ loading.innerHTML='No policy stories today.'; return; }
+        loading.style.display='none'; container.style.display='block';
+        container.innerHTML=this.articles.map((a,i)=>this.createArticleHTML(a,i)).join('');
+        for(let i=0;i<this.articles.length;i++){
+          if(this.articles[i].preGeneratedAnalysis){ this.showPreGeneratedAnalysis(i); }
+          else if(this.articles[i].isAnalyzed===false){
+            const el=document.getElementById(`analysis-content-${i}`);
+            if(el){ el.innerHTML=`<div class="loading-analysis"><div class="loading-spinner"></div>Analyzing…</div>`; }
+            setTimeout(()=>this.loadAnalysisForArticle(i),1000*(i+1));
+          }
         }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            window.dailyNewsletter = new DailyNewsletterSite();
-        });
-    </script>
+      }
+      createArticleHTML(article,index){
+        const timeAgo=this.getTimeAgo(article.publishedAt);
+        const cleanTitle=this.cleanTitle(article.title);
+        return `
+        <article class="article-item" onclick="window.open('${article.url}','_blank')">
+          <div class="news-image">
+            ${article.urlToImage||article.image ? `<img src="${article.urlToImage||article.image}" alt="News image" onerror="this.parentElement.innerHTML='📰'">` : '📰'}
+          </div>
+          <div class="article-content">
+            <div class="article-meta">
+              <span>${this.escapeHtml(article.source?.name||'News Source')} • ${timeAgo}</span>
+              <a href="${article.url}" class="read-full" target="_blank" onclick="event.stopPropagation()">Read full story →</a>
+            </div>
+            <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
+            <p class="article-summary">${this.escapeHtml(article.description||'')}</p>
+            <div class="analysis-section">
+              <h4 class="analysis-title">The Real Reason</h4>
+              <div class="analysis-text" id="analysis-content-${index}"></div>
+            </div>
+            <div class="social-sharing">
+              <div class="sharing-title">Share this analysis</div>
+              <div class="share-buttons">
+                <button class="share-btn twitter" onclick="event.stopPropagation(); dailyNewsletter.shareToTwitter(${index})">Twitter</button>
+                <button class="share-btn linkedin" onclick="event.stopPropagation(); dailyNewsletter.shareToLinkedIn(${index})">LinkedIn</button>
+                <button class="share-btn facebook" onclick="event.stopPropagation(); dailyNewsletter.shareToFacebook(${index})">Facebook</button>
+              </div>
+              <div class="copy-link">
+                <input type="text" class="link-input" id="link-${index}" value="${window.location.origin}#story-${index}" readonly>
+                <button class="copy-btn" onclick="event.stopPropagation(); dailyNewsletter.copyLink(${index})">Copy</button>
+              </div>
+            </div>
+          </div>
+        </article>`;
+      }
+      showPreGeneratedAnalysis(i){
+        const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`);
+        if(a.preGeneratedAnalysis&&el){
+          const formatted=this.formatAnalysis(a.preGeneratedAnalysis);
+          el.innerHTML=formatted;
+          this.sharingData[i]={article:a,analysis:this.extractKeyInsight(a.preGeneratedAnalysis),url:`${window.location.origin}#story-${i}`};
+        }
+      }
+      async loadAnalysisForArticle(i){
+        const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`); if(!a||!el) return;
+        el.innerHTML=`<div class="loading-analysis"><div class="loading-spinner"></div>Analyzing…</div>`;
+        try{
+          const res=await fetch('/api/personalize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({article:a})});
+          if(!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data=await res.json();
+          if(data.impact){
+            const formatted=this.formatAnalysis(data.impact);
+            el.innerHTML=formatted;
+            this.sharingData[i]={article:a,analysis:this.extractKeyInsight(data.impact),url:`${window.location.origin}#story-${i}`};
+          } else throw new Error('No analysis');
+        }catch(e){
+          console.error('Analysis error:',e);
+          el.innerHTML='<p style="color:#64748b;font-style:italic">Analysis temporarily unavailable</p>';
+        }
+      }
+      cleanTitle(t){ if(!t) return ''; return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i,''); }
+      getTimeAgo(p){
+        if(!p) return 'Recently';
+        const now=new Date(), pub=new Date(p); const hrs=Math.floor((now-pub)/3600000); const days=Math.floor(hrs/24);
+        if(hrs<1) return 'Just published'; if(hrs<24) return `${hrs}h ago`; if(days===1) return 'Yesterday'; if(days<7) return `${days} days ago`;
+        return pub.toLocaleDateString();
+      }
+      escapeHtml(t){ if(!t) return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+      formatAnalysis(t){ return t.split('\n\n').filter(p=>p.trim()).map(p=>`<p>${this.escapeHtml(p.trim())}</p>`).join(''); }
+      extractKeyInsight(a){
+        const s=a.split('. '); const keys=['real reason','real impact','what this means','bigger picture','the reality'];
+        for(const x of s){ for(const k of keys){ if(x.toLowerCase().includes(k)) return x.trim()+(x.endsWith('.')?'':'.'); } }
+        return s.find(x=>x.length>50)?.trim()+'.' || a.substring(0,100)+'...';
+      }
+      shareToTwitter(i){
+        const d=this.sharingData[i]; if(!d) return;
+        const text=`The Real Reason: "${d.analysis}" Read more: ${d.url}`;
+        const u=`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`; window.open(u,'_blank');
+      }
+      shareToLinkedIn(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
+      shareToFacebook(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
+      copyLink(i){
+        const input=document.getElementById(`link-${i}`); if(!input) return; const btn=input.parentElement.querySelector('.copy-btn');
+        input.select(); document.execCommand('copy');
+        if(btn){ btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='Copy'; btn.classList.remove('copied')},2000); }
+      }
+    }
+    function handleNewsletterSignup(e){
+      e.preventDefault();
+      const email=e.target.querySelector('.email-input').value;
+      const btn=e.target.querySelector('.signup-btn');
+      btn.textContent='Subscribing...'; btn.disabled=true;
+      setTimeout(()=>{ btn.textContent='✓ Subscribed!'; btn.style.background='#10b981';
+        setTimeout(()=>{ e.target.reset(); btn.textContent='Subscribe free'; btn.disabled=false; btn.style.background=''; },2000);
+      },1000);
+    }
+    document.addEventListener('DOMContentLoaded',()=>{ window.dailyNewsletter=new DailyNewsletterSite(); });
+  </script>
 </body>
 </html>
