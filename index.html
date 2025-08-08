@@ -7,44 +7,45 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='black'/><text x='50%' y='60%' text-anchor='middle' font-size='56' fill='white' font-family='system-ui'>R</text></svg>">
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:#fafafa;color:#111;line-height:1.6}
-    .wrap{max-width:800px;margin:0 auto;padding:0 16px}
+    body{font-family:Georgia,"Times New Roman",serif;background:#fafafa;color:#111;line-height:1.6}
+    .wrap{max-width:640px;margin:0 auto;padding:0 16px}
+
     .masthead{background:#fff;border-bottom:1px solid #e5e5e5;padding:28px 0 16px}
-    .brand{font-size:36px;line-height:1.1;font-weight:800;text-align:center;letter-spacing:.2px}
+    .brand{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;font-size:36px;line-height:1.1;font-weight:800;text-align:center;letter-spacing:.2px}
     .tagline{text-align:center;font-size:16px;color:#64748b;margin-top:6px}
-    .edition-info{text-align:center;color:#64748b;font-size:14px;margin-top:8px}
-    .signup-band{background:#f8fafc;border-bottom:1px solid #e5e5e5;padding:28px 0}
-    .signup-title{text-align:center;font-size:22px;font-weight:700;margin-bottom:6px}
-    .signup-description{text-align:center;font-size:16px;color:#64748b;margin-bottom:16px}
-    .signup-form{display:flex;gap:10px;justify-content:center;max-width:420px;margin:0 auto}
-    .email-input{flex:1;height:44px;border:1px solid #e5e7eb;border-radius:8px;padding:0 12px;font-size:16px;background:#fff}
-    .signup-btn{height:44px;padding:0 16px;border:0;border-radius:8px;font-weight:700;font-size:15px;background:#0ea5e9;color:#fff;cursor:pointer}
-    .signup-btn:hover{background:#0284c7}
-    .main-content{padding:32px 0}
-    .page-title{text-align:center;font-size:32px;font-weight:800;color:#111;margin-bottom:6px;line-height:1.2}
-    .page-subtitle{text-align:center;color:#64748b;font-size:16px;margin-bottom:28px}
-    .articles-list{max-width:760px;margin:0 auto}
-    .article-item{background:#fff;margin-bottom:20px;border:1px solid #e5e5e5;border-radius:10px;transition:transform .15s ease, box-shadow .15s ease;overflow:hidden;cursor:pointer}
-    .article-item:hover{box-shadow:0 6px 18px rgba(0,0,0,.12);transform:translateY(-2px)}
-    .news-image{width:100%;height:240px;background:#f8f9fa;border-bottom:1px solid #e5e5e5;display:flex;align-items:center;justify-content:center;color:#666;font-size:1rem;overflow:hidden}
+    .edition-info{text-align:center;color:#6b7280;font-size:12px;margin-top:8px;text-transform:uppercase;letter-spacing:.06em}
+
+    .main-content{padding:24px 0}
+    .page-title{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;text-align:center;font-size:28px;font-weight:800;color:#111;margin-bottom:6px;line-height:1.2}
+    .page-subtitle{text-align:center;color:#64748b;font-size:15px;margin-bottom:20px}
+
+    .articles-list{max-width:640px;margin:0 auto}
+    .article-item{background:#fff;padding:0 0 16px}
+    .articles-list>article+article{border-top:1px solid #e5e5e5;padding-top:16px;margin-top:16px}
+
+    .news-image{width:100%;height:160px;background:#f8f9fa;display:flex;align-items:center;justify-content:center;color:#666;font-size:1rem;overflow:hidden}
     .news-image img{width:100%;height:100%;object-fit:cover;object-position:center}
-    .article-content{padding:20px}
-    .article-meta{color:#6b7280;font-size:.9rem;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
-    .read-full{color:#1f2937;text-decoration:none;font-weight:600;font-size:.9rem}
+
+    .article-content{padding:12px 0}
+    .article-meta{color:#6b7280;font-size:.9rem;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+    .read-full{color:#0ea5e9;text-decoration:none;font-weight:600;font-size:.9rem}
     .read-full:hover{text-decoration:underline}
-    .article-title{font-size:22px;font-weight:800;color:#111;margin-bottom:10px;line-height:1.25}
-    .article-summary{color:#374151;font-size:16px;line-height:1.6;margin-bottom:16px}
-    .analysis-section{background:#f8fafc;padding:16px;border-radius:8px;border-left:4px solid #0ea5e9;margin-bottom:14px}
-    .analysis-title{font-size:16px;color:#0f172a;margin-bottom:8px;font-weight:800}
+    .article-title{font-size:20px;font-weight:700;color:#111;margin-bottom:8px;line-height:1.35}
+    .article-summary{color:#1f2937;font-size:16px;line-height:1.6;margin-bottom:12px}
+
+    .analysis{border-top:1px solid #e5e5e5;margin-top:12px;padding-top:12px}
+    .analysis-label{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#111;margin-bottom:6px;font-weight:600}
     .analysis-text{font-size:16px;line-height:1.7;color:#1f2937}
     .analysis-text p{margin-bottom:12px}
-    .loading-analysis{color:#64748b;font-style:italic;display:flex;align-items:center;gap:8px}
-    .loading-spinner{width:16px;height:16px;border:2px solid #e2e8f0;border-top:2px solid #0ea5e9;border-radius:50%;animation:spin 1s linear infinite}
+
+    .loading-state{text-align:center;padding:36px 16px;color:#64748b;font-style:italic}
+    .loading-spinner{width:16px;height:16px;border:2px solid #e2e8f0;border-top:2px solid #0ea5e9;border-radius:50%;animation:spin 1s linear infinite;display:inline-block;margin-right:8px;vertical-align:-3px}
     @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-    .social-sharing{background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e5e5e5}
-    .sharing-title{font-size:.95rem;color:#0f172a;margin-bottom:10px;font-weight:700}
-    .share-buttons{display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap}
-    .share-btn{padding:.5rem 1rem;border:0;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600}
+
+    .social-sharing{background:#f8fafc;padding:10px;border-radius:6px;border:1px solid #e5e5e5;margin-top:10px}
+    .sharing-title{font-size:.95rem;color:#0f172a;margin-bottom:8px;font-weight:700}
+    .share-buttons{display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap}
+    .share-btn{padding:.45rem .9rem;border:0;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600}
     .share-btn.twitter{background:#1da1f2;color:#fff}
     .share-btn.linkedin{background:#0077b5;color:#fff}
     .share-btn.facebook{background:#1877f2;color:#fff}
@@ -52,16 +53,6 @@
     .link-input{flex:1;padding:.5rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.9rem;background:#fff;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
     .copy-btn{background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:6px;font-size:.9rem;cursor:pointer}
     .copy-btn.copied{background:#10b981}
-    .loading-state{text-align:center;padding:48px 16px;color:#64748b;font-style:italic}
-    .footer-signup{background:#f8fafc;border-top:1px solid #e5e5e5;padding:32px 0;text-align:center}
-    .footer-signup h3{font-size:22px;margin-bottom:8px;font-weight:800;color:#0f172a}
-    .footer-signup p{font-size:16px;color:#64748b;margin-bottom:18px}
-    @media (max-width:768px){
-      .signup-form{flex-direction:column}
-      .email-input,.signup-btn{width:100%}
-      .news-image{height:200px}
-      .article-title{font-size:20px}
-    }
   </style>
 </head>
 <body>
@@ -73,24 +64,13 @@
     </div>
   </header>
 
-  <section class="signup-band">
-    <div class="wrap">
-      <h2 class="signup-title">Get the morning brief</h2>
-      <p class="signup-description">Two minutes. Real impact. In your inbox at 7 AM ET.</p>
-      <form class="signup-form" onsubmit="handleNewsletterSignup(event)">
-        <input type="email" class="email-input" placeholder="Your email" required>
-        <button type="submit" class="signup-btn">Subscribe free</button>
-      </form>
-    </div>
-  </section>
-
   <main class="main-content">
     <div class="wrap">
       <h2 class="page-title">Today’s analysis</h2>
-      <p class="page-subtitle">Stripped of spin. Focused on impact.</p>
+      <p class="page-subtitle">Plain facts. Real impact.</p>
 
       <div class="loading-state" id="loading">
-        <div class="loading-spinner"></div>
+        <span class="loading-spinner"></span>
         Loading today’s analysis...
       </div>
 
@@ -98,21 +78,12 @@
     </div>
   </main>
 
-  <section class="footer-signup">
-    <div class="wrap">
-      <h3>Never miss The Real Reason</h3>
-      <p>One email at 7 AM ET</p>
-      <form class="signup-form" onsubmit="handleNewsletterSignup(event)" style="margin:0 auto">
-        <input type="email" class="email-input" placeholder="Your email address" required>
-        <button type="submit" class="signup-btn">Start reading</button>
-      </form>
-    </div>
-  </section>
-
   <script>
     class DailyNewsletterSite {
       constructor(){ this.articles=[]; this.sharingData={}; this.init(); }
+
       async init(){ this.setTodaysDate(); await this.fetchTodaysContent(); }
+
       setTodaysDate(){
         const today=new Date();
         const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
@@ -120,10 +91,11 @@
         const issueNumber=Math.floor((today - new Date('2025-01-01'))/86400000)+1;
         document.getElementById('edition-info').textContent=`${dateStr} • Issue #${issueNumber}`;
       }
+
       async fetchTodaysContent(){
         try{
           const response=await fetch('/api/fetch-news');
-          if(!response.ok) throw new Error(`HTTP error ${response.status}`);
+          if(!response.ok) throw new Error(`HTTP ${response.status}`);
           const data=await response.json();
           if(data.articles){
             this.articles=data.articles.slice(0,6);
@@ -135,6 +107,7 @@
           document.getElementById('loading').innerHTML='Unable to load today’s analysis. Please refresh.';
         }
       }
+
       updateEditionInfo(editionInfo){
         const today=new Date();
         const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
@@ -142,6 +115,7 @@
         const statusText=editionInfo.is_automated ? (editionInfo.is_today ? '' : ' (Latest Edition)') : ' (Live Updates)';
         document.getElementById('edition-info').textContent=`${dateStr} • Issue #${editionInfo.issue_number}${statusText}`;
       }
+
       displayArticles(){
         const container=document.getElementById('articles-container');
         const loading=document.getElementById('loading');
@@ -152,11 +126,12 @@
           if(this.articles[i].preGeneratedAnalysis){ this.showPreGeneratedAnalysis(i); }
           else if(this.articles[i].isAnalyzed===false){
             const el=document.getElementById(`analysis-content-${i}`);
-            if(el){ el.innerHTML=`<div class="loading-analysis"><div class="loading-spinner"></div>Analyzing…</div>`; }
-            setTimeout(()=>this.loadAnalysisForArticle(i),1000*(i+1));
+            if(el){ el.innerHTML=`<div style="color:#64748b;font-style:italic">Analyzing…</div>`; }
+            setTimeout(()=>this.loadAnalysisForArticle(i),800*(i+1));
           }
         }
       }
+
       createArticleHTML(article,index){
         const timeAgo=this.getTimeAgo(article.publishedAt);
         const cleanTitle=this.cleanTitle(article.title);
@@ -172,10 +147,12 @@
             </div>
             <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
             <p class="article-summary">${this.escapeHtml(article.description||'')}</p>
-            <div class="analysis-section">
-              <h4 class="analysis-title">The Real Reason</h4>
+
+            <div class="analysis">
+              <div class="analysis-label">The Real Reason</div>
               <div class="analysis-text" id="analysis-content-${index}"></div>
             </div>
+
             <div class="social-sharing">
               <div class="sharing-title">Share this analysis</div>
               <div class="share-buttons">
@@ -191,6 +168,7 @@
           </div>
         </article>`;
       }
+
       showPreGeneratedAnalysis(i){
         const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`);
         if(a.preGeneratedAnalysis&&el){
@@ -199,9 +177,10 @@
           this.sharingData[i]={article:a,analysis:this.extractKeyInsight(a.preGeneratedAnalysis),url:`${window.location.origin}#story-${i}`};
         }
       }
+
       async loadAnalysisForArticle(i){
         const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`); if(!a||!el) return;
-        el.innerHTML=`<div class="loading-analysis"><div class="loading-spinner"></div>Analyzing…</div>`;
+        el.innerHTML=`<div style="color:#64748b;font-style:italic">Analyzing…</div>`;
         try{
           const res=await fetch('/api/personalize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({article:a})});
           if(!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -216,20 +195,26 @@
           el.innerHTML='<p style="color:#64748b;font-style:italic">Analysis temporarily unavailable</p>';
         }
       }
+
       cleanTitle(t){ if(!t) return ''; return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i,''); }
+
       getTimeAgo(p){
         if(!p) return 'Recently';
         const now=new Date(), pub=new Date(p); const hrs=Math.floor((now-pub)/3600000); const days=Math.floor(hrs/24);
         if(hrs<1) return 'Just published'; if(hrs<24) return `${hrs}h ago`; if(days===1) return 'Yesterday'; if(days<7) return `${days} days ago`;
         return pub.toLocaleDateString();
       }
+
       escapeHtml(t){ if(!t) return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+
       formatAnalysis(t){ return t.split('\n\n').filter(p=>p.trim()).map(p=>`<p>${this.escapeHtml(p.trim())}</p>`).join(''); }
+
       extractKeyInsight(a){
         const s=a.split('. '); const keys=['real reason','real impact','what this means','bigger picture','the reality'];
         for(const x of s){ for(const k of keys){ if(x.toLowerCase().includes(k)) return x.trim()+(x.endsWith('.')?'':'.'); } }
         return s.find(x=>x.length>50)?.trim()+'.' || a.substring(0,100)+'...';
       }
+
       shareToTwitter(i){
         const d=this.sharingData[i]; if(!d) return;
         const text=`The Real Reason: "${d.analysis}" Read more: ${d.url}`;
@@ -243,15 +228,7 @@
         if(btn){ btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='Copy'; btn.classList.remove('copied')},2000); }
       }
     }
-    function handleNewsletterSignup(e){
-      e.preventDefault();
-      const email=e.target.querySelector('.email-input').value;
-      const btn=e.target.querySelector('.signup-btn');
-      btn.textContent='Subscribing...'; btn.disabled=true;
-      setTimeout(()=>{ btn.textContent='✓ Subscribed!'; btn.style.background='#10b981';
-        setTimeout(()=>{ e.target.reset(); btn.textContent='Subscribe free'; btn.disabled=false; btn.style.background=''; },2000);
-      },1000);
-    }
+
     document.addEventListener('DOMContentLoaded',()=>{ window.dailyNewsletter=new DailyNewsletterSite(); });
   </script>
 </body>
