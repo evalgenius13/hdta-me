@@ -20,20 +20,20 @@ export default async function handler(req, res) {
   try {
     const today = new Date().toISOString().split('T')[0];
     
-    // First try to get today's published edition
+    // First try to get today's published OR sent edition
     let { data: edition, error: editionError } = await supabase
       .from('daily_editions')
       .select('*')
       .eq('edition_date', today)
-      .eq('status', 'published')
+      .in('status', ['published', 'sent'])
       .single();
 
-    // If no edition for today, get the most recent published edition
+    // If no edition for today, get the most recent published OR sent edition
     if (editionError || !edition) {
       const { data: recentEdition, error: recentError } = await supabase
         .from('daily_editions')
         .select('*')
-        .eq('status', 'published')
+        .in('status', ['published', 'sent'])
         .order('edition_date', { ascending: false })
         .limit(1)
         .single();
