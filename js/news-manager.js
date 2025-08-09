@@ -1,9 +1,10 @@
-// js/news-manager.js - Auto narrative analysis, no button
+// Render pre-generated newsletter analysis
 class NewsManager {
   constructor() {
     this.articles = [];
     this.loading = false;
     this.lastFetchTime = null;
+    this._origDisplay = null;
   }
 
   async fetchNews() {
@@ -13,150 +14,94 @@ class NewsManager {
       this.setLoading(true);
       this.lastFetchTime = Date.now();
 
-      const response = await fetch('/api/fetch-news');
-      const data = await response.json();
+      const r = await fetch('/api/fetch-news');
+      const data = await r.json();
+      if (!data.articles) throw new Error('No articles');
 
-      if (data.articles) {
-        this.articles = data.articles.filter(
-          a => a.title && a.description && !a.title.includes('[Removed]')
-        );
-        await this.displayNews();
-
-        // Auto-load analysis for each article, staggered slightly
-        for (let i = 0; i < this.articles.length; i++) {
-          // small delay to avoid burst
-          setTimeout(() => this.getAnalysis(i), 300 * i);
-        }
-      } else {
-        this.showError(data.error || 'Unable to load news. Please try again later.');
-      }
-    } catch (error) {
-      console.error('Error fetching news:', error);
-      this.showError('Unable to load news. Please check your connection.');
+      this.articles = data.articles.filter(a => a.title && a.description);
+      this.displayNews();
+    } catch (e) {
+      this.showError('Unable to load news.');
     } finally {
       this.setLoading(false);
     }
   }
 
-  async displayNews() {
-    const newsGrid = document.getElementById('news-grid');
-    if (!newsGrid) return;
+  displayNews() {
+    const container = document.getElementById('news-grid') || document.getElementById('articles-container');
+    if (!container) return;
 
-    newsGrid.innerHTML = this.articles.map((article, idx) => this.createArticleHTML(article, idx)).join('');
+    container.innerHTML = this.articles.map((a, i) => this.card(a, i)).join('');
   }
 
-  async getAnalysis(articleIndex) {
-    const article = this.articles[articleIndex];
-    const impactElement = document.getElementById(`impact-${articleIndex}`);
-
-    if (!article || !impactElement) return;
-    if (article._analysisLoaded) return;
-
-    impactElement.innerHTML = '<div class="impact-loading">Analyzing the real impact...</div>';
-
-    try {
-      const response = await fetch('/api/personalize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          article: {
-            title: article.title,
-            description: article.description,
-            publishedAt: article.publishedAt || null,
-            sourceName: article.source?.name || null,
-            forceRefresh: true
-          }
-        })
-      });
-
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const data = await response.json();
-
-      if (data && data.impact) {
-        // Expect server to return narrative paragraphs. Render as HTML.
-        impactElement.innerHTML = data.impact;
-        article._analysisLoaded = true;
-      } else {
-        throw new Error('No analysis returned');
-      }
-    } catch (error) {
-      console.error('Error generating analysis:', error);
-      impactElement.innerHTML = '<div class="impact-error">Analysis unavailable right now.</div>';
-    }
-  }
-
-  createArticleHTML(article, index) {
-    // time ago
+  card(a, i) {
     let timeAgo = '';
-    if (article.publishedAt) {
-      const publishTime = new Date(article.publishedAt);
-      const now = new Date();
-      const diffHours = Math.floor((now - publishTime) / (1000 * 60 * 60));
-      if (diffHours < 1) timeAgo = 'Just now';
-      else if (diffHours < 24) timeAgo = `${diffHours}h ago`;
-      else {
-        const diffDays = Math.floor(diffHours / 24);
-        timeAgo = `${diffDays}d ago`;
-      }
+    if (a.publishedAt) {
+      const hrs = Math.floor((Date.now() - new Date(a.publishedAt)) / 3600000);
+      timeAgo = hrs < 1 ? 'Just now' : hrs < 24 ? `${hrs}h ago` : `${Math.floor(hrs / 24)}d ago`;
     }
+
+    const img = a.urlToImage
+      ? `<img src="${a.urlToImage}" alt="News image" onerror="this.parentElement.innerHTML='[Image unavailable]'">`
+      : '[News Image]';
 
     return `
-      <article class="news-card" onclick="window.open('${article.url}', '_blank')" style="cursor:pointer;">
-        <div class="news-image">
-          ${
-            article.image || article.urlToImage
-              ? `<img src="${article.image || article.urlToImage}" alt="News image" onerror="this.parentElement.innerHTML='[Image unavailable]'">`
-              : '[News Image]'
-          }
-        </div>
+      <article class="news-card" onclick="window.open('${a.url}','_blank')" style="cursor:pointer;">
+        <div class="news-image">${img}</div>
         <div class="news-content">
           <div class="news-meta">
-            <span class="news-source">${this.escapeHtml(article.source?.name || 'Unknown Source')}</span>
+            <span class="news-source">${this.escape(a.source?.name || 'News Source')}</span>
             ${timeAgo ? `<span class="news-time">${timeAgo}</span>` : ''}
           </div>
-          <h2 class="news-title">${this.escapeHtml(article.title)}</h2>
-          <p class="news-summary">${this.escapeHtml(article.description)}</p>
-
+          <h2 class="news-title">${this.escape(a.title)}</h2>
+          <p class="news-summary">${this.escape(a.description)}</p>
           <div class="impact-section">
-            <div class="impact-text" id="impact-${index}"></div>
+            <div class="analysis-label">How Does This Affect Me?</div>
+            <div class="impact-text" id="impact-${i}">${this.format(a.preGeneratedAnalysis || 'Analysis will appear shortly.')}</div>
           </div>
         </div>
       </article>
     `;
   }
 
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
+  escape(t) {
+    const d = document.createElement('div');
+    d.textContent = t || '';
+    return d.innerHTML;
+  }
+
+  format(t) {
+    return (t || '')
+      .split('\n\n')
+      .map(p => `<p>${this.escape(p)}</p>`)
+      .join('');
   }
 
   setLoading(loading) {
     this.loading = loading;
-    const loadingElement = document.getElementById('loading');
-    const newsGrid = document.getElementById('news-grid');
+    const l = document.getElementById('loading');
+    const container = document.getElementById('news-grid') || document.getElementById('articles-container');
+    if (!l || !container) return;
 
-    if (loadingElement && newsGrid) {
-      loadingElement.innerHTML = loading
-        ? '<div>Loading latest news...</div>'
-        : '<div>Loading latest news...</div>';
-      loadingElement.style.display = loading ? 'block' : 'none';
-      newsGrid.style.display = loading ? 'none' : 'grid';
+    if (!this._origDisplay) {
+      const computed = getComputedStyle(container).display;
+      this._origDisplay = computed && computed !== 'none' ? computed : 'block';
     }
+
+    l.style.display = loading ? 'block' : 'none';
+    container.style.display = loading ? 'none' : this._origDisplay;
   }
 
-  showError(message) {
-    const newsGrid = document.getElementById('news-grid');
-    if (newsGrid) {
-      newsGrid.innerHTML = `
-        <div class="error-state">
-          <strong>Error:</strong> ${this.escapeHtml(message)}
-          <br><br>
-          <button onclick="window.newsManager.fetchNews()" class="compare-btn">Try Again</button>
-        </div>
-      `;
-    }
+  showError(msg) {
+    const container = document.getElementById('news-grid') || document.getElementById('articles-container');
+    if (!container) return;
+    container.innerHTML = `
+      <div class="error-state">
+        <strong>Error:</strong> ${this.escape(msg)}
+        <br><br>
+        <button onclick="window.newsManager.fetchNews()" class="compare-btn">Try Again</button>
+      </div>
+    `;
   }
 
   refresh() {
@@ -165,7 +110,6 @@ class NewsManager {
   }
 }
 
-// Initialize news manager when DOM is loaded
 if (typeof window !== 'undefined') {
-  window.newsManager = null;
+  window.newsManager = new NewsManager();
 }
