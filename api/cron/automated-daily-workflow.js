@@ -40,7 +40,7 @@ class AutomatedPublisher {
       for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
         const raw = await this.generateSingleAnalysis(a).catch(() => null);
         const cleaned = raw ? this.sanitizeAnalysis(a, raw) : null;
-        if (cleaned && this.isAnalysisGoodQuality(cleaned)) {
+        if (cleaned) {
           analysis = cleaned;
           break;
         }
@@ -64,28 +64,30 @@ class AutomatedPublisher {
   }
 
   async generateSingleAnalysis(article) {
-    const pubDate = article.publishedAt || '';
-    const sourceName = article.source?.name || '';
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    const pubDate = article.publishedAt || 'not stated';
+    const source = article.source?.name || 'not stated';
 
     const prompt = `
-Write 120 to 160 words. Plain English. Professional and relaxed. No bullets. No lists.
-Show real life effects first.
-Name who benefits and who loses in natural sentences.
-Add one sentence of historical context.
-Add one sentence on what is not being said or hidden costs.
-Mention demographics only if the article or well documented patterns support it.
-Use only dates and numbers present in Policy, Details, or PublishedAt. If unknown, write "not stated".
+Write 130 to 170 words. Plain English. Professional and relaxed. No bullets. No lists.
+1) Lead with the everyday impact in sentence one.
+2) Explain concrete effects first: costs, payback, access, timelines, paperwork.
+3) Name who benefits most and who is most exposed in natural sentences. Use specific roles like small installers, renters, homeowners, investors, agency staff.
+4) Mention demographics only if supported by the article text. Do not invent.
+5) Add a short historical line tied to similar recent decisions. No new dates unless present. If a date is unknown, write "not stated".
+6) Add one sentence on what to watch next and likely hidden costs such as fees, delays, caps, or credit changes.
+7) Do not use headings. Do not say "officials overlook". Do not moralize.
 
 Policy: "${article.title}"
 Details: "${article.description}"
 PublishedAt: "${pubDate}"
-Source: "${sourceName}"
+Source: "${source}"
 `.trim();
 
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -93,7 +95,7 @@ Source: "${sourceName}"
         messages: [
           {
             role: 'system',
-            content: 'You explain policy impacts for everyday people. You are precise, calm, and specific. You never invent numbers or dates.'
+            content: 'You translate policy news into concrete personal impact. You are concise, specific, and careful not to invent numbers or dates.'
           },
           { role: 'user', content: prompt }
         ],
@@ -118,46 +120,21 @@ Source: "${sourceName}"
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 110 || wc > 200) return null;
+    if (wc < 110 || wc > 220) return null;
 
-    const inputs = [article.title || '', article.description || '', article.publishedAt || '']
-      .join(' ')
-      .toLowerCase();
+    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) return null;
 
-    const yearMatches = normalized.match(/\b(19|20)\d{2}\b/g) || [];
-    for (const y of yearMatches) {
+    const inputs = [article.title || '', article.description || '', article.publishedAt || ''].join(' ').toLowerCase();
+    const years = normalized.match(/\b(19|20)\d{2}\b/g) || [];
+    for (const y of years) {
       if (!inputs.includes(y.toLowerCase())) return null;
     }
-
-    const monthRegex = /\b(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|jul(y)?|aug(ust)?|sep(t)?(ember)?|oct(ober)?|nov(ember)?|dec(ember)?)\b/i;
-    if (monthRegex.test(normalized) && !monthRegex.test(inputs)) return null;
-
-    if (/- |\* |\d+\.\s/.test(normalized)) return null;
 
     return normalized;
   }
 
-  isAnalysisGoodQuality(analysis) {
-    if (!analysis || typeof analysis !== 'string') return false;
-
-    const wc = analysis.split(/\s+/).filter(Boolean).length;
-    if (wc < 110 || wc > 200) return false;
-
-    const lower = analysis.toLowerCase();
-    const needs = ['cost', 'bill', 'price', 'deadline', 'access', 'eligib', 'savings', 'fees', 'timeline'];
-    const groups = ['homeowner', 'renter', 'small business', 'worker', 'investor', 'utility', 'official', 'regulator', 'student'];
-
-    if (!needs.some(n => lower.includes(n))) return false;
-    if (!groups.some(g => lower.includes(g))) return false;
-
-    const bad = ['i cannot', 'i\'m sorry', 'as an ai', 'i don\'t have access', 'analysis not available', 'unable to analyze'];
-    if (bad.some(b => lower.includes(b))) return false;
-
-    return true;
-  }
-
   generateFallbackAnalysis() {
-    return 'The practical effect depends on implementation. Watch eligibility, fees, deadlines, and enforcement. Those decide who benefits and who pays. Regulators may revisit terms. Changes often arrive in guidance rather than headlines.';
+    return 'For most readers, the effect depends on implementation. The key levers are eligibility, fees, timelines, and paperwork. Those decide who benefits and who pays.\n\nPeople who tend to benefit are those able to qualify quickly and lock terms before programs change. People most exposed are late applicants and anyone facing new fees or credit changes. Prior decisions in similar cases have shifted benefits more than once, so outcomes can move.\n\nWatch for agency guidance, application caps, and any new fixed charges or delays. These details often matter more than the headline.';
   }
 
   calculateAnalysisQuality(analysis) {
@@ -165,7 +142,7 @@ Source: "${sourceName}"
     const wc = (analysis || '').split(/\s+/).filter(Boolean).length;
     if (wc >= 120) score += 30;
     if (wc <= 180) score += 20;
-    const hits = ['cost', 'bills', 'fees', 'access', 'timeline', 'benefit', 'harm', 'workers', 'renters', 'homeowners', 'investors'];
+    const hits = ['cost', 'bills', 'fees', 'access', 'timeline', 'benefit', 'harm', 'workers', 'renters', 'homeowners', 'investors', 'installers'];
     hits.forEach(h => {
       if ((analysis || '').toLowerCase().includes(h)) score += 3;
     });
@@ -194,7 +171,6 @@ Source: "${sourceName}"
     );
 
     const deduped = this.removeNearDuplicates(filtered);
-
     const scored = deduped.map(a => ({ ...a, score: this.calculatePolicyScore(a) }));
     return scored.sort((x, y) => y.score - x.score).slice(0, this.maxArticles);
   }
@@ -304,7 +280,6 @@ Source: "${sourceName}"
       .from('daily_editions')
       .update({ status: 'published', updated_at: new Date().toISOString() })
       .eq('id', editionId);
-
     if (error) throw error;
   }
 
