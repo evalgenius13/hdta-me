@@ -1,28 +1,21 @@
+// api/personalize.js
 export default async function handler(req, res) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  // Always avoid CDN/browser caching for this endpoint
-  res.setHeader('Cache-Control', 'no-store');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { article } = req.body || {};
+    const { article } = req.body;
     if (!article?.title || !article?.description) {
       return res.status(400).json({ error: 'Missing article data' });
     }
 
-    // Allow client to force regeneration
-    const forceRefresh = Boolean(article.forceRefresh) || req.query?.refresh === '1';
-
-    // If not forcing, honor any pre-generated analysis in the feed
-    if (!forceRefresh && article.preGeneratedAnalysis) {
+    if (article.preGeneratedAnalysis) {
       return res.json({
-        impact: String(article.preGeneratedAnalysis).trim(),
+        impact: normalizeParagraphs(article.preGeneratedAnalysis),
         source: 'automated',
         cached: true
       });
@@ -30,39 +23,29 @@ export default async function handler(req, res) {
 
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
-      return res.status(500).json({
-        error: 'Analysis service unavailable',
-        message: 'Real-time generation is not configured'
-      });
+      return res.status(500).json({ error: 'Service unavailable' });
     }
 
+    const pubDate = article.publishedAt || 'not stated';
+    const source = article.source?.name || 'not stated';
+
     const prompt = `
-You write short policy explainers that answer one question: How does this affect me.
-Voice: relaxed but professional. Plain English. Precise. Calm. Trustworthy. No slang. No hype.
-
-Output JSON only. No preface. Use this exact schema:
-{
-  "takeaway": "one clear sentence a reader can repeat",
-  "facts": ["fact with a number or date", "second fact"],
-  "winners": "who benefits, <= 15 words",
-  "losers": "who is most exposed, <= 15 words",
-  "counterpoint": "credible counterpoint, <= 25 words",
-  "watch_next": "what to watch next, <= 20 words",
-  "analysis": "120-180 word plain-English analysis paragraphs"
-}
-
-Rules:
-1) Include at least two concrete facts with numbers or dates.
-2) Be specific about daily-life effects, costs, access, eligibility, timelines.
-3) Do not invent dates, percentages, or dollar amounts not present in "Details". If unknown, write "date not announced" or "magnitude unclear".
-4) If a claim is uncertain, state what would confirm it.
-5) Keep tone calm and professional.
+Write 130 to 170 words. Plain English. Professional and relaxed. No bullets. No lists.
+1) Lead with the everyday impact in sentence one. Example: "If you are X, this means Y."
+2) Explain concrete effects first: costs, payback, access, timelines, paperwork.
+3) Name who benefits most and who is most exposed in natural sentences. Use specific roles like small installers, renters, homeowners, investors, agency staff.
+4) Mention demographics only if supported by the article or well documented patterns in the text provided. Do not invent.
+5) Add one sentence of short historical context tied to similar recent decisions. No new dates unless present in inputs. If a date is unknown, write "not stated".
+6) Add one sentence on what to watch next and any likely hidden costs such as fees, delays, cap limits, or credit changes.
+7) Do not use headings. Do not moralize. Do not say "officials overlook".
 
 Policy: "${article.title}"
 Details: "${article.description}"
+PublishedAt: "${pubDate}"
+Source: "${source}"
 `.trim();
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
@@ -73,65 +56,65 @@ Details: "${article.description}"
         messages: [
           {
             role: 'system',
-            content: 'Explain policy impacts in clear, plain language. Prioritize who benefits, who is harmed, timelines, and concrete effects. Maintain a professional, calm tone. Never fabricate numbers or dates.'
+            content: 'You translate policy news into concrete personal impact. You are concise, specific, and careful not to invent numbers or dates.'
           },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 380,
+        max_tokens: 260,
         temperature: 0.3
       })
     });
 
-    if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
+    if (!r.ok) throw new Error(`OpenAI API ${r.status}`);
+    const data = await r.json();
+    const raw = (data.choices?.[0]?.message?.content || '').trim();
+    const impact = sanitizeNarrative(article, raw) || fallbackNarrative();
 
-    const data = await response.json();
-    const raw = data.choices?.[0]?.message?.content?.trim() || '';
-
-    // Try JSON parse, stripping common code fences
-    let parsed = null;
-    try {
-      const jsonText = raw.replace(/^\s*```json\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-      parsed = JSON.parse(jsonText);
-    } catch {}
-
-    if (parsed && parsed.analysis) {
-      return res.json({
-        impact: String(parsed.analysis).trim(),
-        takeaway: parsed.takeaway?.trim() || null,
-        facts: Array.isArray(parsed.facts) ? parsed.facts.slice(0, 3) : [],
-        winners: parsed.winners?.trim() || null,
-        losers: parsed.losers?.trim() || null,
-        counterpoint: parsed.counterpoint?.trim() || null,
-        watch_next: parsed.watch_next?.trim() || null,
-        source: forceRefresh ? 'forced' : 'real-time',
-        cached: false
-      });
-    }
-
-    // Fallback to whatever text we got
-    if (raw) {
-      return res.json({
-        impact: raw,
-        source: forceRefresh ? 'forced' : 'real-time',
-        cached: false
-      });
-    }
-
-    throw new Error('No analysis content received from OpenAI');
-  } catch (error) {
-    console.error('Analysis error:', error);
-    const fallbackAnalysis =
-      'For most people, the effect depends on implementation. Watch eligibility, fees, deadlines, and enforcement. Those decide who benefits and who bears the cost.';
     return res.json({
-      impact: fallbackAnalysis,
-      takeaway: 'Implementation details will decide who benefits and who pays.',
-      facts: [],
-      winners: null,
-      losers: null,
-      counterpoint: 'Impacts may be smaller if rollout is delayed.',
-      watch_next: 'Agency guidance and timelines.',
+      impact,
+      source: 'real-time',
+      cached: false
+    });
+  } catch (e) {
+    return res.json({
+      impact: fallbackNarrative(),
       source: 'fallback',
       cached: false
     });
   }
+}
+
+function normalizeParagraphs(text) {
+  return text
+    .replace(/\r/g, '')
+    .split('\n')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function sanitizeNarrative(article, text) {
+  if (!text) return null;
+  const normalized = normalizeParagraphs(text);
+
+  const wc = normalized.split(/\s+/).filter(Boolean).length;
+  if (wc < 110 || wc > 220) return null;
+
+  // Disallow headings or lists
+  if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) return null;
+
+  // Disallow unfounded dates
+  const inputs = [article.title || '', article.description || '', article.publishedAt || ''].join(' ').toLowerCase();
+  const years = normalized.match(/\b(19|20)\d{2}\b/g) || [];
+  for (const y of years) {
+    if (!inputs.includes(y.toLowerCase())) return null;
+  }
+
+  return normalized;
+}
+
+function fallbackNarrative() {
+  return normalizeParagraphs(
+    'For most readers, the effect depends on how the rule is implemented. The key levers are eligibility, fees, timelines, and paperwork. Those decide who benefits and who pays.\n\nPeople who tend to benefit are those able to qualify quickly and lock terms before programs change. People most exposed are late applicants and anyone facing new fees or credit changes. Prior decisions in similar cases have shifted benefits more than once, so outcomes can move.\n\nWatch for agency guidance, application caps, and any new fixed charges or delays. These quiet details often matter more than the headline.'
+  );
 }
