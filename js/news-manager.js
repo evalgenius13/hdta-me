@@ -1,4 +1,4 @@
-// Render pre-generated newsletter analysis
+// js/news-manager.js
 class NewsManager {
   constructor() {
     this.articles = [];
@@ -20,7 +20,7 @@ class NewsManager {
 
       this.articles = data.articles.filter(a => a.title && a.description);
       this.displayNews();
-    } catch (e) {
+    } catch {
       this.showError('Unable to load news.');
     } finally {
       this.setLoading(false);
