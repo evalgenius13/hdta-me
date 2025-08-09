@@ -66,7 +66,7 @@ export default async function handler(req, res) {
         is_today: edition.edition_date === today
       }
     });
-  } catch (e) {
+  } catch {
     return await legacyNewsFetch(req, res);
   }
 }
@@ -147,7 +147,7 @@ function removeNearDuplicates(list) {
 
 function jaccard(a, b) {
   const wa = new Set(a.split(' ').filter(w => w.length > 2));
-  const wb = new Set(b.split(' ').filter(w => w.length > 2));
+  const wb = new Set(b.split(' ').filter w => w.length > 2);
   const inter = new Set([...wa].filter(w => wb.has(w)));
   const uni = new Set([...wa, ...wb]);
   if (uni.size === 0) return 0;
