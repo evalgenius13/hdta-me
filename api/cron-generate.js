@@ -1,3 +1,4 @@
+// api/cron-generate.js
 import { runAutomatedWorkflow } from './automated-daily-workflow.js';
 
 export default async function handler(req, res) {
