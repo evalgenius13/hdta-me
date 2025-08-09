@@ -1,20 +1,28 @@
 export default async function handler(req, res) {
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Always avoid CDN/browser caching for this endpoint
+  res.setHeader('Cache-Control', 'no-store');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { article } = req.body;
+    const { article } = req.body || {};
     if (!article?.title || !article?.description) {
       return res.status(400).json({ error: 'Missing article data' });
     }
 
-    if (article.preGeneratedAnalysis) {
+    // Allow client to force regeneration
+    const forceRefresh = Boolean(article.forceRefresh) || req.query?.refresh === '1';
+
+    // If not forcing, honor any pre-generated analysis in the feed
+    if (!forceRefresh && article.preGeneratedAnalysis) {
       return res.json({
-        impact: article.preGeneratedAnalysis.trim(),
+        impact: String(article.preGeneratedAnalysis).trim(),
         source: 'automated',
         cached: true
       });
@@ -46,8 +54,9 @@ Output JSON only. No preface. Use this exact schema:
 Rules:
 1) Include at least two concrete facts with numbers or dates.
 2) Be specific about daily-life effects, costs, access, eligibility, timelines.
-3) If something is uncertain, say what would confirm it.
-4) Keep tone calm and professional.
+3) Do not invent dates, percentages, or dollar amounts not present in "Details". If unknown, write "date not announced" or "magnitude unclear".
+4) If a claim is uncertain, state what would confirm it.
+5) Keep tone calm and professional.
 
 Policy: "${article.title}"
 Details: "${article.description}"
@@ -64,7 +73,7 @@ Details: "${article.description}"
         messages: [
           {
             role: 'system',
-            content: 'Explain policy impacts in clear, plain language. Prioritize who benefits, who is harmed, timelines, and concrete effects. Maintain a professional, calm tone.'
+            content: 'Explain policy impacts in clear, plain language. Prioritize who benefits, who is harmed, timelines, and concrete effects. Maintain a professional, calm tone. Never fabricate numbers or dates.'
           },
           { role: 'user', content: prompt }
         ],
@@ -74,35 +83,36 @@ Details: "${article.description}"
     });
 
     if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
+
     const data = await response.json();
     const raw = data.choices?.[0]?.message?.content?.trim() || '';
 
+    // Try JSON parse, stripping common code fences
     let parsed = null;
     try {
-      const jsonText = raw.replace(/```json|```/g, '').trim();
+      const jsonText = raw.replace(/^\s*```json\s*/i, '').replace(/\s*```\s*$/i, '').trim();
       parsed = JSON.parse(jsonText);
-    } catch {
-      parsed = null;
-    }
+    } catch {}
 
     if (parsed && parsed.analysis) {
       return res.json({
-        impact: parsed.analysis.trim(),
+        impact: String(parsed.analysis).trim(),
         takeaway: parsed.takeaway?.trim() || null,
         facts: Array.isArray(parsed.facts) ? parsed.facts.slice(0, 3) : [],
         winners: parsed.winners?.trim() || null,
         losers: parsed.losers?.trim() || null,
         counterpoint: parsed.counterpoint?.trim() || null,
         watch_next: parsed.watch_next?.trim() || null,
-        source: 'real-time',
+        source: forceRefresh ? 'forced' : 'real-time',
         cached: false
       });
     }
 
+    // Fallback to whatever text we got
     if (raw) {
       return res.json({
         impact: raw,
-        source: 'real-time',
+        source: forceRefresh ? 'forced' : 'real-time',
         cached: false
       });
     }
@@ -111,14 +121,14 @@ Details: "${article.description}"
   } catch (error) {
     console.error('Analysis error:', error);
     const fallbackAnalysis =
-      'For most people, the effect will depend on how the rule is implemented. Watch eligibility, fees, deadlines, and enforcement. Those decide who benefits and who bears the cost.';
+      'For most people, the effect depends on implementation. Watch eligibility, fees, deadlines, and enforcement. Those decide who benefits and who bears the cost.';
     return res.json({
       impact: fallbackAnalysis,
       takeaway: 'Implementation details will decide who benefits and who pays.',
       facts: [],
       winners: null,
       losers: null,
-      counterpoint: 'Some impacts may be smaller if agencies delay rollout.',
+      counterpoint: 'Impacts may be smaller if rollout is delayed.',
       watch_next: 'Agency guidance and timelines.',
       source: 'fallback',
       cached: false
