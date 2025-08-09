@@ -1,3 +1,4 @@
+// api/automated-daily-workflow.js
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -39,16 +40,14 @@ class AutomatedPublisher {
       for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
         const raw = await this.generateSingleAnalysis(a).catch(() => null);
         const cleaned = raw ? this.sanitizeAnalysis(a, raw) : null;
-
         if (cleaned && this.isAnalysisGoodQuality(cleaned)) {
           analysis = cleaned;
           break;
         }
-
         await this.sleep(1500);
       }
 
-      if (!analysis) analysis = this.generateFallbackAnalysis(a);
+      if (!analysis) analysis = this.generateFallbackAnalysis();
 
       out.push({
         ...a,
@@ -145,7 +144,6 @@ Source: "${sourceName}"
     if (wc < 110 || wc > 200) return false;
 
     const lower = analysis.toLowerCase();
-
     const needs = ['cost', 'bill', 'price', 'deadline', 'access', 'eligib', 'savings', 'fees', 'timeline'];
     const groups = ['homeowner', 'renter', 'small business', 'worker', 'investor', 'utility', 'official', 'regulator', 'student'];
 
@@ -159,7 +157,7 @@ Source: "${sourceName}"
   }
 
   generateFallbackAnalysis() {
-    return 'The practical effect depends on implementation. Watch eligibility, fees, deadlines, and enforcement. Those decide who benefits and who pays. Regulators may revisit terms; changes often arrive in guidance rather than headlines.';
+    return 'The practical effect depends on implementation. Watch eligibility, fees, deadlines, and enforcement. Those decide who benefits and who pays. Regulators may revisit terms. Changes often arrive in guidance rather than headlines.';
   }
 
   calculateAnalysisQuality(analysis) {
@@ -167,12 +165,10 @@ Source: "${sourceName}"
     const wc = (analysis || '').split(/\s+/).filter(Boolean).length;
     if (wc >= 120) score += 30;
     if (wc <= 180) score += 20;
-
     const hits = ['cost', 'bills', 'fees', 'access', 'timeline', 'benefit', 'harm', 'workers', 'renters', 'homeowners', 'investors'];
     hits.forEach(h => {
       if ((analysis || '').toLowerCase().includes(h)) score += 3;
     });
-
     return Math.min(100, score);
   }
 
@@ -184,15 +180,58 @@ Source: "${sourceName}"
         `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=20&token=${API_KEY}`
       );
       const data = await r.json();
-      return data.articles || [];
+      return Array.isArray(data.articles) ? data.articles : [];
     } catch {
       return [];
     }
   }
 
   async selectBestArticles(articles) {
-    const scored = articles.map(a => ({ ...a, score: this.calculatePolicyScore(a) }));
-    return scored.sort((a, b) => b.score - a.score).slice(0, this.maxArticles);
+    const filtered = articles.filter(a =>
+      a?.title &&
+      a?.description &&
+      !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks)\b/i.test(a.title)
+    );
+
+    const deduped = this.removeNearDuplicates(filtered);
+
+    const scored = deduped.map(a => ({ ...a, score: this.calculatePolicyScore(a) }));
+    return scored.sort((x, y) => y.score - x.score).slice(0, this.maxArticles);
+  }
+
+  removeNearDuplicates(list) {
+    const seen = [];
+    const out = [];
+    for (const a of list) {
+      const norm = (a.title || '')
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .replace(/\b(the|a|an|and|or|but|in|on|at|to|for|of|with|by)\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      let dup = false;
+      for (const s of seen) {
+        const sim = this.jaccard(norm, s);
+        if (sim > 0.82) {
+          dup = true;
+          break;
+        }
+      }
+      if (!dup) {
+        seen.push(norm);
+        out.push(a);
+      }
+    }
+    return out;
+  }
+
+  jaccard(a, b) {
+    const wa = new Set(a.split(' ').filter(w => w.length > 2));
+    const wb = new Set(b.split(' ').filter(w => w.length > 2));
+    const inter = new Set([...wa].filter(w => wb.has(w)));
+    const uni = new Set([...wa, ...wb]);
+    if (uni.size === 0) return 0;
+    return inter.size / uni.size;
   }
 
   calculatePolicyScore(article) {
@@ -272,9 +311,7 @@ Source: "${sourceName}"
   async scheduleNewsletter(editionId) {
     try {
       await supabase.from('daily_editions').update({ status: 'sent' }).eq('id', editionId);
-    } catch {
-      /* no-op */
-    }
+    } catch {}
   }
 
   async logWorkflowSuccess(edition) {
