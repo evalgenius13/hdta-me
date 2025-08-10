@@ -2,10 +2,19 @@
   "name": "hdta-news-personalization",
   "version": "1.0.0",
   "description": "How Does This Affect Me - News Personalization Service",
+  "type": "module",
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "vercel dev",
+    "build": "echo 'No build step required'",
+    "start": "vercel dev"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.0"
+  },
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
