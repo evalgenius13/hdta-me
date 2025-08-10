@@ -76,19 +76,25 @@ async function legacyNewsFetch(req, res) {
     const API_KEY = process.env.GNEWS_API_KEY;
     if (!API_KEY) return res.status(500).json({ error: 'News service not configured' });
 
-    const query = 'congress OR senate OR governor OR "bill signed" OR "supreme court" OR "executive order" OR regulation OR "rule change" OR EPA OR FDA OR IRS OR "federal agency"';
-    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=20&token=${API_KEY}`;
+    const query =
+      'congress OR senate OR governor OR "bill signed" OR "supreme court" OR "executive order" OR regulation OR "rule change" OR EPA OR FDA OR IRS OR "federal agency"';
+    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(
+      query
+    )}&lang=en&country=us&max=20&token=${API_KEY}`;
 
     const r = await fetch(url);
     const data = await r.json();
     if (!data.articles) return res.status(400).json({ error: data.error || 'Failed to fetch news' });
 
-    let articles = data.articles.filter(a =>
-      a.title &&
-      a.description &&
-      !/\[Removed\]/i.test(a.title) &&
-      !/\b(golf|nfl|nba|ncaa|sports|celebrity|stocks|earnings|rapper|music|movie|entertainment)\b/i.test(a.title) &&
-      /\b(bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves|ruling|decision)\b/i.test(a.title + ' ' + a.description)
+    let articles = data.articles.filter(
+      a =>
+        a.title &&
+        a.description &&
+        !/\[Removed\]/i.test(a.title) &&
+        !/\b(golf|nfl|nba|ncaa|sports|celebrity|stocks|earnings|rapper|music|movie|entertainment)\b/i.test(a.title) &&
+        /\b(bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves|ruling|decision)\b/i.test(
+          (a.title || '') + ' ' + (a.description || '')
+        )
     );
 
     articles = removeNearDuplicates(articles);
@@ -147,7 +153,7 @@ function removeNearDuplicates(list) {
 
 function jaccard(a, b) {
   const wa = new Set(a.split(' ').filter(w => w.length > 2));
-  const wb = new Set(b.split(' ').filter w => w.length > 2);
+  const wb = new Set(b.split(' ').filter(w => w.length > 2));
   const inter = new Set([...wa].filter(w => wb.has(w)));
   const uni = new Set([...wa, ...wb]);
   if (uni.size === 0) return 0;
