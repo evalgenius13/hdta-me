@@ -12,58 +12,49 @@ class AutomatedPublisher {
   async runFullWorkflow() {
     const edition = await this.curateAndAnalyze();
     await this.publishToWebsite(edition.id);
-    await this.scheduleNewsletter(edition.id);
-    await this.logWorkflowSuccess(edition);
+    await this.markNewsletterSent(edition.id);
     return edition;
   }
 
   async curateAndAnalyze() {
     const today = new Date().toISOString().split('T')[0];
-    const existing = await this.checkExistingEdition(today);
+    const existing = await this.findEdition(today);
     if (existing) return existing;
 
     const articles = await this.fetchPolicyNews();
-    const selected = await this.selectBestArticles(articles);
-    const analyzed = await this.generateAnalysisWithQualityChecks(selected);
+    const selected = await this.selectBest(articles);
+    const analyzed = await this.analyzeAll(selected);
     const edition = await this.createEdition(today, analyzed, 'published');
     return edition;
   }
 
-  async generateAnalysisWithQualityChecks(articles) {
+  async analyzeAll(articles) {
     const out = [];
-    const limit = Math.min(articles.length, this.maxArticles);
-
-    for (let i = 0; i < limit; i++) {
+    for (let i = 0; i < Math.min(articles.length, this.maxArticles); i++) {
       const a = articles[i];
       let analysis = null;
 
       for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
-        const raw = await this.generateSingleAnalysis(a).catch(() => null);
-        const cleaned = raw ? this.sanitizeAnalysis(a, raw) : null;
-        if (cleaned) {
-          analysis = cleaned;
-          break;
-        }
-        await this.sleep(1500);
+        const raw = await this.generateNarrative(a).catch(() => null);
+        const cleaned = raw ? this.sanitize(a, raw) : null;
+        if (cleaned) analysis = this.applyEthics(cleaned);
+        if (!analysis) await this.sleep(1200);
       }
 
-      if (!analysis) analysis = this.generateFallbackAnalysis();
+      if (!analysis) analysis = this.applyEthics(this.fallback());
 
       out.push({
         ...a,
         order: i + 1,
         analysis,
         analysis_generated_at: new Date().toISOString(),
-        quality_score: this.calculateAnalysisQuality(analysis)
+        analysis_word_count: analysis.split(/\s+/).filter(Boolean).length
       });
-
-      if (i < limit - 1) await this.sleep(1200);
     }
-
     return out;
   }
 
-  async generateSingleAnalysis(article) {
+  async generateNarrative(article) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     const pubDate = article.publishedAt || 'not stated';
     const source = article.source?.name || 'not stated';
@@ -74,9 +65,10 @@ Write 130 to 170 words. Plain English. Professional and relaxed. No bullets. No 
 2) Explain concrete effects first: costs, payback, access, timelines, paperwork.
 3) Name who benefits most and who is most exposed in natural sentences. Use specific roles like small installers, renters, homeowners, investors, agency staff.
 4) Mention demographics only if supported by the article text. Do not invent.
-5) Add a short historical line tied to similar recent decisions. No new dates unless present. If a date is unknown, write "not stated".
-6) Add one sentence on what to watch next and likely hidden costs such as fees, delays, caps, or credit changes.
-7) Do not use headings. Do not say "officials overlook". Do not moralize.
+5) If an effect advantages one group by reducing fairness, access, or representation for another, do not call it a benefit. State it neutrally as an effect with its consequences.
+6) Add a short historical line tied to similar recent decisions. No new dates unless present. If a date is unknown, write "not stated".
+7) Add one sentence on what to watch next and likely hidden costs such as fees, delays, caps, or credit changes.
+8) Do not use headings. Do not say "officials overlook". Do not moralize.
 
 Policy: "${article.title}"
 Details: "${article.description}"
@@ -93,10 +85,7 @@ Source: "${source}"
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          {
-            role: 'system',
-            content: 'You translate policy news into concrete personal impact. You are concise, specific, and careful not to invent numbers or dates.'
-          },
+          { role: 'system', content: 'Translate policy news into concrete personal impact. Be concise and specific. Do not invent numbers or dates.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 260,
@@ -109,9 +98,8 @@ Source: "${source}"
     return (data.choices?.[0]?.message?.content || '').trim();
   }
 
-  sanitizeAnalysis(article, text) {
+  sanitize(article, text) {
     if (!text) return null;
-
     const normalized = text
       .replace(/\r/g, '')
       .split('\n')
@@ -124,35 +112,61 @@ Source: "${source}"
 
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) return null;
 
-    const inputs = [article.title || '', article.description || '', article.publishedAt || ''].join(' ').toLowerCase();
+    const inputs = [article.title || '', article.description || '', article.publishedAt || '']
+      .join(' ')
+      .toLowerCase();
     const years = normalized.match(/\b(19|20)\d{2}\b/g) || [];
     for (const y of years) {
-      if (!inputs.includes(y.toLowerCase())) return null;
+      if (!inputs.includes(String(y).toLowerCase())) return null;
     }
 
     return normalized;
   }
 
-  generateFallbackAnalysis() {
-    return 'For most readers, the effect depends on implementation. The key levers are eligibility, fees, timelines, and paperwork. Those decide who benefits and who pays.\n\nPeople who tend to benefit are those able to qualify quickly and lock terms before programs change. People most exposed are late applicants and anyone facing new fees or credit changes. Prior decisions in similar cases have shifted benefits more than once, so outcomes can move.\n\nWatch for agency guidance, application caps, and any new fixed charges or delays. These details often matter more than the headline.';
+  applyEthics(text) {
+    let out = text;
+    const sensitive = [
+      'less diversity',
+      'reduced diversity',
+      'more homogenous',
+      'less representation',
+      'exclusion',
+      'discrimin',
+      'disparate impact',
+      'voter suppression',
+      'gerrymander',
+      'redlined',
+      'segregat'
+    ];
+    out = out
+      .split(/\n\n/)
+      .map(par => {
+        const sentences = par.split(/(?<=[.!?])\s+/);
+        const fixed = sentences.map(s => {
+          const hasBenefit = /\b(benefit|benefits|benefited|winners?)\b/i.test(s);
+          const hasSensitive = sensitive.some(k => s.toLowerCase().includes(k));
+          if (hasBenefit && hasSensitive) {
+            return s
+              .replace(/\b[Bb]enefit(?:s|ed)?\b/g, 'effect')
+              .replace(/\bWinners?\b/g, 'Groups most advantaged by this change');
+          }
+          return s;
+        });
+        return fixed.join(' ');
+      })
+      .join('\n\n');
+    return out;
   }
 
-  calculateAnalysisQuality(analysis) {
-    let score = 0;
-    const wc = (analysis || '').split(/\s+/).filter(Boolean).length;
-    if (wc >= 120) score += 30;
-    if (wc <= 180) score += 20;
-    const hits = ['cost', 'bills', 'fees', 'access', 'timeline', 'benefit', 'harm', 'workers', 'renters', 'homeowners', 'investors', 'installers'];
-    hits.forEach(h => {
-      if ((analysis || '').toLowerCase().includes(h)) score += 3;
-    });
-    return Math.min(100, score);
+  fallback() {
+    return 'For most readers, the impact depends on implementation. Costs, eligibility, timelines, and paperwork decide who benefits and who pays.\n\nPeople who move early and qualify cleanly tend to fare better. Those facing new fees or credit changes are more exposed. Similar decisions have shifted terms before, so outcomes can move.\n\nWatch agency guidance, caps, fixed charges, and processing delays. These details often matter more than the headline.';
   }
 
   async fetchPolicyNews() {
     try {
       const API_KEY = process.env.GNEWS_API_KEY;
-      const query = 'congress OR senate OR "executive order" OR regulation OR "supreme court" OR governor OR legislature OR rule';
+      const query =
+        'congress OR senate OR "executive order" OR regulation OR "supreme court" OR governor OR legislature OR rule';
       const r = await fetch(
         `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=20&token=${API_KEY}`
       );
@@ -163,19 +177,21 @@ Source: "${source}"
     }
   }
 
-  async selectBestArticles(articles) {
-    const filtered = articles.filter(a =>
-      a?.title &&
-      a?.description &&
-      !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks)\b/i.test(a.title)
+  async selectBest(list) {
+    const filtered = list.filter(
+      a =>
+        a?.title &&
+        a?.description &&
+        !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks)\b/i.test(a.title)
     );
-
-    const deduped = this.removeNearDuplicates(filtered);
-    const scored = deduped.map(a => ({ ...a, score: this.calculatePolicyScore(a) }));
-    return scored.sort((x, y) => y.score - x.score).slice(0, this.maxArticles);
+    const deduped = this.dedupe(filtered);
+    return deduped
+      .map(a => ({ ...a, score: this.score(a) }))
+      .sort((x, y) => y.score - x.score)
+      .slice(0, this.maxArticles);
   }
 
-  removeNearDuplicates(list) {
+  dedupe(list) {
     const seen = [];
     const out = [];
     for (const a of list) {
@@ -210,35 +226,29 @@ Source: "${source}"
     return inter.size / uni.size;
   }
 
-  calculatePolicyScore(article) {
+  score(article) {
     let s = 0;
     const t = (article.title + ' ' + article.description).toLowerCase();
-
     ['executive order', 'supreme court', 'federal', 'regulation', 'congress passes', 'senate votes', 'bill signed', 'new rule'].forEach(k => {
       if (t.includes(k)) s += 10;
     });
-
     ['policy', 'law', 'court', 'judge', 'ruling', 'decision', 'congress', 'senate', 'house', 'governor', 'legislature'].forEach(k => {
       if (t.includes(k)) s += 5;
     });
-
     ['golf', 'sports', 'celebrity', 'entertainment', 'music', 'movie'].forEach(k => {
       if (t.includes(k)) s -= 15;
     });
-
     if (article.publishedAt) {
       const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
       if (hrs < 24) s += 5;
       if (hrs < 12) s += 3;
     }
-
     const qs = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'los angeles times'];
     if (qs.some(src => article.source?.name?.toLowerCase().includes(src))) s += 3;
-
     return Math.max(0, s);
   }
 
-  async createEdition(date, articles, status = 'published') {
+  async createEdition(date, articles, status) {
     const { data: next } = await supabase.rpc('get_next_issue_number');
     const issue = next || 1;
 
@@ -252,7 +262,6 @@ Source: "${source}"
       })
       .select()
       .single();
-
     if (e1) throw e1;
 
     const rows = articles.map(a => ({
@@ -266,7 +275,7 @@ Source: "${source}"
       published_at: a.publishedAt,
       analysis_text: a.analysis,
       analysis_generated_at: a.analysis_generated_at,
-      analysis_word_count: (a.analysis || '').split(/\s+/).filter(Boolean).length
+      analysis_word_count: a.analysis_word_count
     }));
 
     const { error: e2 } = await supabase.from('analyzed_articles').insert(rows);
@@ -283,25 +292,13 @@ Source: "${source}"
     if (error) throw error;
   }
 
-  async scheduleNewsletter(editionId) {
+  async markNewsletterSent(editionId) {
     try {
       await supabase.from('daily_editions').update({ status: 'sent' }).eq('id', editionId);
     } catch {}
   }
 
-  async logWorkflowSuccess(edition) {
-    const duration = Math.floor((Date.now() - this.startTime) / 1000);
-    await supabase.from('curation_metrics').insert({
-      edition_id: edition.id,
-      articles_fetched: 20,
-      articles_analyzed: this.maxArticles,
-      total_processing_time_seconds: duration,
-      openai_api_calls: this.maxArticles,
-      estimated_cost_usd: this.maxArticles * 0.02
-    });
-  }
-
-  async checkExistingEdition(date) {
+  async findEdition(date) {
     const { data, error } = await supabase.from('daily_editions').select('*').eq('edition_date', date).single();
     if (error && error.code !== 'PGRST116') throw error;
     return data;
