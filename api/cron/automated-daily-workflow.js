@@ -22,7 +22,8 @@ class AutomatedPublisher {
     if (existing) return existing;
 
     const articles = await this.fetchPolicyNews();
-    const selected = await this.selectBest(articles);
+    // Temporarily bypass selectBest to see if that's filtering out articles
+    const selected = articles.slice(0, this.maxArticles); // Just take first 6
     const analyzed = await this.analyzeAll(selected);
     const edition = await this.createEdition(today, analyzed, 'published');
     return edition;
