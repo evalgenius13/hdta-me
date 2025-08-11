@@ -32,7 +32,7 @@ export default async function handler(req, res) {
         'User-Agent': userAgent,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: 'grant_type=client_credentials'
+      body: 'grant_type=client_credentials&scope=read'
     });
 
     const responseText = await response.text();
