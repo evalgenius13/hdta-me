@@ -85,17 +85,14 @@
 
       async fetchTodaysContent(){
         try{
-          const bust = `ts=${Date.now()}`;
-          const response=await fetch(`/api/fetch-news?${bust}`, { cache: 'no-store' });
+          const response=await fetch('/api/fetch-news');
           if(!response.ok) throw new Error(`HTTP ${response.status}`);
           const data=await response.json();
-          if(Array.isArray(data.articles) && data.articles.length > 0){
+          if(data.articles){
             this.articles=data.articles.slice(0,6);
             if(data.edition_info) this.updateEditionInfo(data.edition_info);
             this.displayArticles();
-          } else { 
-            document.getElementById('loading').innerHTML='No policy stories today.';
-          }
+          } else { throw new Error('No articles'); }
         }catch(e){
           console.error('Error fetching articles:',e);
           document.getElementById('loading').innerHTML='Unable to load today's analysis. Please refresh.';
@@ -103,9 +100,9 @@
       }
 
       updateEditionInfo(editionInfo){
-        const d = new Date(editionInfo.date || editionInfo.edition_date);
+        const today=new Date();
         const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
-        const dateStr = isNaN(d) ? new Date().toLocaleDateString('en-US', options) : d.toLocaleDateString('en-US', options);
+        const dateStr=today.toLocaleDateString('en-US',options);
         const statusText=editionInfo.is_automated ? (editionInfo.is_today ? '' : ' (Latest Edition)') : ' (Live Updates)';
         document.getElementById('edition-info').textContent=`${dateStr} • Issue #${editionInfo.issue_number}${statusText}`;
       }
@@ -113,10 +110,7 @@
       displayArticles(){
         const container=document.getElementById('articles-container');
         const loading=document.getElementById('loading');
-        if(!Array.isArray(this.articles) || this.articles.length===0){ 
-          loading.innerHTML='No policy stories today.'; 
-          return; 
-        }
+        if(this.articles.length===0){ loading.innerHTML='No policy stories today.'; return; }
         loading.style.display='none'; container.style.display='block';
         container.innerHTML=this.articles.map((a,i)=>this.createArticleHTML(a,i)).join('');
         for(let i=0;i<this.articles.length;i++){
@@ -139,7 +133,7 @@
           </div>
           <div class="article-content">
             <div class="article-meta">
-              <span>${this.escapeHtml(article.source && article.source.name ? article.source.name : 'News Source')} • ${timeAgo}</span>
+              <span>${this.escapeHtml(article.source?.name||'News Source')} • ${timeAgo}</span>
               <a href="${article.url}" class="read-full" target="_blank" onclick="event.stopPropagation()">Read full story →</a>
             </div>
             <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
@@ -179,8 +173,7 @@
         const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`); if(!a||!el) return;
         el.innerHTML=`<div style="color:#64748b;font-style:italic">Analyzing…</div>`;
         try{
-          const bust = `ts=${Date.now()}`;
-          const res=await fetch(`/api/personalize?${bust}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({article:a}), cache: 'no-store'});
+          const res=await fetch('/api/personalize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({article:a})});
           if(!res.ok) throw new Error(`HTTP ${res.status}`);
           const data=await res.json();
           el.innerHTML=this.renderAnalysisBlock(data);
@@ -208,10 +201,9 @@
       }
 
       extractKeyInsight(a,structured){
-        if(structured && structured.takeaway) return structured.takeaway;
+        if(structured?.takeaway) return structured.takeaway;
         const s=(a||'').split('. ');
-        const found = s.find(x=>x.length>50);
-        return found ? found.trim()+'.' : (a||'').substring(0,100)+'...';
+        return s.find(x=>x.length>50)?.trim()+'.' || (a||'').substring(0,100)+'...';
       }
 
       cleanTitle(t){ if(!t) return ''; return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i,''); }
