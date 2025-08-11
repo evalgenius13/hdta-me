@@ -15,7 +15,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  if (req.method !== 'POST') {
+  // Accept both GET and POST for flexibility
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -89,25 +90,6 @@ async function notifyAdminOfFailure(error, errorResponse) {
       }
     });
 
-    // TODO: Implement actual notifications when you're ready
-    // Examples:
-    
-    // Email notification:
-    // await sendEmailNotification({
-    //   to: 'admin@hdta.me',
-    //   subject: 'HDTA.me Daily Workflow Failed',
-    //   body: `Workflow failed: ${error.message}`
-    // });
-    
-    // Slack webhook:
-    // await fetch(process.env.SLACK_WEBHOOK_URL, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     text: `🚨 HDTA.me workflow failed: ${error.message}`
-    //   })
-    // });
-    
     console.log('📧 Admin notification logged (implement actual notification when ready)');
     
   } catch (notificationError) {
