@@ -123,43 +123,46 @@
         }
       }
 
-      createArticleHTML(article,index){
-        const timeAgo=this.getTimeAgo(article.publishedAt);
-        const cleanTitle=this.cleanTitle(article.title);
-        return `
-        <article class="article-item" onclick="window.open('${article.url}','_blank')">
-          <div class="news-image">
-            ${article.urlToImage||article.image ? `<img src="${article.urlToImage||article.image}" alt="News image" onerror="this.parentElement.innerHTML='📰'">` : '📰'}
-          </div>
-          <div class="article-content">
-            <div class="article-meta">
-             <span>${this.escapeHtml((article.source && article.source.name) ? article.source.name : 'News Source')} • ${timeAgo}</span>
-              <a href="${article.url}" class="read-full" target="_blank" onclick="event.stopPropagation()">Read full story →</a>
-            </div>
-            <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
-            <p class="article-summary">${this.escapeHtml(article.description||'')}</p>
+     createArticleHTML(article,index){
+  const timeAgo = this.getTimeAgo(article.publishedAt);
+  const cleanTitle = this.cleanTitle(article.title);
+  const img = article.urlToImage || article.image;
+  const imgHtml = img
+    ? '<img src="' + img + '" alt="News image" onerror="this.parentElement.textContent=\'📰\'">'
+    : '📰';
+  const page = window.location.origin + window.location.pathname;
 
-            <div class="analysis">
-              <div class="analysis-label">How Does This Affect Me?</div>
-              <div class="analysis-text" id="analysis-content-${index}"></div>
-            </div>
-
-            <div class="social-sharing">
-              <div class="sharing-title">Share this analysis</div>
-              <div class="share-buttons">
-                <button class="share-btn twitter" onclick="event.stopPropagation(); dailyNewsletter.shareToTwitter(${index})">Twitter</button>
-                <button class="share-btn linkedin" onclick="event.stopPropagation(); dailyNewsletter.shareToLinkedIn(${index})">LinkedIn</button>
-                <button class="share-btn facebook" onclick="event.stopPropagation(); dailyNewsletter.shareToFacebook(${index})">Facebook</button>
-              </div>
-              <div class="copy-link">
-                <input type="text" class="link-input" id="link-${index}" value="${window.location.origin}#story-${index}" readonly>
-                <button class="copy-btn" onclick="event.stopPropagation(); dailyNewsletter.copyLink(${index})">Copy</button>
-              </div>
-            </div>
-          </div>
-        </article>`;
-      }
-
+  return (
+    '<article class="article-item" onclick="window.open(\'' + article.url + '\',\'_blank\')">' +
+      '<div class="news-image">' + imgHtml + '</div>' +
+      '<div class="article-content">' +
+        '<div class="article-meta">' +
+          '<span>' + this.escapeHtml((article.source && article.source.name) ? article.source.name : 'News Source') +
+          ' • ' + timeAgo + '</span>' +
+          '<a href="' + article.url + '" class="read-full" target="_blank" onclick="event.stopPropagation()">Read full story →</a>' +
+        '</div>' +
+        '<h3 class="article-title">' + this.escapeHtml(cleanTitle) + '</h3>' +
+        '<p class="article-summary">' + this.escapeHtml(article.description || '') + '</p>' +
+        '<div class="analysis">' +
+          '<div class="analysis-label">How Does This Affect Me?</div>' +
+          '<div class="analysis-text" id="analysis-content-' + index + '"></div>' +
+        '</div>' +
+        '<div class="social-sharing">' +
+          '<div class="sharing-title">Share this analysis</div>' +
+          '<div class="share-buttons">' +
+            '<button class="share-btn twitter" onclick="event.stopPropagation(); dailyNewsletter.shareToTwitter(' + index + ')">Twitter</button>' +
+            '<button class="share-btn linkedin" onclick="event.stopPropagation(); dailyNewsletter.shareToLinkedIn(' + index + ')">LinkedIn</button>' +
+            '<button class="share-btn facebook" onclick="event.stopPropagation(); dailyNewsletter.shareToFacebook(' + index + ')">Facebook</button>' +
+          '</div>' +
+          '<div class="copy-link">' +
+            '<input type="text" class="link-input" id="link-' + index + '" value="' + page + '#story-' + index + '" readonly>' +
+            '<button class="copy-btn" onclick="event.stopPropagation(); dailyNewsletter.copyLink(' + index + ')">Copy</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</article>'
+  );
+}
       showPreGeneratedAnalysis(i){
         const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`);
         if(a.preGeneratedAnalysis&&el){
