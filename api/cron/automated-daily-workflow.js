@@ -502,6 +502,7 @@ Date: "${pubDate}"
         try {
           const result = await strategy();
           if (result && result.content && result.content.length > 100) {
+            clearTimeout(timeoutId);
             return result;
           }
         } catch (error) {
@@ -510,12 +511,12 @@ Date: "${pubDate}"
         }
       }
 
+      clearTimeout(timeoutId);
       return null; // Fall back to headline + description
     } catch (error) {
       console.warn('Content extraction failed:', error.message);
-      return null;
-    } finally {
       clearTimeout(timeoutId);
+      return null;
     }
   }
 
