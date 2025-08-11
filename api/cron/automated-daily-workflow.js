@@ -60,20 +60,26 @@ class AutomatedPublisher {
     const source = article.source?.name || 'not stated';
 
     const prompt = `
-Write 130 to 170 words. Plain English. Professional and relaxed. No bullets. No lists.
-1) Lead with the everyday impact in sentence one.
-2) Explain concrete effects first: costs, payback, access, timelines, paperwork.
-3) Name who benefits most and who is most exposed in natural sentences. Use specific roles like small installers, renters, homeowners, investors, agency staff.
-4) Mention demographics only if supported by the article text. Do not invent.
-5) If an effect advantages one group by reducing fairness, access, or representation for another, do not call it a benefit. State it neutrally as an effect with its consequences.
-6) Add a short historical line tied to similar recent decisions. No new dates unless present. If a date is unknown, write "not stated".
-7) Add one sentence on what to watch next and likely hidden costs such as fees, delays, caps, or credit changes.
-8) Do not use headings. Do not say "officials overlook". Do not moralize.
+Write exactly 140-170 words as a clear, scannable story in 4 paragraphs. Use plain, conversational English like explaining to a friend.
+
+Paragraph 1 - THE HOOK (25-35 words): Start with the immediate, personal impact in one clear sentence. No jargon or policy-speak.
+
+Paragraph 2 - THE DETAILS (40-50 words): Costs, timelines, eligibility requirements, deadlines. Be specific about dollar amounts and dates when available.
+
+Paragraph 3 - WINNERS & LOSERS (40-50 words): Who comes out ahead and who it impacts hardest. Use specific demographics only when explicitly mentioned in the source article. Otherwise focus on roles like "homeowners," "small business owners," "renters."
+
+Paragraph 4 - CONTEXT & NEXT (25-35 words): Brief historical context plus one thing to watch for next (fees, delays, eligibility changes).
+
+Replace policy jargon with everyday words:
+- "implementation" → "when it starts"
+- "stakeholders" → "people affected"
+- "regulatory framework" → "new rules"
+- "eligibility parameters" → "who qualifies"
 
 Policy: "${article.title}"
 Details: "${article.description}"
-PublishedAt: "${pubDate}"
 Source: "${source}"
+Date: "${pubDate}"
 `.trim();
 
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -85,7 +91,7 @@ Source: "${source}"
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Translate policy news into concrete personal impact. Be concise and specific. Do not invent numbers or dates.' },
+          { role: 'system', content: 'Write clear, scannable policy analysis in plain English. Structure as 4 focused paragraphs. Be conversational but accurate.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 260,
