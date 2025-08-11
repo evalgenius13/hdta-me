@@ -34,8 +34,17 @@ class AutomatedPublisher {
       const a = articles[i];
       let analysis = null;
 
+      // PHASE 2: Extract full article content
+      let fullContent = null;
+      try {
+        console.log(`Extracting content for: ${a.title.substring(0, 50)}...`);
+        fullContent = await this.extractArticleContent(a.url);
+      } catch (error) {
+        console.warn(`Content extraction failed for ${a.url}:`, error.message);
+      }
+
       for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
-        const raw = await this.generateNarrative(a).catch(() => null);
+        const raw = await this.generateNarrative(a, fullContent).catch(() => null);
         const cleaned = raw ? this.sanitize(a, raw) : null;
         if (cleaned) analysis = this.applyEthics(cleaned);
         if (!analysis) await this.sleep(1200);
@@ -48,16 +57,22 @@ class AutomatedPublisher {
         order: i + 1,
         analysis,
         analysis_generated_at: new Date().toISOString(),
-        analysis_word_count: analysis.split(/\s+/).filter(Boolean).length
+        analysis_word_count: analysis.split(/\s+/).filter(Boolean).length,
+        content_extracted: !!fullContent,
+        content_method: fullContent?.extractionMethod || 'none'
       });
     }
     return out;
   }
 
-  async generateNarrative(article) {
+  async generateNarrative(article, fullContent = null) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     const pubDate = article.publishedAt || 'not stated';
     const source = article.source?.name || 'not stated';
+
+    // Use full content if available, otherwise fall back to description
+    const articleContent = fullContent?.content || article.description || '';
+    const hasFullContent = !!fullContent;
 
     const prompt = `
 Write exactly 140-170 words as a clear, scannable story in 4 paragraphs. Use plain, conversational English like explaining to a friend.
@@ -74,10 +89,9 @@ Replace policy jargon with everyday words:
 - "implementation" → "when it starts"
 - "stakeholders" → "people affected"
 - "regulatory framework" → "new rules"
-- "eligibility parameters" → "who qualifies"
 
 Policy: "${article.title}"
-Details: "${article.description}"
+${hasFullContent ? 'Full Article Content:' : 'Summary:'} "${articleContent}"
 Source: "${source}"
 Date: "${pubDate}"
 `.trim();
@@ -91,7 +105,7 @@ Date: "${pubDate}"
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Write clear, scannable policy analysis in plain English. Structure as 4 focused paragraphs. Be conversational but accurate.' },
+          { role: 'system', content: `Write clear, scannable policy analysis in plain English. Structure as 4 focused paragraphs. Be conversational but accurate. ${hasFullContent ? 'You have the full article content for detailed analysis.' : 'You have limited content, focus on the key impacts.'}` },
           { role: 'user', content: prompt }
         ],
         max_tokens: 260,
@@ -469,6 +483,177 @@ Date: "${pubDate}"
 
   sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
+  }
+
+  // PHASE 2: Article content extraction methods
+  async extractArticleContent(url) {
+    const timeout = 8000; // 8 second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      // Try multiple extraction strategies
+      const strategies = [
+        () => this.extractViaReadability(url, controller.signal),
+        () => this.extractViaMetaTags(url, controller.signal)
+      ];
+
+      for (const strategy of strategies) {
+        try {
+          const result = await strategy();
+          if (result && result.content && result.content.length > 100) {
+            return result;
+          }
+        } catch (error) {
+          console.warn('Extraction strategy failed:', error.message);
+          continue;
+        }
+      }
+
+      return null; // Fall back to headline + description
+    } catch (error) {
+      console.warn('Content extraction failed:', error.message);
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async extractViaReadability(url, signal) {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+      },
+      signal: signal
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const html = await response.text();
+    return this.parseHTMLContent(html, url);
+  }
+
+  async extractViaMetaTags(url, signal) {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
+        'Accept': 'text/html'
+      },
+      signal: signal
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const html = await response.text();
+    
+    const title = this.extractMetaTag(html, 'og:title') || 
+                 this.extractMetaTag(html, 'title') ||
+                 html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '';
+
+    const description = this.extractMetaTag(html, 'og:description') ||
+                       this.extractMetaTag(html, 'description') || '';
+
+    return {
+      title: this.cleanHtmlText(title),
+      content: this.cleanHtmlText(description),
+      extractionMethod: 'meta_tags'
+    };
+  }
+
+  parseHTMLContent(html, url) {
+    // Extract title
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i) ||
+                      html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+    const title = titleMatch ? this.cleanHtmlText(titleMatch[1]) : '';
+
+    // Look for article content
+    const contentPatterns = [
+      /<article[^>]*>(.*?)<\/article>/is,
+      /<div[^>]*class="[^"]*article[^"]*"[^>]*>(.*?)<\/div>/is,
+      /<div[^>]*class="[^"]*story[^"]*"[^>]*>(.*?)<\/div>/is,
+      /<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)<\/div>/is,
+      /<main[^>]*>(.*?)<\/main>/is
+    ];
+
+    let rawContent = '';
+    for (const pattern of contentPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        rawContent = match[1];
+        break;
+      }
+    }
+
+    // Extract clean paragraphs
+    const paragraphs = this.extractCleanParagraphs(rawContent);
+    const content = paragraphs.join('\n\n');
+
+    return {
+      title: title,
+      content: content,
+      extractionMethod: 'readability',
+      wordCount: content.split(/\s+/).length
+    };
+  }
+
+  extractCleanParagraphs(html) {
+    if (!html) return [];
+
+    // Remove unwanted elements
+    let cleaned = html
+      .replace(/<script[^>]*>.*?<\/script>/gis, '')
+      .replace(/<style[^>]*>.*?<\/style>/gis, '')
+      .replace(/<nav[^>]*>.*?<\/nav>/gis, '')
+      .replace(/<footer[^>]*>.*?<\/footer>/gis, '')
+      .replace(/<aside[^>]*>.*?<\/aside>/gis, '')
+      .replace(/<!--.*?-->/gs, '');
+
+    // Extract paragraphs
+    const paragraphMatches = cleaned.match(/<p[^>]*>([^<]+(?:<[^p][^>]*>[^<]*<\/[^p][^>]*>[^<]*)*)<\/p>/gi) || [];
+    
+    return paragraphMatches
+      .map(p => this.cleanHtmlText(p.replace(/<[^>]+>/g, ' ')))
+      .filter(p => p.length > 50) // Filter short paragraphs
+      .filter(p => !this.isBoilerplate(p))
+      .slice(0, 8); // Take first 8 paragraphs
+  }
+
+  isBoilerplate(text) {
+    const boilerplatePatterns = [
+      /^(subscribe|sign up|follow us|share this)/i,
+      /^(copyright|all rights reserved)/i,
+      /^(advertisement|sponsored)/i,
+      /(click here|read more)/i
+    ];
+    return boilerplatePatterns.some(pattern => pattern.test(text));
+  }
+
+  extractMetaTag(html, property) {
+    const patterns = [
+      new RegExp(`<meta[^>]+property="og:${property}"[^>]+content="([^"]+)"`, 'i'),
+      new RegExp(`<meta[^>]+name="${property}"[^>]+content="([^"]+)"`, 'i')
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  }
+
+  cleanHtmlText(text) {
+    if (!text) return '';
+    return text
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 }
 
