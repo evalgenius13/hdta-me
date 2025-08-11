@@ -133,7 +133,7 @@
           </div>
           <div class="article-content">
             <div class="article-meta">
-              <span>${this.escapeHtml(article.source?.name||'News Source')} • ${timeAgo}</span>
+             <span>${this.escapeHtml((article.source && article.source.name) ? article.source.name : 'News Source')} • ${timeAgo}</span>
               <a href="${article.url}" class="read-full" target="_blank" onclick="event.stopPropagation()">Read full story →</a>
             </div>
             <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
@@ -201,9 +201,11 @@
       }
 
       extractKeyInsight(a,structured){
-        if(structured?.takeaway) return structured.takeaway;
+        if(structured && structured.takeaway) return structured.takeaway;
         const s=(a||'').split('. ');
-        return s.find(x=>x.length>50)?.trim()+'.' || (a||'').substring(0,100)+'...';
+        const found = s.find(x => x.length > 50);
+        return found ? found.trim() + '.' : ((a || '').substring(0,100) + '...');
+
       }
 
       cleanTitle(t){ if(!t) return ''; return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i,''); }
