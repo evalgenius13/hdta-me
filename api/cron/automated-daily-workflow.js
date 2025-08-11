@@ -182,111 +182,128 @@ Date: "${pubDate}"
     return 'For most readers, the impact depends on implementation. Costs, eligibility, timelines, and paperwork decide who benefits and who pays.\n\nPeople who move early and qualify cleanly tend to fare better. Those facing new fees or credit changes are more exposed. Similar decisions have shifted terms before, so outcomes can move.\n\nWatch agency guidance, caps, fixed charges, and processing delays. These details often matter more than the headline.';
   }
 
-  async fetchPolicyNews() {
-    try {
-      const API_KEY = process.env.GNEWS_API_KEY;
-      if (!API_KEY) return [];
+// Enhanced debugging version of fetchPolicyNews - shows why articles are filtered out
+async fetchPolicyNews() {
+  try {
+    const API_KEY = process.env.GNEWS_API_KEY;
+    if (!API_KEY) return [];
 
-      // Calculate yesterday's date in YYYY-MM-DD format
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const dateString = yesterday.toISOString().split('T')[0];
+    // Calculate date range (last 3 days to ensure we get articles)
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const startDate = threeDaysAgo.toISOString().split('T')[0];
+    
+    const today = new Date();
+    const endDate = today.toISOString().split('T')[0];
 
-      // Policy-specific query (broad and targeted)
-      const query = `congress OR senate OR "bill signed" OR "supreme court" OR "executive order" OR "federal court" OR governor OR legislature OR regulation OR "new law" OR "policy change"`;
+    console.log(`🔍 Fetching news from ${startDate} to ${endDate}`);
 
-      const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&from=${dateString}&to=${dateString}&lang=en&country=us&max=15&token=${API_KEY}`;
+    // Policy-specific query
+    const query = `congress OR senate OR "bill signed" OR "supreme court" OR "executive order" OR "federal court" OR governor OR legislature OR regulation OR "new law" OR "policy change"`;
 
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`GNews API error: ${response.status}`);
+    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&from=${startDate}&to=${endDate}&lang=en&country=us&max=20&token=${API_KEY}`;
 
-      const data = await response.json();
-      const articles = Array.isArray(data.articles) ? data.articles : [];
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`GNews API error: ${response.status}`);
 
-      // Enhanced filtering for policy relevance
-      const policyRelevant = articles.filter(article => {
-        if (!article.title || !article.description) return false;
+    const data = await response.json();
+    const articles = Array.isArray(data.articles) ? data.articles : [];
 
-        const text = (article.title + ' ' + article.description).toLowerCase();
+    console.log(`📰 GNews returned: ${articles.length} articles`);
 
-        // Strong policy indicators
-        const strongPolicyTerms = [
-          'congress passes', 'senate votes', 'bill signed', 'executive order',
-          'supreme court', 'federal court', 'court rules', 'court decision',
-          'new law', 'policy change', 'regulation', 'federal agency',
-          'governor signs', 'legislature approves'
-        ];
+    // Debug each article through filtering
+    let passedCount = 0;
+    const policyRelevant = articles.filter((article, index) => {
+      console.log(`\n--- Article ${index + 1}: "${article.title}" ---`);
+      
+      if (!article.title || !article.description) {
+        console.log(`❌ Rejected: Missing title or description`);
+        return false;
+      }
 
-        // Personal impact policy areas - 2025 hot topics
-        const impactAreas = [
-          // HOUSING (🔥🔥🔥 - TOP IMPACT)
-          'mortgage rates', 'housing', 'rent', 'home prices', 'housing affordability',
-          'rental market', 'homebuying', 'real estate', 'eviction',
-          
-          // EDUCATION (🔥🔥🔥 - MAJOR POLICY SHIFT)
-          'school vouchers', 'school choice', 'education savings accounts', 'private school',
-          'public school funding', 'charter schools', 'education freedom',
-          
-          // ABORTION (🔥🔥🔥 - STATE BATTLES)
-          'abortion', 'reproductive rights', 'fetal personhood', 'abortion pills',
-          'emergency abortion care', 'roe v wade', 'pregnancy', 'reproductive health',
-          
-          // MENTAL HEALTH (🔥🔥🔥 - FUNDING CRISIS)
-          'mental health', 'behavioral health', 'suicide prevention', 'addiction treatment',
-          'mental health parity', 'substance abuse', 'crisis intervention',
-          
-          // CIVIL RIGHTS (🔥🔥 - ONGOING BATTLES)
-          'civil rights', 'human rights', 'voting rights', 'discrimination', 'equal protection',
-          'lgbtq rights', 'transgender', 'disability rights', 'religious freedom',
-          
-          // COST OF LIVING (🔥🔥 - DAILY IMPACT)
-          'tariffs', 'inflation', 'food prices', 'gas prices', 'cost of living',
-          'grocery prices', 'energy costs', 'minimum wage',
-          
-          // HEALTHCARE (🔥🔥 - ONGOING CRISIS)
-          'healthcare', 'medicare', 'medicaid', 'prescription drugs', 'health insurance',
-          'medical costs', 'obamacare', 'health coverage',
-          
-          // TAX POLICY (🔥 - WALLET IMPACT)
-          'tax', 'income tax', 'tax cuts', 'deduction', 'tax policy', 'IRS',
-          'child tax credit', 'earned income tax credit',
-          
-          // TRADITIONAL HIGH-IMPACT AREAS
-          'social security', 'unemployment', 'immigration', 'student loans', 'climate'
-        ];
+      const text = (article.title + ' ' + article.description).toLowerCase();
 
-        const hasStrongPolicy = strongPolicyTerms.some(term => text.includes(term));
-        const hasPersonalImpact = impactAreas.some(area => text.includes(area));
+      // Strong policy indicators
+      const strongPolicyTerms = [
+        'congress passes', 'senate votes', 'bill signed', 'executive order',
+        'supreme court', 'federal court', 'court rules', 'court decision',
+        'new law', 'policy change', 'regulation', 'federal agency',
+        'governor signs', 'legislature approves'
+      ];
 
-        // Quality source check
-        const qualitySources = [
-          'reuters', 'ap news', 'associated press', 'bbc', 'cnn', 'npr',
-          'washington post', 'new york times', 'wall street journal', 'bloomberg',
-          'politico', 'axios', 'the hill', 'abc news', 'cbs news', 'nbc news'
-        ];
+      // Personal impact areas
+      const impactAreas = [
+        'mortgage rates', 'housing', 'rent', 'home prices', 'housing affordability',
+        'school vouchers', 'school choice', 'education savings accounts', 'private school',
+        'abortion', 'reproductive rights', 'fetal personhood', 'abortion pills',
+        'mental health', 'behavioral health', 'suicide prevention', 'addiction treatment',
+        'civil rights', 'human rights', 'voting rights', 'discrimination',
+        'tariffs', 'inflation', 'food prices', 'gas prices', 'cost of living',
+        'healthcare', 'medicare', 'medicaid', 'prescription drugs', 'health insurance',
+        'tax', 'income tax', 'tax cuts', 'deduction', 'tax policy', 'IRS',
+        'social security', 'unemployment', 'immigration', 'student loans', 'climate'
+      ];
 
-        const isQualitySource = qualitySources.some(source =>
-          (article.source?.name || '').toLowerCase().includes(source)
-        );
+      const hasStrongPolicy = strongPolicyTerms.some(term => text.includes(term));
+      const hasPersonalImpact = impactAreas.some(area => text.includes(area));
 
-        return (hasStrongPolicy || hasPersonalImpact) && isQualitySource;
-      });
+      console.log(`📝 Strong policy: ${hasStrongPolicy} | Personal impact: ${hasPersonalImpact}`);
+      
+      if (hasStrongPolicy) {
+        console.log(`✅ Matched policy terms: ${strongPolicyTerms.filter(term => text.includes(term)).join(', ')}`);
+      }
+      
+      if (hasPersonalImpact) {
+        console.log(`✅ Matched impact areas: ${impactAreas.filter(area => text.includes(area)).join(', ')}`);
+      }
 
-      // Score and rank by policy relevance
-      const scoredArticles = policyRelevant.map(article => ({
-        ...article,
-        policyScore: this.calculatePolicyScore(article)
-      }));
+      // Quality source check
+      const qualitySources = [
+        'reuters', 'ap news', 'associated press', 'bbc', 'cnn', 'npr',
+        'washington post', 'new york times', 'wall street journal', 'bloomberg',
+        'politico', 'axios', 'the hill', 'abc news', 'cbs news', 'nbc news',
+        'usa today', 'fox news', 'newsweek', 'chicago tribune'
+      ];
 
-      // Return top articles (let selectBest handle final count)
-      return scoredArticles
-        .sort((a, b) => b.policyScore - a.policyScore);
+      const sourceName = (article.source?.name || '').toLowerCase();
+      const isQualitySource = qualitySources.some(source => sourceName.includes(source));
 
-    } catch (error) {
-      console.error('Enhanced policy news fetch failed:', error);
-      return [];
-    }
+      console.log(`📰 Source: "${article.source?.name}" | Quality source: ${isQualitySource}`);
+
+      const passes = (hasStrongPolicy || hasPersonalImpact) && isQualitySource;
+      
+      if (passes) {
+        passedCount++;
+        console.log(`✅ PASSED - Article ${passedCount} accepted`);
+      } else {
+        if (!hasStrongPolicy && !hasPersonalImpact) {
+          console.log(`❌ REJECTED: No policy relevance`);
+        }
+        if (!isQualitySource) {
+          console.log(`❌ REJECTED: Source not in quality list`);
+        }
+      }
+
+      return passes;
+    });
+
+    console.log(`\n📊 SUMMARY: ${passedCount} out of ${articles.length} articles passed filtering`);
+
+    // Score and rank by policy relevance
+    const scoredArticles = policyRelevant.map(article => ({
+      ...article,
+      policyScore: this.calculatePolicyScore(article)
+    }));
+
+    console.log(`📈 Scored articles: ${scoredArticles.map(a => `${a.policyScore}: ${a.title.substring(0, 30)}...`).join(' | ')}`);
+
+    return scoredArticles.sort((a, b) => b.policyScore - a.policyScore);
+
+  } catch (error) {
+    console.error('Enhanced policy news fetch failed:', error);
+    return [];
   }
+}
 
   calculatePolicyScore(article) {
     let score = 0;
