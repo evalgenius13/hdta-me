@@ -62,8 +62,8 @@
   <header class="masthead">
     <div class="wrap">
       <h1 class="brand">How Does This Affect Me?</h1>
-      <p class="tagline">Clear, practical impact from today’s policy news</p>
-      <div class="edition-info" id="edition-info">Thursday, August 7, 2025 • Issue #1</div>
+      <p class="tagline">Clear, practical impact from today's policy news</p>
+      <div class="edition-info" id="edition-info">Loading...</div>
     </div>
   </header>
 
@@ -71,7 +71,7 @@
     <div class="wrap">
       <div class="loading-state" id="loading">
         <span class="loading-spinner"></span>
-        Loading today’s analysis...
+        Loading today's analysis...
       </div>
       <div class="articles-list" id="articles-container" style="display:none"></div>
     </div>
@@ -79,61 +79,95 @@
 
   <script>
     class DailyNewsletterSite {
-      constructor(){ this.articles=[]; this.sharingData={}; this.init(); }
+      constructor(){ 
+        this.articles = []; 
+        this.sharingData = {}; 
+        this.init(); 
+      }
 
-      async init(){ this.setTodaysDate(); await this.fetchTodaysContent(); }
-
-      setTodaysDate(){
-        const today=new Date();
-        const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
-        const dateStr=today.toLocaleDateString('en-US',options);
-        const issueNumber=Math.floor((today - new Date('2025-01-01'))/86400000)+1;
-        document.getElementById('edition-info').textContent=`${dateStr} • Issue #${issueNumber}`;
+      async init(){ 
+        await this.fetchTodaysContent(); 
       }
 
       async fetchTodaysContent(){
         try{
-          const response=await fetch('/api/fetch-news');
+          const response = await fetch('/api/fetch-news');
           if(!response.ok) throw new Error(`HTTP ${response.status}`);
-          const data=await response.json();
+          const data = await response.json();
           if(data.articles){
-            this.articles=data.articles.slice(0,6);
-            if(data.edition_info) this.updateEditionInfo(data.edition_info);
+            this.articles = data.articles.slice(0,6);
+            // Always use backend data for edition info, fallback to calculated if needed
+            if(data.edition_info) {
+              this.updateEditionInfo(data.edition_info);
+            } else {
+              this.setFallbackDate();
+            }
             this.displayArticles();
-          } else { throw new Error('No articles'); }
+          } else { 
+            throw new Error('No articles'); 
+          }
         }catch(e){
           console.error('Error fetching articles:',e);
-          document.getElementById('loading').innerHTML='Unable to load today’s analysis. Please refresh.';
+          this.setFallbackDate();
+          document.getElementById('loading').innerHTML='Unable to load today's analysis. Please refresh.';
         }
       }
 
       updateEditionInfo(editionInfo){
-        const today=new Date();
-        const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
-        const dateStr=today.toLocaleDateString('en-US',options);
-        const statusText=editionInfo.is_automated ? (editionInfo.is_today ? '' : ' (Latest Edition)') : ' (Live Updates)';
-        document.getElementById('edition-info').textContent=`${dateStr} • Issue #${editionInfo.issue_number}${statusText}`;
+        const today = new Date();
+        const options = {weekday:'long', year:'numeric', month:'long', day:'numeric'};
+        const dateStr = today.toLocaleDateString('en-US', options);
+        
+        // Use the actual issue number from backend
+        const issueNumber = editionInfo.issue_number || 1;
+        
+        // Add status indicators
+        let statusText = '';
+        if(editionInfo.is_automated) {
+          statusText = editionInfo.is_today ? '' : ' (Latest Edition)';
+        } else {
+          statusText = ' (Live Updates)';
+        }
+        
+        document.getElementById('edition-info').textContent = `${dateStr} • Issue #${issueNumber}${statusText}`;
+      }
+
+      setFallbackDate(){
+        // Fallback when no backend data available
+        const today = new Date();
+        const options = {weekday:'long', year:'numeric', month:'long', day:'numeric'};
+        const dateStr = today.toLocaleDateString('en-US', options);
+        document.getElementById('edition-info').textContent = `${dateStr} • Issue #1`;
       }
 
       displayArticles(){
-        const container=document.getElementById('articles-container');
-        const loading=document.getElementById('loading');
-        if(this.articles.length===0){ loading.innerHTML='No policy stories today.'; return; }
-        loading.style.display='none'; container.style.display='block';
-        container.innerHTML=this.articles.map((a,i)=>this.createArticleHTML(a,i)).join('');
-        for(let i=0;i<this.articles.length;i++){
-          if(this.articles[i].preGeneratedAnalysis){ this.showPreGeneratedAnalysis(i); }
-          else if(this.articles[i].isAnalyzed===false){
-            const el=document.getElementById(`analysis-content-${i}`);
-            if(el){ el.innerHTML=`<div style="color:#64748b;font-style:italic">Analyzing…</div>`; }
-            setTimeout(()=>this.loadAnalysisForArticle(i),800*(i+1));
+        const container = document.getElementById('articles-container');
+        const loading = document.getElementById('loading');
+        if(this.articles.length === 0){ 
+          loading.innerHTML = 'No policy stories today.'; 
+          return; 
+        }
+        loading.style.display = 'none'; 
+        container.style.display = 'block';
+        container.innerHTML = this.articles.map((a,i) => this.createArticleHTML(a,i)).join('');
+        
+        for(let i = 0; i < this.articles.length; i++){
+          if(this.articles[i].preGeneratedAnalysis){ 
+            this.showPreGeneratedAnalysis(i); 
+          }
+          else if(this.articles[i].isAnalyzed === false){
+            const el = document.getElementById(`analysis-content-${i}`);
+            if(el){ 
+              el.innerHTML = `<div style="color:#64748b;font-style:italic">Analyzing…</div>`; 
+            }
+            setTimeout(() => this.loadAnalysisForArticle(i), 800*(i+1));
           }
         }
       }
 
       createArticleHTML(article,index){
-        const timeAgo=this.getTimeAgo(article.publishedAt);
-        const cleanTitle=this.cleanTitle(article.title);
+        const timeAgo = this.getTimeAgo(article.publishedAt);
+        const cleanTitle = this.cleanTitle(article.title);
         return `
         <article class="article-item" onclick="window.open('${article.url}','_blank')">
           <div class="news-image">
@@ -169,79 +203,143 @@
       }
 
       showPreGeneratedAnalysis(i){
-        const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`);
-        if(a.preGeneratedAnalysis&&el){
-          const formatted=this.renderAnalysisBlock({ impact: a.preGeneratedAnalysis });
-          el.innerHTML=formatted;
-          this.sharingData[i]={article:a,analysis:this.extractKeyInsight(a.preGeneratedAnalysis,null),url:`${window.location.origin}#story-${i}`};
+        const a = this.articles[i]; 
+        const el = document.getElementById(`analysis-content-${i}`);
+        if(a.preGeneratedAnalysis && el){
+          const formatted = this.renderAnalysisBlock({ impact: a.preGeneratedAnalysis });
+          el.innerHTML = formatted;
+          this.sharingData[i] = {
+            article: a,
+            analysis: this.extractKeyInsight(a.preGeneratedAnalysis, null),
+            url: `${window.location.origin}#story-${i}`
+          };
         }
       }
 
       async loadAnalysisForArticle(i){
-        const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`); if(!a||!el) return;
-        el.innerHTML=`<div style="color:#64748b;font-style:italic">Analyzing…</div>`;
+        const a = this.articles[i]; 
+        const el = document.getElementById(`analysis-content-${i}`); 
+        if(!a || !el) return;
+        
+        el.innerHTML = `<div style="color:#64748b;font-style:italic">Analyzing…</div>`;
         try{
-          const res=await fetch('/api/personalize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({article:a})});
+          const res = await fetch('/api/personalize', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({article: a})
+          });
           if(!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data=await res.json();
-          el.innerHTML=this.renderAnalysisBlock(data);
-          this.sharingData[i]={article:a,analysis:this.extractKeyInsight(data.impact,data),url:`${window.location.origin}#story-${i}`};
+          const data = await res.json();
+          el.innerHTML = this.renderAnalysisBlock(data);
+          this.sharingData[i] = {
+            article: a,
+            analysis: this.extractKeyInsight(data.impact, data),
+            url: `${window.location.origin}#story-${i}`
+          };
         }catch(e){
-          console.error('Analysis error:',e);
-          el.innerHTML='<p style="color:#64748b;font-style:italic">Analysis temporarily unavailable</p>';
+          console.error('Analysis error:', e);
+          el.innerHTML = '<p style="color:#64748b;font-style:italic">Analysis temporarily unavailable</p>';
         }
       }
 
       renderAnalysisBlock(data){
-        const parts=[];
-        if(data.takeaway){ parts.push(`<p class="takeaway">${this.escapeHtml(data.takeaway)}</p>`); }
-        if(Array.isArray(data.facts)&&data.facts.length){
-          const items=data.facts.slice(0,3).map(f=>`<li>${this.escapeHtml(f)}</li>`).join('');
+        const parts = [];
+        if(data.takeaway){ 
+          parts.push(`<p class="takeaway">${this.escapeHtml(data.takeaway)}</p>`); 
+        }
+        if(Array.isArray(data.facts) && data.facts.length){
+          const items = data.facts.slice(0,3).map(f => `<li>${this.escapeHtml(f)}</li>`).join('');
           parts.push(`<ol class="facts">${items}</ol>`);
         }
-        if(data.impact){ parts.push(this.formatAnalysis(data.impact)); }
-        const footer=[];
+        if(data.impact){ 
+          parts.push(this.formatAnalysis(data.impact)); 
+        }
+        const footer = [];
         if(data.winners) footer.push(`<span><strong>Winners:</strong> ${this.escapeHtml(data.winners)}</span>`);
         if(data.losers) footer.push(`<span><strong>Losers:</strong> ${this.escapeHtml(data.losers)}</span>`);
         if(data.watch_next) footer.push(`<span><strong>Watch next:</strong> ${this.escapeHtml(data.watch_next)}</span>`);
-        if(footer.length){ parts.push(`<div class="impact-footer">${footer.join('')}</div>`); }
+        if(footer.length){ 
+          parts.push(`<div class="impact-footer">${footer.join('')}</div>`); 
+        }
         return parts.join('');
       }
 
-      extractKeyInsight(a,structured){
+      extractKeyInsight(a, structured){
         if(structured?.takeaway) return structured.takeaway;
-        const s=(a||'').split('. ');
-        return s.find(x=>x.length>50)?.trim()+'.' || (a||'').substring(0,100)+'...';
+        const s = (a || '').split('. ');
+        return s.find(x => x.length > 50)?.trim() + '.' || (a || '').substring(0,100) + '...';
       }
 
-      cleanTitle(t){ if(!t) return ''; return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i,''); }
+      cleanTitle(t){ 
+        if(!t) return ''; 
+        return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i, ''); 
+      }
 
       getTimeAgo(p){
         if(!p) return 'Recently';
-        const now=new Date(), pub=new Date(p); const hrs=Math.floor((now-pub)/3600000); const days=Math.floor(hrs/24);
-        if(hrs<1) return 'Just published'; if(hrs<24) return `${hrs}h ago`; if(days===1) return 'Yesterday'; if(days<7) return `${days} days ago`;
+        const now = new Date(), pub = new Date(p); 
+        const hrs = Math.floor((now - pub) / 3600000); 
+        const days = Math.floor(hrs / 24);
+        if(hrs < 1) return 'Just published'; 
+        if(hrs < 24) return `${hrs}h ago`; 
+        if(days === 1) return 'Yesterday'; 
+        if(days < 7) return `${days} days ago`;
         return pub.toLocaleDateString();
       }
 
-      escapeHtml(t){ if(!t) return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+      escapeHtml(t){ 
+        if(!t) return ''; 
+        const d = document.createElement('div'); 
+        d.textContent = t; 
+        return d.innerHTML; 
+      }
 
-      formatAnalysis(t){ return t.split('\n\n').filter(p=>p.trim()).map(p=>`<p>${this.escapeHtml(p.trim())}</p>`).join(''); }
+      formatAnalysis(t){ 
+        return t.split('\n\n').filter(p => p.trim()).map(p => `<p>${this.escapeHtml(p.trim())}</p>`).join(''); 
+      }
 
       shareToTwitter(i){
-        const d=this.sharingData[i]; if(!d) return;
-        const text=`How Does This Affect Me: "${d.analysis}" Read more: ${d.url}`;
-        const u=`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`; window.open(u,'_blank');
+        const d = this.sharingData[i]; 
+        if(!d) return;
+        const text = `How Does This Affect Me: "${d.analysis}" Read more: ${d.url}`;
+        const u = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+        window.open(u, '_blank');
       }
-      shareToLinkedIn(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
-      shareToFacebook(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
+      
+      shareToLinkedIn(i){ 
+        const d = this.sharingData[i]; 
+        if(!d) return; 
+        const u = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(d.url)}`;
+        window.open(u, '_blank'); 
+      }
+      
+      shareToFacebook(i){ 
+        const d = this.sharingData[i]; 
+        if(!d) return; 
+        const u = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(d.url)}`;
+        window.open(u, '_blank'); 
+      }
+      
       copyLink(i){
-        const input=document.getElementById(`link-${i}`); if(!input) return; const btn=input.parentElement.querySelector('.copy-btn');
-        input.select(); document.execCommand('copy');
-        if(btn){ btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='Copy'; btn.classList.remove('copied')},2000); }
+        const input = document.getElementById(`link-${i}`); 
+        if(!input) return; 
+        const btn = input.parentElement.querySelector('.copy-btn');
+        input.select(); 
+        document.execCommand('copy');
+        if(btn){ 
+          btn.textContent = 'Copied!'; 
+          btn.classList.add('copied'); 
+          setTimeout(() => {
+            btn.textContent = 'Copy'; 
+            btn.classList.remove('copied')
+          }, 2000); 
+        }
       }
     }
 
-    document.addEventListener('DOMContentLoaded',()=>{ window.dailyNewsletter=new DailyNewsletterSite(); });
+    document.addEventListener('DOMContentLoaded', () => { 
+      window.dailyNewsletter = new DailyNewsletterSite(); 
+    });
   </script>
 </body>
 </html>
