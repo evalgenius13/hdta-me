@@ -203,10 +203,42 @@ Date: "${pubDate}"
           'governor signs', 'legislature approves'
         ];
 
-        // Personal impact policy areas
+        // Personal impact policy areas - 2025 hot topics
         const impactAreas = [
-          'tax', 'healthcare', 'medicare', 'social security', 'immigration',
-          'housing', 'education', 'unemployment', 'minimum wage', 'climate'
+          // HOUSING (🔥🔥🔥 - TOP IMPACT)
+          'mortgage rates', 'housing', 'rent', 'home prices', 'housing affordability',
+          'rental market', 'homebuying', 'real estate', 'eviction',
+          
+          // EDUCATION (🔥🔥🔥 - MAJOR POLICY SHIFT)
+          'school vouchers', 'school choice', 'education savings accounts', 'private school',
+          'public school funding', 'charter schools', 'education freedom',
+          
+          // ABORTION (🔥🔥🔥 - STATE BATTLES)
+          'abortion', 'reproductive rights', 'fetal personhood', 'abortion pills',
+          'emergency abortion care', 'roe v wade', 'pregnancy', 'reproductive health',
+          
+          // MENTAL HEALTH (🔥🔥🔥 - FUNDING CRISIS)
+          'mental health', 'behavioral health', 'suicide prevention', 'addiction treatment',
+          'mental health parity', 'substance abuse', 'crisis intervention',
+          
+          // CIVIL RIGHTS (🔥🔥 - ONGOING BATTLES)
+          'civil rights', 'human rights', 'voting rights', 'discrimination', 'equal protection',
+          'lgbtq rights', 'transgender', 'disability rights', 'religious freedom',
+          
+          // COST OF LIVING (🔥🔥 - DAILY IMPACT)
+          'tariffs', 'inflation', 'food prices', 'gas prices', 'cost of living',
+          'grocery prices', 'energy costs', 'minimum wage',
+          
+          // HEALTHCARE (🔥🔥 - ONGOING CRISIS)
+          'healthcare', 'medicare', 'medicaid', 'prescription drugs', 'health insurance',
+          'medical costs', 'obamacare', 'health coverage',
+          
+          // TAX POLICY (🔥 - WALLET IMPACT)
+          'tax', 'income tax', 'tax cuts', 'deduction', 'tax policy', 'IRS',
+          'child tax credit', 'earned income tax credit',
+          
+          // TRADITIONAL HIGH-IMPACT AREAS
+          'social security', 'unemployment', 'immigration', 'student loans', 'climate'
         ];
 
         const hasStrongPolicy = strongPolicyTerms.some(term => text.includes(term));
@@ -232,10 +264,9 @@ Date: "${pubDate}"
         policyScore: this.calculatePolicyScore(article)
       }));
 
-      // Return top 6 policy stories from yesterday
+      // Return top articles (let selectBest handle final count)
       return scoredArticles
-        .sort((a, b) => b.policyScore - a.policyScore)
-        .slice(0, 6);
+        .sort((a, b) => b.policyScore - a.policyScore);
 
     } catch (error) {
       console.error('Enhanced policy news fetch failed:', error);
@@ -256,13 +287,32 @@ Date: "${pubDate}"
       if (text.includes(term)) score += 10;
     });
 
-    // Personal impact areas
+    // 2025 Hot personal impact areas (weighted higher)
+    const hotPersonalImpactTerms = [
+      // Housing crisis
+      'mortgage rates', 'housing affordability', 'rent prices', 'home prices',
+      // Education revolution  
+      'school vouchers', 'school choice', 'education savings',
+      // Abortion battles
+      'abortion', 'reproductive rights', 'fetal personhood',
+      // Mental health crisis
+      'mental health', 'behavioral health', 'suicide prevention',
+      // Civil rights battles
+      'civil rights', 'voting rights', 'lgbtq rights', 'transgender',
+      // Cost of living
+      'tariffs', 'inflation', 'food prices'
+    ];
+    hotPersonalImpactTerms.forEach(term => {
+      if (text.includes(term)) score += 8;
+    });
+
+    // Traditional personal impact areas
     const personalImpactTerms = [
       'tax', 'healthcare', 'medicare', 'social security', 'immigration',
-      'housing', 'education', 'unemployment', 'minimum wage'
+      'education', 'unemployment', 'minimum wage'
     ];
     personalImpactTerms.forEach(term => {
-      if (text.includes(term)) score += 7;
+      if (text.includes(term)) score += 5;
     });
 
     // Source quality bonus
@@ -331,22 +381,33 @@ Date: "${pubDate}"
   score(article) {
     let s = 0;
     const t = (article.title + ' ' + article.description).toLowerCase();
+    
+    // Enhanced scoring for 2025 hot topics
+    ['school vouchers', 'abortion', 'mental health', 'mortgage rates', 'tariffs'].forEach(k => {
+      if (t.includes(k)) s += 15;
+    });
+    
     ['executive order', 'supreme court', 'federal', 'regulation', 'congress passes', 'senate votes', 'bill signed', 'new rule'].forEach(k => {
       if (t.includes(k)) s += 10;
     });
+    
     ['policy', 'law', 'court', 'judge', 'ruling', 'decision', 'congress', 'senate', 'house', 'governor', 'legislature'].forEach(k => {
       if (t.includes(k)) s += 5;
     });
+    
     ['golf', 'sports', 'celebrity', 'entertainment', 'music', 'movie'].forEach(k => {
       if (t.includes(k)) s -= 15;
     });
+    
     if (article.publishedAt) {
       const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
       if (hrs < 24) s += 5;
       if (hrs < 12) s += 3;
     }
+    
     const qs = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'los angeles times'];
     if (qs.some(src => article.source?.name?.toLowerCase().includes(src))) s += 3;
+    
     return Math.max(0, s);
   }
 
