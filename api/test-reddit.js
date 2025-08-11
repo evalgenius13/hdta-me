@@ -48,8 +48,8 @@ class RedditScanner {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: new URLSearchParams({
-        'grant_type': 'https://oauth.reddit.com/grants/installed_client',
-        'device_id': 'DO_NOT_TRACK_THIS_DEVICE'
+        'grant_type': 'client_credentials',
+        'scope': 'read'
       }).toString()
     });
 
