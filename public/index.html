@@ -100,7 +100,7 @@
           } else { throw new Error('No articles'); }
         }catch(e){
           console.error('Error fetching articles:',e);
-          document.getElementById('loading').innerHTML='Unable to load today's analysis. Please refresh.';
+          document.getElementById('loading').innerHTML='Unable to load today\'s analysis. Please refresh.';
         }
       }
 
@@ -208,7 +208,7 @@
       extractKeyInsight(a,structured){
         if(structured?.takeaway) return structured.takeaway;
         const s=(a||'').split('. ');
-        return s.find(x=>x.length>50)?.trim()+'.' || (a||'').substring(0,100)+'...';
+        return (s.find(x=>x.length>50)?.trim()+'.') || ((a||'').substring(0,100)+'...');
       }
 
       cleanTitle(t){ if(!t) return ''; return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i,''); }
