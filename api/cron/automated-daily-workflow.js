@@ -174,31 +174,35 @@ Date: "${pubDate}"
 
   // UPDATED: Fetch articles from the last 3 days, and log all titles for debugging
   async fetchPolicyNews() {
-    try {
-      const API_KEY = process.env.GNEWS_API_KEY;
-      // Calculate date range: from 2 days ago to today
-      const today = new Date();
-      const fromDate = new Date(today);
-      fromDate.setDate(today.getDate() - 2); // 2 days ago (for 3 days range)
-      const fromStr = fromDate.toISOString().split('T')[0];
-      const toStr = today.toISOString().split('T')[0];
-      // TEMP: Remove country param to broaden pool, broaden query, and allow more
-      const query = 'law OR policy OR government OR congress OR senate OR "executive order" OR regulation OR "supreme court" OR governor OR legislature OR rule OR white house OR president OR bill OR court OR agency OR IRS OR EPA OR FDA OR department';
+  try {
+    const API_KEY = process.env.GNEWS_API_KEY;
+    // Use a simple, wide query and a generous date window. Remove country/date for maximum results.
+    const query = 'congress';
 
-      const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&from=${fromStr}&to=${toStr}&max=50&token=${API_KEY}`;
-      const r = await fetch(url);
-      const data = await r.json();
-      const articles = Array.isArray(data.articles) ? data.articles : [];
-      console.log('Fetched articles from GNews:', articles.length);
-      articles.slice(0, 10).forEach((a, i) => {
-        if (a && a.title) console.log(`Article ${i+1}: ${a.title}`);
-      });
-      return articles;
-    } catch (err) {
-      console.error('Error fetching from GNews:', err);
-      return [];
-    }
+    // Get a wide date range (last 7 days)
+    const today = new Date();
+    const fromDate = new Date(today);
+    fromDate.setDate(today.getDate() - 7);
+    const fromStr = fromDate.toISOString().split('T')[0];
+    const toStr = today.toISOString().split('T')[0];
+
+    // Test with and without date params
+    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=10&from=${fromStr}&to=${toStr}&token=${API_KEY}`;
+
+    const r = await fetch(url);
+    const data = await r.json();
+    console.log('GNews full response:', data); // Debug: print the whole API response
+    const articles = Array.isArray(data.articles) ? data.articles : [];
+    console.log('Fetched articles from GNews:', articles.length);
+    articles.slice(0, 5).forEach((a, i) => {
+      if (a && a.title) console.log(`Article ${i+1}: ${a.title}`);
+    });
+    return articles;
+  } catch (err) {
+    console.error('Error fetching from GNews:', err);
+    return [];
   }
+}
 
   async selectBest(list) {
     const filtered = list.filter(
