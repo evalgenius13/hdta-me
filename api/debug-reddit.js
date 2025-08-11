@@ -1,4 +1,4 @@
-// api/debug-reddit.js - Simple auth test
+// api/debug-reddit.js - Test Web app auth with client_credentials
 export default async function handler(req, res) {
   const clientId = process.env.REDDIT_CLIENT_ID;
   const clientSecret = process.env.REDDIT_CLIENT_SECRET;
@@ -16,13 +16,14 @@ export default async function handler(req, res) {
   if (!clientId || !clientSecret || !userAgent) {
     return res.json({
       success: false,
-      error: 'Missing environment variables',
-      envCheck
+      error: 'Missing environment variables for Web app',
+      envCheck,
+      required: ['REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET', 'REDDIT_USER_AGENT']
     });
   }
 
   try {
-    // Reddit OAuth for "script" type apps - use installed_client grant
+    // Web app authentication - use client_credentials grant
     const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     
     const response = await fetch('https://www.reddit.com/api/v1/access_token', {
@@ -30,11 +31,12 @@ export default async function handler(req, res) {
       headers: {
         'Authorization': `Basic ${auth}`,
         'User-Agent': userAgent,
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
       },
       body: new URLSearchParams({
-        'grant_type': 'https://oauth.reddit.com/grants/installed_client',
-        'device_id': 'DO_NOT_TRACK_THIS_DEVICE'
+        'grant_type': 'client_credentials',
+        'scope': 'read'
       }).toString()
     });
 
@@ -56,10 +58,11 @@ export default async function handler(req, res) {
             'User-Agent': userAgent
           }
         });
+        const testData = testResponse.ok ? await testResponse.json() : await testResponse.text();
         testResult = {
           status: testResponse.status,
           ok: testResponse.ok,
-          data: testResponse.ok ? 'API test successful' : await testResponse.text()
+          dataPreview: testResponse.ok ? 'API test successful - got Reddit data' : testData
         };
       } catch (testError) {
         testResult = { error: testError.message };
