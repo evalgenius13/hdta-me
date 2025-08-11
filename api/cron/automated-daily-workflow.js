@@ -22,7 +22,11 @@ class AutomatedPublisher {
     if (existing) return existing;
 
     const articles = await this.fetchPolicyNews();
+    // Debug: How many articles raw from GNews
+    console.log('🔵 fetchPolicyNews returned:', articles.length, 'articles');
     const selected = await this.selectBest(articles);
+    // Debug: How many after filtering
+    console.log('🟡 selectBest after filtering:', selected.length, 'articles');
     const analyzed = await this.analyzeAll(selected);
     const edition = await this.createEdition(today, analyzed, 'published');
     return edition;
@@ -168,7 +172,7 @@ Date: "${pubDate}"
     return 'For most readers, the impact depends on implementation. Costs, eligibility, timelines, and paperwork decide who benefits and who pays.\n\nPeople who move early and qualify cleanly tend to [...]';
   }
 
-  // UPDATED: Fetch articles from the last 3 days instead of just today
+  // UPDATED: Fetch articles from the last 3 days, and log all titles for debugging
   async fetchPolicyNews() {
     try {
       const API_KEY = process.env.GNEWS_API_KEY;
@@ -178,14 +182,20 @@ Date: "${pubDate}"
       fromDate.setDate(today.getDate() - 2); // 2 days ago (for 3 days range)
       const fromStr = fromDate.toISOString().split('T')[0];
       const toStr = today.toISOString().split('T')[0];
-      const query = 'congress OR senate OR "executive order" OR regulation OR "supreme court" OR governor OR legislature OR rule OR white house OR president OR policy OR law OR bill OR court OR agency OR IRS OR EPA OR FDA OR department';
+      // TEMP: Remove country param to broaden pool, broaden query, and allow more
+      const query = 'law OR policy OR government OR congress OR senate OR "executive order" OR regulation OR "supreme court" OR governor OR legislature OR rule OR white house OR president OR bill OR court OR agency OR IRS OR EPA OR FDA OR department';
 
-      const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&from=${fromStr}&to=${toStr}&max=50&token=${API_KEY}`;
+      const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&from=${fromStr}&to=${toStr}&max=50&token=${API_KEY}`;
       const r = await fetch(url);
       const data = await r.json();
-      console.log('Fetched articles from GNews:', Array.isArray(data.articles) ? data.articles.length : 0);
-      return Array.isArray(data.articles) ? data.articles : [];
-    } catch {
+      const articles = Array.isArray(data.articles) ? data.articles : [];
+      console.log('Fetched articles from GNews:', articles.length);
+      articles.slice(0, 10).forEach((a, i) => {
+        if (a && a.title) console.log(`Article ${i+1}: ${a.title}`);
+      });
+      return articles;
+    } catch (err) {
+      console.error('Error fetching from GNews:', err);
       return [];
     }
   }
@@ -194,10 +204,13 @@ Date: "${pubDate}"
     const filtered = list.filter(
       a =>
         a?.title &&
-        a?.description &&
-        !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks)\b/i.test(a.title)
+        a?.description
+        // Comment out exclusion temporarily to observe
+        // && !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks)\b/i.test(a.title)
     );
+    console.log('After filtering:', filtered.length);
     const deduped = this.dedupe(filtered);
+    console.log('After dedupe:', deduped.length);
     return deduped
       .map(a => ({ ...a, score: this.score(a) }))
       .sort((x, y) => y.score - x.score)
