@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Test Reddit auth
+    // Reddit OAuth for "script" type apps - use installed_client grant
     const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     
     const response = await fetch('https://www.reddit.com/api/v1/access_token', {
@@ -32,16 +32,47 @@ export default async function handler(req, res) {
         'User-Agent': userAgent,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: 'grant_type=client_credentials&scope=read'
+      body: new URLSearchParams({
+        'grant_type': 'https://oauth.reddit.com/grants/installed_client',
+        'device_id': 'DO_NOT_TRACK_THIS_DEVICE'
+      }).toString()
     });
 
     const responseText = await response.text();
+    let responseJson;
+    try {
+      responseJson = JSON.parse(responseText);
+    } catch {
+      responseJson = null;
+    }
+
+    // If we got a token, test it on a public endpoint
+    let testResult = null;
+    if (response.ok && responseJson?.access_token) {
+      try {
+        const testResponse = await fetch('https://oauth.reddit.com/r/news/top?limit=1', {
+          headers: {
+            'Authorization': `Bearer ${responseJson.access_token}`,
+            'User-Agent': userAgent
+          }
+        });
+        testResult = {
+          status: testResponse.status,
+          ok: testResponse.ok,
+          data: testResponse.ok ? 'API test successful' : await testResponse.text()
+        };
+      } catch (testError) {
+        testResult = { error: testError.message };
+      }
+    }
     
     res.json({
       success: response.ok,
       status: response.status,
       statusText: response.statusText,
       responseBody: responseText,
+      hasToken: !!responseJson?.access_token,
+      tokenTest: testResult,
       envCheck
     });
 
