@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vercel dev",
     "build": "echo 'No build step required'",
-    "start": "vercel dev"
+    "start": "vercel dev",
+    "create-daily-edition": "node scripts/create-daily-edition.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.0"
