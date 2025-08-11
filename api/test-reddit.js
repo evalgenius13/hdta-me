@@ -34,6 +34,10 @@ class RedditScanner {
   async authenticate() {
     if (this.accessToken) return this.accessToken;
 
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error('Missing Reddit credentials in environment variables');
+    }
+
     const auth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
     
     const response = await fetch('https://www.reddit.com/api/v1/access_token', {
@@ -43,11 +47,15 @@ class RedditScanner {
         'User-Agent': this.userAgent,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: 'grant_type=client_credentials'
+      body: new URLSearchParams({
+        'grant_type': 'https://oauth.reddit.com/grants/installed_client',
+        'device_id': 'DO_NOT_TRACK_THIS_DEVICE'
+      }).toString()
     });
 
     if (!response.ok) {
-      throw new Error(`Reddit auth failed: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`Reddit auth failed: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
