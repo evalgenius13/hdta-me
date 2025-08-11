@@ -176,34 +176,36 @@ Date: "${pubDate}"
   async fetchPolicyNews() {
   try {
     const API_KEY = process.env.GNEWS_API_KEY;
-    // Use a simple, wide query and a generous date window. Remove country/date for maximum results.
-    const query = 'congress';
+    const query = 'congress OR senate OR "executive order" OR regulation OR "supreme court"';
 
-    // Get a wide date range (last 7 days)
+    // Use a 2-day rolling window for recency (adjust as you like, or remove for no date filter)
     const today = new Date();
     const fromDate = new Date(today);
-    fromDate.setDate(today.getDate() - 7);
+    fromDate.setDate(today.getDate() - 2);
     const fromStr = fromDate.toISOString().split('T')[0];
     const toStr = today.toISOString().split('T')[0];
 
-    // Test with and without date params
-    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=10&from=${fromStr}&to=${toStr}&token=${API_KEY}`;
+    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=20&from=${fromStr}&to=${toStr}&token=${API_KEY}`;
 
-    const r = await fetch(url);
-    const data = await r.json();
-    console.log('GNews full response:', data); // Debug: print the whole API response
+    const response = await fetch(url);
+    const data = await response.json();
+
+    // Debug: log the full response object
+    console.log('GNews API full response:', JSON.stringify(data, null, 2));
+
+    // Defensive: GNews sometimes uses publishedAt, sometimes published_at
     const articles = Array.isArray(data.articles) ? data.articles : [];
-    console.log('Fetched articles from GNews:', articles.length);
-    articles.slice(0, 5).forEach((a, i) => {
-      if (a && a.title) console.log(`Article ${i+1}: ${a.title}`);
+    console.log(`Fetched ${articles.length} articles from GNews`);
+    articles.forEach((a, i) => {
+      if (a && a.title) console.log(`Article ${i + 1}: ${a.title}`);
     });
+
     return articles;
-  } catch (err) {
-    console.error('Error fetching from GNews:', err);
+  } catch (error) {
+    console.error('Failed to fetch news:', error);
     return [];
   }
 }
-
   async selectBest(list) {
     const filtered = list.filter(
       a =>
