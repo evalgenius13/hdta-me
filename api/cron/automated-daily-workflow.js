@@ -22,14 +22,8 @@ class AutomatedPublisher {
     if (existing) return existing;
 
     const articles = await this.fetchPolicyNews();
-    console.log(`🔢 Step 1 - fetchPolicyNews returned: ${articles.length} articles`);
-    
-    // Temporarily bypass selectBest to see if that's filtering out articles
-    const selected = articles.slice(0, this.maxArticles); // Just take first 6
-    console.log(`🔢 Step 2 - Selected for analysis: ${selected.length} articles`);
-    
+    const selected = await this.selectBest(articles);
     const analyzed = await this.analyzeAll(selected);
-    console.log(`🔢 Step 3 - Final analyzed articles: ${analyzed.length} articles`);
     const edition = await this.createEdition(today, analyzed, 'published');
     return edition;
   }
@@ -40,17 +34,8 @@ class AutomatedPublisher {
       const a = articles[i];
       let analysis = null;
 
-      // PHASE 2: Extract full article content
-      let fullContent = null;
-      try {
-        console.log(`Extracting content for: ${a.title.substring(0, 50)}...`);
-        fullContent = await this.extractArticleContent(a.url);
-      } catch (error) {
-        console.warn(`Content extraction failed for ${a.url}:`, error.message);
-      }
-
       for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
-        const raw = await this.generateNarrative(a, fullContent).catch(() => null);
+        const raw = await this.generateNarrative(a).catch(() => null);
         const cleaned = raw ? this.sanitize(a, raw) : null;
         if (cleaned) analysis = this.applyEthics(cleaned);
         if (!analysis) await this.sleep(1200);
@@ -63,22 +48,16 @@ class AutomatedPublisher {
         order: i + 1,
         analysis,
         analysis_generated_at: new Date().toISOString(),
-        analysis_word_count: analysis.split(/\s+/).filter(Boolean).length,
-        content_extracted: !!fullContent,
-        content_method: fullContent?.extractionMethod || 'none'
+        analysis_word_count: analysis.split(/\s+/).filter(Boolean).length
       });
     }
     return out;
   }
 
-  async generateNarrative(article, fullContent = null) {
+  async generateNarrative(article) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     const pubDate = article.publishedAt || 'not stated';
     const source = article.source?.name || 'not stated';
-
-    // Use full content if available, otherwise fall back to description
-    const articleContent = fullContent?.content || article.description || '';
-    const hasFullContent = !!fullContent;
 
     const prompt = `
 Write exactly 140-170 words as a clear, scannable story in 4 paragraphs. Use plain, conversational English like explaining to a friend.
@@ -87,7 +66,7 @@ Paragraph 1 - THE HOOK (25-35 words): Start with the immediate, personal impact 
 
 Paragraph 2 - THE DETAILS (40-50 words): Costs, timelines, eligibility requirements, deadlines. Be specific about dollar amounts and dates when available.
 
-Paragraph 3 - WINNERS & LOSERS (40-50 words): Who comes out ahead and who it impacts hardest. Use specific demographics only when explicitly mentioned in the source article. Otherwise focus on roles like "homeowners," "small business owners," "renters."
+Paragraph 3 - WINNERS & LOSERS (40-50 words): Who comes out ahead and who it impacts hardest. Use specific demographics only when explicitly mentioned in the source article. Otherwise focus on roles l[...]
 
 Paragraph 4 - CONTEXT & NEXT (25-35 words): Brief historical context plus one thing to watch for next (fees, delays, eligibility changes).
 
@@ -95,9 +74,10 @@ Replace policy jargon with everyday words:
 - "implementation" → "when it starts"
 - "stakeholders" → "people affected"
 - "regulatory framework" → "new rules"
+- "eligibility parameters" → "who qualifies"
 
 Policy: "${article.title}"
-${hasFullContent ? 'Full Article Content:' : 'Summary:'} "${articleContent}"
+Details: "${article.description}"
 Source: "${source}"
 Date: "${pubDate}"
 `.trim();
@@ -111,7 +91,7 @@ Date: "${pubDate}"
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: `Write clear, scannable policy analysis in plain English. Structure as 4 focused paragraphs. Be conversational but accurate. ${hasFullContent ? 'You have the full article content for detailed analysis.' : 'You have limited content, focus on the key impacts.'}` },
+          { role: 'system', content: 'Write clear, scannable policy analysis in plain English. Structure as 4 focused paragraphs. Be conversational but accurate.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 260,
@@ -185,168 +165,29 @@ Date: "${pubDate}"
   }
 
   fallback() {
-    return 'For most readers, the impact depends on implementation. Costs, eligibility, timelines, and paperwork decide who benefits and who pays.\n\nPeople who move early and qualify cleanly tend to fare better. Those facing new fees or credit changes are more exposed. Similar decisions have shifted terms before, so outcomes can move.\n\nWatch agency guidance, caps, fixed charges, and processing delays. These details often matter more than the headline.';
+    return 'For most readers, the impact depends on implementation. Costs, eligibility, timelines, and paperwork decide who benefits and who pays.\n\nPeople who move early and qualify cleanly tend to [...]';
   }
 
+  // UPDATED: Fetch articles from the last 3 days instead of just today
   async fetchPolicyNews() {
     try {
       const API_KEY = process.env.GNEWS_API_KEY;
-      if (!API_KEY) return [];
+      // Calculate date range: from 2 days ago to today
+      const today = new Date();
+      const fromDate = new Date(today);
+      fromDate.setDate(today.getDate() - 2); // 2 days ago (for 3 days range)
+      const fromStr = fromDate.toISOString().split('T')[0];
+      const toStr = today.toISOString().split('T')[0];
+      const query = 'congress OR senate OR "executive order" OR regulation OR "supreme court" OR governor OR legislature OR rule OR white house OR president OR policy OR law OR bill OR court OR agency OR IRS OR EPA OR FDA OR department';
 
-      // Calculate yesterday's date in YYYY-MM-DD format
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const dateString = yesterday.toISOString().split('T')[0];
-
-      // Policy-specific query (broad and targeted)
-      const query = `congress OR senate OR "bill signed" OR "supreme court" OR "executive order" OR "federal court" OR governor OR legislature OR regulation OR "new law" OR "policy change"`;
-
-      const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&from=${dateString}&to=${dateString}&lang=en&country=us&max=15&token=${API_KEY}`;
-
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`GNews API error: ${response.status}`);
-
-      const data = await response.json();
-      const articles = Array.isArray(data.articles) ? data.articles : [];
-
-      // Enhanced filtering for policy relevance
-      const policyRelevant = articles.filter(article => {
-        if (!article.title || !article.description) return false;
-
-        const text = (article.title + ' ' + article.description).toLowerCase();
-
-        // Strong policy indicators
-        const strongPolicyTerms = [
-          'congress passes', 'senate votes', 'bill signed', 'executive order',
-          'supreme court', 'federal court', 'court rules', 'court decision',
-          'new law', 'policy change', 'regulation', 'federal agency',
-          'governor signs', 'legislature approves'
-        ];
-
-        // Personal impact policy areas - 2025 hot topics
-        const impactAreas = [
-          // HOUSING (🔥🔥🔥 - TOP IMPACT)
-          'mortgage rates', 'housing', 'rent', 'home prices', 'housing affordability',
-          'rental market', 'homebuying', 'real estate', 'eviction',
-          
-          // EDUCATION (🔥🔥🔥 - MAJOR POLICY SHIFT)
-          'school vouchers', 'school choice', 'education savings accounts', 'private school',
-          'public school funding', 'charter schools', 'education freedom',
-          
-          // ABORTION (🔥🔥🔥 - STATE BATTLES)
-          'abortion', 'reproductive rights', 'fetal personhood', 'abortion pills',
-          'emergency abortion care', 'roe v wade', 'pregnancy', 'reproductive health',
-          
-          // MENTAL HEALTH (🔥🔥🔥 - FUNDING CRISIS)
-          'mental health', 'behavioral health', 'suicide prevention', 'addiction treatment',
-          'mental health parity', 'substance abuse', 'crisis intervention',
-          
-          // CIVIL RIGHTS (🔥🔥 - ONGOING BATTLES)
-          'civil rights', 'human rights', 'voting rights', 'discrimination', 'equal protection',
-          'lgbtq rights', 'transgender', 'disability rights', 'religious freedom',
-          
-          // COST OF LIVING (🔥🔥 - DAILY IMPACT)
-          'tariffs', 'inflation', 'food prices', 'gas prices', 'cost of living',
-          'grocery prices', 'energy costs', 'minimum wage',
-          
-          // HEALTHCARE (🔥🔥 - ONGOING CRISIS)
-          'healthcare', 'medicare', 'medicaid', 'prescription drugs', 'health insurance',
-          'medical costs', 'obamacare', 'health coverage',
-          
-          // TAX POLICY (🔥 - WALLET IMPACT)
-          'tax', 'income tax', 'tax cuts', 'deduction', 'tax policy', 'IRS',
-          'child tax credit', 'earned income tax credit',
-          
-          // TRADITIONAL HIGH-IMPACT AREAS
-          'social security', 'unemployment', 'immigration', 'student loans', 'climate'
-        ];
-
-        const hasStrongPolicy = strongPolicyTerms.some(term => text.includes(term));
-        const hasPersonalImpact = impactAreas.some(area => text.includes(area));
-
-        // Quality source check
-        const qualitySources = [
-          'reuters', 'ap news', 'associated press', 'bbc', 'cnn', 'npr',
-          'washington post', 'new york times', 'wall street journal', 'bloomberg',
-          'politico', 'axios', 'the hill', 'abc news', 'cbs news', 'nbc news'
-        ];
-
-        const isQualitySource = qualitySources.some(source =>
-          (article.source?.name || '').toLowerCase().includes(source)
-        );
-
-        return (hasStrongPolicy || hasPersonalImpact) && isQualitySource;
-      });
-
-      // Score and rank by policy relevance
-      const scoredArticles = policyRelevant.map(article => ({
-        ...article,
-        policyScore: this.calculatePolicyScore(article)
-      }));
-
-      // Return top articles (let selectBest handle final count)
-      return scoredArticles
-        .sort((a, b) => b.policyScore - a.policyScore);
-
-    } catch (error) {
-      console.error('Enhanced policy news fetch failed:', error);
+      const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&from=${fromStr}&to=${toStr}&max=50&token=${API_KEY}`;
+      const r = await fetch(url);
+      const data = await r.json();
+      console.log('Fetched articles from GNews:', Array.isArray(data.articles) ? data.articles.length : 0);
+      return Array.isArray(data.articles) ? data.articles : [];
+    } catch {
       return [];
     }
-  }
-
-  calculatePolicyScore(article) {
-    let score = 0;
-    const text = (article.title + ' ' + article.description).toLowerCase();
-
-    // High-impact government actions
-    const highImpactTerms = [
-      'supreme court', 'executive order', 'congress passes', 'senate votes',
-      'bill signed', 'federal court', 'new law'
-    ];
-    highImpactTerms.forEach(term => {
-      if (text.includes(term)) score += 10;
-    });
-
-    // 2025 Hot personal impact areas (weighted higher)
-    const hotPersonalImpactTerms = [
-      // Housing crisis
-      'mortgage rates', 'housing affordability', 'rent prices', 'home prices',
-      // Education revolution  
-      'school vouchers', 'school choice', 'education savings',
-      // Abortion battles
-      'abortion', 'reproductive rights', 'fetal personhood',
-      // Mental health crisis
-      'mental health', 'behavioral health', 'suicide prevention',
-      // Civil rights battles
-      'civil rights', 'voting rights', 'lgbtq rights', 'transgender',
-      // Cost of living
-      'tariffs', 'inflation', 'food prices'
-    ];
-    hotPersonalImpactTerms.forEach(term => {
-      if (text.includes(term)) score += 8;
-    });
-
-    // Traditional personal impact areas
-    const personalImpactTerms = [
-      'tax', 'healthcare', 'medicare', 'social security', 'immigration',
-      'education', 'unemployment', 'minimum wage'
-    ];
-    personalImpactTerms.forEach(term => {
-      if (text.includes(term)) score += 5;
-    });
-
-    // Source quality bonus
-    const premiumSources = ['reuters', 'ap news', 'washington post', 'wall street journal'];
-    if (premiumSources.some(source => (article.source?.name || '').toLowerCase().includes(source))) {
-      score += 5;
-    }
-
-    // Official government sources bonus
-    if (text.includes('.gov') || text.includes('white house') || text.includes('congress.gov')) {
-      score += 3;
-    }
-
-    return score;
   }
 
   async selectBest(list) {
@@ -401,33 +242,22 @@ Date: "${pubDate}"
   score(article) {
     let s = 0;
     const t = (article.title + ' ' + article.description).toLowerCase();
-    
-    // Enhanced scoring for 2025 hot topics
-    ['school vouchers', 'abortion', 'mental health', 'mortgage rates', 'tariffs'].forEach(k => {
-      if (t.includes(k)) s += 15;
-    });
-    
     ['executive order', 'supreme court', 'federal', 'regulation', 'congress passes', 'senate votes', 'bill signed', 'new rule'].forEach(k => {
       if (t.includes(k)) s += 10;
     });
-    
     ['policy', 'law', 'court', 'judge', 'ruling', 'decision', 'congress', 'senate', 'house', 'governor', 'legislature'].forEach(k => {
       if (t.includes(k)) s += 5;
     });
-    
     ['golf', 'sports', 'celebrity', 'entertainment', 'music', 'movie'].forEach(k => {
       if (t.includes(k)) s -= 15;
     });
-    
     if (article.publishedAt) {
       const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
       if (hrs < 24) s += 5;
       if (hrs < 12) s += 3;
     }
-    
     const qs = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'los angeles times'];
     if (qs.some(src => article.source?.name?.toLowerCase().includes(src))) s += 3;
-    
     return Math.max(0, s);
   }
 
@@ -489,178 +319,6 @@ Date: "${pubDate}"
 
   sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
-  }
-
-  // PHASE 2: Article content extraction methods
-  async extractArticleContent(url) {
-    const timeout = 8000; // 8 second timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
-      // Try multiple extraction strategies
-      const strategies = [
-        () => this.extractViaReadability(url, controller.signal),
-        () => this.extractViaMetaTags(url, controller.signal)
-      ];
-
-      for (const strategy of strategies) {
-        try {
-          const result = await strategy();
-          if (result && result.content && result.content.length > 100) {
-            clearTimeout(timeoutId);
-            return result;
-          }
-        } catch (error) {
-          console.warn('Extraction strategy failed:', error.message);
-          continue;
-        }
-      }
-
-      clearTimeout(timeoutId);
-      return null; // Fall back to headline + description
-    } catch (error) {
-      console.warn('Content extraction failed:', error.message);
-      clearTimeout(timeoutId);
-      return null;
-    }
-  }
-
-  async extractViaReadability(url, signal) {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5'
-      },
-      signal: signal
-    });
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const html = await response.text();
-    return this.parseHTMLContent(html, url);
-  }
-
-  async extractViaMetaTags(url, signal) {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
-        'Accept': 'text/html'
-      },
-      signal: signal
-    });
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const html = await response.text();
-    
-    const title = this.extractMetaTag(html, 'og:title') || 
-                 this.extractMetaTag(html, 'title') ||
-                 html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '';
-
-    const description = this.extractMetaTag(html, 'og:description') ||
-                       this.extractMetaTag(html, 'description') || '';
-
-    return {
-      title: this.cleanHtmlText(title),
-      content: this.cleanHtmlText(description),
-      extractionMethod: 'meta_tags'
-    };
-  }
-
-  parseHTMLContent(html, url) {
-    // Extract title
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i) ||
-                      html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-    const title = titleMatch ? this.cleanHtmlText(titleMatch[1]) : '';
-
-    // Look for article content
-    const contentPatterns = [
-      /<article[^>]*>(.*?)<\/article>/is,
-      /<div[^>]*class="[^"]*article[^"]*"[^>]*>(.*?)<\/div>/is,
-      /<div[^>]*class="[^"]*story[^"]*"[^>]*>(.*?)<\/div>/is,
-      /<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)<\/div>/is,
-      /<main[^>]*>(.*?)<\/main>/is
-    ];
-
-    let rawContent = '';
-    for (const pattern of contentPatterns) {
-      const match = html.match(pattern);
-      if (match) {
-        rawContent = match[1];
-        break;
-      }
-    }
-
-    // Extract clean paragraphs
-    const paragraphs = this.extractCleanParagraphs(rawContent);
-    const content = paragraphs.join('\n\n');
-
-    return {
-      title: title,
-      content: content,
-      extractionMethod: 'readability',
-      wordCount: content.split(/\s+/).length
-    };
-  }
-
-  extractCleanParagraphs(html) {
-    if (!html) return [];
-
-    // Remove unwanted elements
-    let cleaned = html
-      .replace(/<script[^>]*>.*?<\/script>/gis, '')
-      .replace(/<style[^>]*>.*?<\/style>/gis, '')
-      .replace(/<nav[^>]*>.*?<\/nav>/gis, '')
-      .replace(/<footer[^>]*>.*?<\/footer>/gis, '')
-      .replace(/<aside[^>]*>.*?<\/aside>/gis, '')
-      .replace(/<!--.*?-->/gs, '');
-
-    // Extract paragraphs
-    const paragraphMatches = cleaned.match(/<p[^>]*>([^<]+(?:<[^p][^>]*>[^<]*<\/[^p][^>]*>[^<]*)*)<\/p>/gi) || [];
-    
-    return paragraphMatches
-      .map(p => this.cleanHtmlText(p.replace(/<[^>]+>/g, ' ')))
-      .filter(p => p.length > 50) // Filter short paragraphs
-      .filter(p => !this.isBoilerplate(p))
-      .slice(0, 8); // Take first 8 paragraphs
-  }
-
-  isBoilerplate(text) {
-    const boilerplatePatterns = [
-      /^(subscribe|sign up|follow us|share this)/i,
-      /^(copyright|all rights reserved)/i,
-      /^(advertisement|sponsored)/i,
-      /(click here|read more)/i
-    ];
-    return boilerplatePatterns.some(pattern => pattern.test(text));
-  }
-
-  extractMetaTag(html, property) {
-    const patterns = [
-      new RegExp(`<meta[^>]+property="og:${property}"[^>]+content="([^"]+)"`, 'i'),
-      new RegExp(`<meta[^>]+name="${property}"[^>]+content="([^"]+)"`, 'i')
-    ];
-
-    for (const pattern of patterns) {
-      const match = html.match(pattern);
-      if (match) return match[1];
-    }
-    return null;
-  }
-
-  cleanHtmlText(text) {
-    if (!text) return '';
-    return text
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#039;/g, "'")
-      .replace(/\s+/g, ' ')
-      .trim();
   }
 }
 
