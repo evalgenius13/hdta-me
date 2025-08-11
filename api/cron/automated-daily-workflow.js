@@ -171,16 +171,112 @@ Date: "${pubDate}"
   async fetchPolicyNews() {
     try {
       const API_KEY = process.env.GNEWS_API_KEY;
-      const query =
-        'congress OR senate OR "executive order" OR regulation OR "supreme court" OR governor OR legislature OR rule';
-      const r = await fetch(
-        `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=20&token=${API_KEY}`
-      );
-      const data = await r.json();
-      return Array.isArray(data.articles) ? data.articles : [];
-    } catch {
+      if (!API_KEY) return [];
+
+      // Calculate yesterday's date in YYYY-MM-DD format
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const dateString = yesterday.toISOString().split('T')[0];
+
+      // Policy-specific query (broad and targeted)
+      const query = `congress OR senate OR "bill signed" OR "supreme court" OR "executive order" OR "federal court" OR governor OR legislature OR regulation OR "new law" OR "policy change"`;
+
+      const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&from=${dateString}&to=${dateString}&lang=en&country=us&max=15&token=${API_KEY}`;
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`GNews API error: ${response.status}`);
+
+      const data = await response.json();
+      const articles = Array.isArray(data.articles) ? data.articles : [];
+
+      // Enhanced filtering for policy relevance
+      const policyRelevant = articles.filter(article => {
+        if (!article.title || !article.description) return false;
+
+        const text = (article.title + ' ' + article.description).toLowerCase();
+
+        // Strong policy indicators
+        const strongPolicyTerms = [
+          'congress passes', 'senate votes', 'bill signed', 'executive order',
+          'supreme court', 'federal court', 'court rules', 'court decision',
+          'new law', 'policy change', 'regulation', 'federal agency',
+          'governor signs', 'legislature approves'
+        ];
+
+        // Personal impact policy areas
+        const impactAreas = [
+          'tax', 'healthcare', 'medicare', 'social security', 'immigration',
+          'housing', 'education', 'unemployment', 'minimum wage', 'climate'
+        ];
+
+        const hasStrongPolicy = strongPolicyTerms.some(term => text.includes(term));
+        const hasPersonalImpact = impactAreas.some(area => text.includes(area));
+
+        // Quality source check
+        const qualitySources = [
+          'reuters', 'ap news', 'associated press', 'bbc', 'cnn', 'npr',
+          'washington post', 'new york times', 'wall street journal', 'bloomberg',
+          'politico', 'axios', 'the hill', 'abc news', 'cbs news', 'nbc news'
+        ];
+
+        const isQualitySource = qualitySources.some(source =>
+          (article.source?.name || '').toLowerCase().includes(source)
+        );
+
+        return (hasStrongPolicy || hasPersonalImpact) && isQualitySource;
+      });
+
+      // Score and rank by policy relevance
+      const scoredArticles = policyRelevant.map(article => ({
+        ...article,
+        policyScore: this.calculatePolicyScore(article)
+      }));
+
+      // Return top 6 policy stories from yesterday
+      return scoredArticles
+        .sort((a, b) => b.policyScore - a.policyScore)
+        .slice(0, 6);
+
+    } catch (error) {
+      console.error('Enhanced policy news fetch failed:', error);
       return [];
     }
+  }
+
+  calculatePolicyScore(article) {
+    let score = 0;
+    const text = (article.title + ' ' + article.description).toLowerCase();
+
+    // High-impact government actions
+    const highImpactTerms = [
+      'supreme court', 'executive order', 'congress passes', 'senate votes',
+      'bill signed', 'federal court', 'new law'
+    ];
+    highImpactTerms.forEach(term => {
+      if (text.includes(term)) score += 10;
+    });
+
+    // Personal impact areas
+    const personalImpactTerms = [
+      'tax', 'healthcare', 'medicare', 'social security', 'immigration',
+      'housing', 'education', 'unemployment', 'minimum wage'
+    ];
+    personalImpactTerms.forEach(term => {
+      if (text.includes(term)) score += 7;
+    });
+
+    // Source quality bonus
+    const premiumSources = ['reuters', 'ap news', 'washington post', 'wall street journal'];
+    if (premiumSources.some(source => (article.source?.name || '').toLowerCase().includes(source))) {
+      score += 5;
+    }
+
+    // Official government sources bonus
+    if (text.includes('.gov') || text.includes('white house') || text.includes('congress.gov')) {
+      score += 3;
+    }
+
+    return score;
   }
 
   async selectBest(list) {
