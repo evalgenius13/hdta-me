@@ -304,7 +304,6 @@ async fetchPolicyNews() {
     return [];
   }
 }
-
   calculatePolicyScore(article) {
     let score = 0;
     const text = (article.title + ' ' + article.description).toLowerCase();
