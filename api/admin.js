@@ -68,12 +68,12 @@ async function getArticles(req, res) {
     });
   }
 
-  // Get articles for this edition
+  // Get ALL articles for this edition, not just published ones
   const { data: articles } = await supabase
     .from('analyzed_articles')
     .select('*')
     .eq('edition_id', edition.id)
-    .order('article_order');
+    .order('article_score', { ascending: false }); // Order by score, not just article_order
 
   const formatted = articles?.map(a => ({
     id: a.id,
@@ -85,8 +85,23 @@ async function getArticles(req, res) {
     publishedAt: a.published_at,
     preGeneratedAnalysis: a.analysis_text,
     analysisWordCount: a.analysis_word_count,
-    order: a.article_order
+    order: a.article_order,
+    status: a.article_status || (a.article_order ? 'published' : 'queue'), // Use stored status or infer
+    score: a.article_score || 0
   })) || [];
+
+  // Separate into categories for better admin overview
+  const published = formatted.filter(a => a.status === 'published');
+  const drafts = formatted.filter(a => a.status === 'draft');
+  const queue = formatted.filter(a => a.status === 'queue');
+  const rejected = formatted.filter(a => a.status === 'rejected');
+
+  console.log(`Admin API returning ${formatted.length} articles:`, {
+    published: published.length,
+    drafts: drafts.length,
+    queue: queue.length,
+    rejected: rejected.length
+  });
 
   return res.json({
     articles: formatted,
@@ -96,6 +111,13 @@ async function getArticles(req, res) {
       issue_number: edition.issue_number,
       status: edition.status,
       featured_headline: edition.featured_headline
+    },
+    summary: {
+      total: formatted.length,
+      published: published.length,
+      drafts: drafts.length,
+      queue: queue.length,
+      rejected: rejected.length
     }
   });
 }
