@@ -303,17 +303,177 @@
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('articles')">📰 Articles</button>
+            <button class="tab" onclick="showTab('prompts')">🎯 Prompts</button>
+            <button class="tab" onclick="showTab('add-article')">➕ Add Article</button>
+            <button class="tab" onclick="showTab('preview')">👁️ Preview</button>
+            <button class="tab" onclick="showTab('bulk')">⚡ Bulk Actions</button>
             <button class="tab" onclick="showTab('settings')">⚙️ Settings</button>
             <button class="tab" onclick="showTab('logs')">📋 Logs</button>
             <button class="tab" onclick="showTab('analytics')">📊 Analytics</button>
         </div>
 
         <div id="articles-panel" class="panel active">
+            <div class="article-filter-tabs" style="margin-bottom: 16px;">
+                <button class="btn btn-small" id="filter-all" onclick="filterArticles('all')">All Articles</button>
+                <button class="btn btn-small btn-secondary" id="filter-published" onclick="filterArticles('published')">Published (6)</button>
+                <button class="btn btn-small btn-secondary" id="filter-drafts" onclick="filterArticles('drafts')">Drafts</button>
+                <button class="btn btn-small btn-secondary" id="filter-queue" onclick="filterArticles('queue')">Queue</button>
+                <button class="btn btn-small btn-secondary" id="filter-rejected" onclick="filterArticles('rejected')">Rejected</button>
+            </div>
+            
             <div class="loading" id="articles-loading">
                 <span class="spinner"></span>
                 Loading articles...
             </div>
             <div class="article-grid" id="articles-grid" style="display: none;"></div>
+        </div>
+
+        <div id="prompts-panel" class="panel">
+            <h3>AI Prompt Management</h3>
+            <div style="margin-bottom: 20px;">
+                <label for="prompt-select" style="display: block; margin-bottom: 8px; font-weight: 600;">Select Prompt Template:</label>
+                <select id="prompt-select" style="padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; margin-right: 12px;">
+                    <option value="current">Current Prompt</option>
+                    <option value="insider">Insider Voice</option>
+                    <option value="consumer">Consumer Focus</option>
+                    <option value="technical">Technical Detail</option>
+                    <option value="custom">Custom Template</option>
+                </select>
+                <button class="btn btn-small" onclick="loadPromptTemplate()">Load Template</button>
+                <button class="btn btn-small btn-secondary" onclick="savePromptTemplate()">Save as Template</button>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <label for="prompt-editor" style="display: block; margin-bottom: 8px; font-weight: 600;">System Prompt:</label>
+                <textarea id="prompt-editor" style="height: 120px;" placeholder="Enter the system prompt that defines the AI's role and tone...">You are a seasoned policy insider who explains complex regulations in terms of real human impact. Be specific, credible, and revealing about how policy actually works in practice. Avoid euphemisms and jargon while maintaining credibility.</textarea>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label for="user-prompt-editor" style="display: block; margin-bottom: 8px; font-weight: 600;">User Prompt Template:</label>
+                <textarea id="user-prompt-editor" style="height: 200px;" placeholder="Enter the user prompt template with placeholders like {title}, {description}...">Write 130 to 170 words as a compelling insider analysis that reveals what's really happening. Plain English but deep policy knowledge.
+
+1) IMMEDIATE IMPACT: Lead with the concrete consequence people will feel. Be specific - "Your student loan payment drops $150/month" not "payments may change." Think like someone who's seen this before.
+
+2) THE REAL MECHANICS: How does this actually work? Include specific timelines, dollar amounts, eligibility details. What's the implementation reality vs. the press release spin?
+
+3) WINNERS & LOSERS: Who actually benefits and who gets hurt? Be direct about specific industries, regions, or groups when the evidence supports it.
+
+4) INSIDER PERSPECTIVE: What's not being emphasized publicly? Historical context? Hidden timelines? Watch for details that signal the true long-term impact.
+
+Policy: "{title}"
+Details: "{description}"
+Source: "{source}"
+Date: "{date}"</textarea>
+            </div>
+            
+            <div>
+                <button class="btn" onclick="testPrompt()">🧪 Test Prompt</button>
+                <button class="btn btn-secondary" onclick="savePrompts()">💾 Save Prompts</button>
+                <button class="btn btn-secondary" onclick="resetPrompts()">🔄 Reset to Default</button>
+            </div>
+            
+            <div id="prompt-test-result" style="margin-top: 20px; display: none;">
+                <h4>Test Result:</h4>
+                <div style="background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb;"></div>
+            </div>
+        </div>
+
+        <div id="add-article-panel" class="panel">
+            <h3>Add Article Manually</h3>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Article URL:</label>
+                <div style="display: flex; gap: 12px;">
+                    <input type="url" id="article-url" placeholder="https://example.com/article" style="flex: 1; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                    <button class="btn" onclick="extractArticle()">📄 Extract</button>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Title:</label>
+                <input type="text" id="manual-title" placeholder="Article headline" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Description:</label>
+                <textarea id="manual-description" placeholder="Article summary or first paragraph" style="height: 100px; width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;"></textarea>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Source:</label>
+                <input type="text" id="manual-source" placeholder="Publication name" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Status:</label>
+                <select id="manual-status" style="padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                    <option value="queue">Queue (analyze later)</option>
+                    <option value="draft">Draft (analyze now)</option>
+                    <option value="published">Published (add to main site)</option>
+                </select>
+            </div>
+            
+            <div>
+                <button class="btn" onclick="addManualArticle()">➕ Add Article</button>
+                <button class="btn btn-secondary" onclick="clearManualForm()">🗑️ Clear Form</button>
+            </div>
+        </div>
+
+        <div id="preview-panel" class="panel">
+            <h3>Live Preview</h3>
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-small" onclick="togglePreviewMode('desktop')">🖥️ Desktop</button>
+                <button class="btn btn-small btn-secondary" onclick="togglePreviewMode('mobile')">📱 Mobile</button>
+                <button class="btn btn-small btn-secondary" onclick="refreshPreview()">🔄 Refresh</button>
+            </div>
+            
+            <div id="preview-container" style="border: 1px solid #e5e7eb; border-radius: 8px; background: white; min-height: 400px;">
+                <iframe id="preview-frame" src="" style="width: 100%; height: 600px; border: none; border-radius: 8px;"></iframe>
+            </div>
+        </div>
+
+        <div id="bulk-panel" class="panel">
+            <h3>Bulk Operations</h3>
+            <div class="settings-grid">
+                <div class="setting-group">
+                    <h4>Regenerate Analysis</h4>
+                    <div style="margin-bottom: 12px;">
+                        <button class="btn" onclick="bulkRegenerateAll()">🔄 Regenerate All Published</button>
+                        <button class="btn btn-secondary" onclick="bulkRegenerateDrafts()">🔄 Regenerate Drafts</button>
+                        <button class="btn btn-secondary" onclick="bulkAnalyzeQueue()">⚡ Analyze Queue</button>
+                    </div>
+                    <p style="font-size: 14px; color: #6b7280;">Re-run AI analysis on existing articles with current prompts.</p>
+                </div>
+                
+                <div class="setting-group">
+                    <h4>Content Operations</h4>
+                    <div style="margin-bottom: 12px;">
+                        <input type="text" id="find-text" placeholder="Find text..." style="margin-right: 8px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;">
+                        <input type="text" id="replace-text" placeholder="Replace with..." style="margin-right: 8px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;">
+                        <button class="btn btn-small" onclick="bulkFindReplace()">🔍 Find & Replace</button>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <button class="btn btn-secondary" onclick="bulkPromoteQueue()">⬆️ Promote Best Queue to Published</button>
+                        <button class="btn btn-secondary" onclick="bulkDemoteWorst()">⬇️ Demote Worst Published to Drafts</button>
+                    </div>
+                </div>
+                
+                <div class="setting-group">
+                    <h4>Cleanup Operations</h4>
+                    <div style="margin-bottom: 12px;">
+                        <button class="btn btn-danger" onclick="bulkDeleteRejected()">🗑️ Delete All Rejected</button>
+                        <button class="btn btn-danger" onclick="bulkDeleteOld()">🗑️ Delete Articles > 7 Days</button>
+                        <button class="btn btn-danger" onclick="resetToday()">🔄 Reset Today's Edition</button>
+                    </div>
+                    <p style="font-size: 14px; color: #6b7280;">⚠️ These operations cannot be undone.</p>
+                </div>
+            </div>
+            
+            <div id="bulk-progress" style="margin-top: 20px; display: none;">
+                <div style="background: #f3f4f6; height: 8px; border-radius: 4px; overflow: hidden;">
+                    <div id="bulk-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                </div>
+                <p id="bulk-status" style="margin-top: 8px; font-size: 14px; color: #6b7280;">Processing...</p>
+            </div>
         </div>
 
         <div id="settings-panel" class="panel">
@@ -440,470 +600,11 @@
         </div>
     </div>
 
-    <script>
-        class AdminPanel {
-            constructor() {
-                this.API_BASE = 'https://hdta-me.vercel.app';
-                this.articles = [];
-                this.settings = this.loadSettings();
-                this.adminKey = 'hdta-admin-2025-temp'; // Change this in production
-                this.init();
-            }
-
-            async init() {
-                await this.loadData();
-                this.updateStats();
-            }
-
-            async loadData() {
-                try {
-                    const response = await fetch(`${this.API_BASE}/api/admin?action=get-articles`, {
-                        headers: {
-                            'Authorization': `Bearer ${this.adminKey}`
-                        }
-                    });
-                    
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            throw new Error('Unauthorized - Check admin key');
-                        }
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    this.articles = data.articles || [];
-                    
-                    if (data.edition) {
-                        const info = data.edition;
-                        document.getElementById('edition-info').textContent = 
-                            `Issue #${info.issue_number} • ${info.date} (${info.status})`;
-                    } else {
-                        document.getElementById('edition-info').textContent = 'No edition found for today';
-                    }
-                    
-                    this.renderArticles();
-                    document.getElementById('articles-loading').style.display = 'none';
-                    document.getElementById('articles-grid').style.display = 'grid';
-                    
-                } catch (error) {
-                    console.error('Failed to load data:', error);
-                    this.addLog('error', 'Failed to load articles: ' + error.message);
-                    
-                    // Fallback to public API if admin fails
-                    if (error.message.includes('Unauthorized')) {
-                        this.addLog('warning', 'Falling back to public API...');
-                        await this.loadPublicData();
-                    }
-                }
-            }
-
-            async loadPublicData() {
-                try {
-                    const response = await fetch(`${this.API_BASE}/api/fetch-news`);
-                    const data = await response.json();
-                    
-                    this.articles = data.articles || [];
-                    
-                    if (data.edition_info) {
-                        const info = data.edition_info;
-                        document.getElementById('edition-info').textContent = 
-                            `Issue #${info.issue_number} • ${info.date} (Public View)`;
-                    }
-                    
-                    this.renderArticles();
-                    document.getElementById('articles-loading').style.display = 'none';
-                    document.getElementById('articles-grid').style.display = 'grid';
-                    
-                } catch (error) {
-                    console.error('Failed to load public data:', error);
-                    this.addLog('error', 'Failed to load public data: ' + error.message);
-                }
-            }
-
-            renderArticles() {
-                const grid = document.getElementById('articles-grid');
-                if (!grid) return;
-                
-                grid.innerHTML = this.articles.map((article, index) => {
-                    const safeIndex = String(index);
-                    const safeTitle = this.escapeHtml(article.title || '');
-                    const safeDescription = this.escapeHtml(article.description || '');
-                    const safeMeta = this.escapeHtml(article.source?.name || 'Unknown Source');
-                    const timeAgo = this.getTimeAgo(article.publishedAt);
-                    const hasAnalysis = article.preGeneratedAnalysis;
-                    const statusClass = hasAnalysis ? 'status-success' : 'status-warning';
-                    const statusText = hasAnalysis ? 'Analysis Generated' : 'Using Fallback';
-                    const analysisContent = this.formatAnalysis(article.preGeneratedAnalysis || 'No analysis available');
-                    
-                    return `
-                        <div class="article-card">
-                            <div class="article-header">
-                                <div style="flex: 1;">
-                                    <div class="article-title">${safeTitle}</div>
-                                    <div class="article-meta">
-                                        ${safeMeta} • ${timeAgo}
-                                    </div>
-                                </div>
-                                <div class="article-score">Score: --</div>
-                            </div>
-                            
-                            <div class="article-content">
-                                <div class="article-description">
-                                    ${safeDescription}
-                                </div>
-                                
-                                <div class="analysis-section">
-                                    <div class="analysis-status">
-                                        <span class="status-dot ${statusClass}"></span>
-                                        ${statusText}
-                                    </div>
-                                    <div class="analysis-label">Analysis</div>
-                                    <div class="analysis-content" id="analysis-${safeIndex}">
-                                        ${analysisContent}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="article-actions">
-                                <button class="btn btn-small" onclick="adminPanel.editAnalysis(${safeIndex})">✏️ Edit</button>
-                                <button class="btn btn-small btn-secondary" onclick="adminPanel.regenerateAnalysis(${safeIndex})">🔄 Regenerate</button>
-                                <button class="btn btn-small btn-secondary" onclick="window.open('${this.escapeHtml(article.url || '')}', '_blank')">🔗 View Original</button>
-                                <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${safeIndex})">🗑️ Remove</button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            formatAnalysis(text) {
-                if (!text) return '<em>No analysis available</em>';
-                return text.split('\n\n').map(p => `<p>${this.escapeHtml(p)}</p>`).join('');
-            }
-
-            editAnalysis(index) {
-                const article = this.articles[index];
-                const modal = document.getElementById('edit-modal');
-                const editor = document.getElementById('analysis-editor');
-                
-                editor.value = article.preGeneratedAnalysis || '';
-                editor.dataset.articleIndex = index;
-                modal.style.display = 'block';
-            }
-
-            async saveAnalysis() {
-                const editor = document.getElementById('analysis-editor');
-                const index = parseInt(editor.dataset.articleIndex);
-                const newAnalysis = editor.value.trim();
-                
-                if (newAnalysis && this.articles[index]?.id) {
-                    try {
-                        const response = await fetch(`${this.API_BASE}/api/admin?action=update-analysis`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${this.adminKey}`
-                            },
-                            body: JSON.stringify({
-                                articleId: this.articles[index].id,
-                                newAnalysis: newAnalysis
-                            })
-                        });
-                        
-                        if (response.ok) {
-                            this.articles[index].preGeneratedAnalysis = newAnalysis;
-                            document.getElementById(`analysis-${index}`).innerHTML = this.formatAnalysis(newAnalysis);
-                            this.addLog('success', `Updated analysis for article ${index + 1}`);
-                        } else {
-                            throw new Error('Failed to save analysis');
-                        }
-                    } catch (error) {
-                        this.addLog('error', 'Failed to save analysis: ' + error.message);
-                    }
-                } else {
-                    // Local update only if no article ID
-                    this.articles[index].preGeneratedAnalysis = newAnalysis;
-                    document.getElementById(`analysis-${index}`).innerHTML = this.formatAnalysis(newAnalysis);
-                    this.addLog('warning', 'Updated locally only (no database save)');
-                }
-                
-                this.closeModal();
-            }
-
-           async regenerateAnalysis(index) {
-    const article = this.articles[index];
-    this.addLog('info', `Regenerating analysis for: ${article.title.substring(0, 50)}...`);
-    
-    try {
-        const response = await fetch(`${this.API_BASE}/api/personalize`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ article })
-        });
-        
-        const data = await response.json();
-        if (data.impact) {
-            this.articles[index].preGeneratedAnalysis = data.impact;
-            this.renderArticles(); // <-- This line ensures the UI fully updates
-            this.addLog('success', 'Analysis regenerated successfully');
-            // Try to save to database if we have an article ID
-            if (article.id) {
-                this.saveAnalysisToDatabase(article.id, data.impact);
-            }
-        }
-    } catch (error) {
-        this.addLog('error', 'Failed to regenerate analysis: ' + error.message);
-    }
-}
-            async saveAnalysisToDatabase(articleId, analysis) {
-                try {
-                    await fetch(`${this.API_BASE}/api/admin?action=update-analysis`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${this.adminKey}`
-                        },
-                        body: JSON.stringify({ articleId, newAnalysis: analysis })
-                    });
-                } catch (error) {
-                    this.addLog('warning', 'Failed to save to database: ' + error.message);
-                }
-            }
-
-            removeArticle(index) {
-                if (confirm('Remove this article from today\'s edition?')) {
-                    this.articles.splice(index, 1);
-                    this.renderArticles();
-                    this.addLog('warning', `Removed article ${index + 1}`);
-                }
-            }
-
-            loadSettings() {
-                const defaults = {
-                    maxArticles: 6,
-                    daysBack: 3,
-                    minScore: 10,
-                    wordMin: 100,
-                    wordMax: 250,
-                    temperature: 0.4,
-                    similarity: 0.75,
-                    autoPublish: true
-                };
-                
-                try {
-                    const saved = localStorage.getItem('hdta-admin-settings');
-                    return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
-                } catch {
-                    return defaults;
-                }
-            }
-
-            saveSettings() {
-                const settings = {
-                    maxArticles: parseInt(document.getElementById('max-articles').value),
-                    daysBack: parseInt(document.getElementById('days-back').value),
-                    minScore: parseInt(document.getElementById('min-score').value),
-                    wordMin: parseInt(document.getElementById('word-min').value),
-                    wordMax: parseInt(document.getElementById('word-max').value),
-                    temperature: parseFloat(document.getElementById('temperature').value),
-                    similarity: parseFloat(document.getElementById('similarity').value),
-                    autoPublish: document.getElementById('auto-publish').checked
-                };
-                
-                localStorage.setItem('hdta-admin-settings', JSON.stringify(settings));
-                this.settings = settings;
-                this.addLog('success', 'Settings saved successfully');
-            }
-
-            resetSettings() {
-                localStorage.removeItem('hdta-admin-settings');
-                this.settings = this.loadSettings();
-                this.populateSettingsForm();
-                this.addLog('info', 'Settings reset to defaults');
-            }
-
-            populateSettingsForm() {
-                document.getElementById('max-articles').value = this.settings.maxArticles;
-                document.getElementById('days-back').value = this.settings.daysBack;
-                document.getElementById('min-score').value = this.settings.minScore;
-                document.getElementById('word-min').value = this.settings.wordMin;
-                document.getElementById('word-max').value = this.settings.wordMax;
-                document.getElementById('temperature').value = this.settings.temperature;
-                document.getElementById('similarity').value = this.settings.similarity;
-                document.getElementById('auto-publish').checked = this.settings.autoPublish;
-            }
-
-            updateStats() {
-                const analyzed = this.articles.filter(a => a.preGeneratedAnalysis).length;
-                const successRate = this.articles.length > 0 ? Math.round((analyzed / this.articles.length) * 100) : 0;
-                
-                document.getElementById('stat-fetched').textContent = this.articles.length;
-                document.getElementById('stat-analyzed').textContent = analyzed;
-                document.getElementById('stat-success').textContent = `${successRate}%`;
-                document.getElementById('stat-fallback').textContent = `${this.articles.length - analyzed}`;
-                
-                if (analyzed > 0) {
-                    const avgWords = Math.round(
-                        this.articles
-                            .filter(a => a.preGeneratedAnalysis)
-                            .reduce((sum, a) => sum + (a.preGeneratedAnalysis.split(' ').length || 0), 0) / analyzed
-                    );
-                    document.getElementById('stat-words').textContent = avgWords;
-                }
-                
-                const sources = this.articles.map(a => a.source?.name).filter(Boolean);
-                const topSource = sources.length > 0 ? 
-                    sources.reduce((a, b, i, arr) => 
-                        arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b
-                    ) : 'None';
-                document.getElementById('stat-source').textContent = topSource;
-            }
-
-            addLog(type, message) {
-                const logs = document.getElementById('logs-container');
-                const time = new Date().toLocaleTimeString();
-                const logClass = type === 'error' ? 'log-error' : 
-                                type === 'success' ? 'log-success' : 
-                                type === 'warning' ? 'log-warning' : '';
-                
-                const logLine = document.createElement('div');
-                logLine.className = `log-line ${logClass}`;
-                logLine.textContent = `[${time}] ${message}`;
-                
-                logs.appendChild(logLine);
-                logs.scrollTop = logs.scrollHeight;
-            }
-
-            closeModal() {
-                document.getElementById('edit-modal').style.display = 'none';
-            }
-
-            getTimeAgo(publishedAt) {
-                if (!publishedAt) return 'Unknown time';
-                const now = new Date();
-                const pub = new Date(publishedAt);
-                const hours = Math.floor((now - pub) / 3600000);
-                const days = Math.floor(hours / 24);
-                
-                if (hours < 1) return 'Just published';
-                if (hours < 24) return `${hours}h ago`;
-                if (days === 1) return 'Yesterday';
-                if (days < 7) return `${days}d ago`;
-                return pub.toLocaleDateString();
-            }
-
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-        }
-
-        // Global functions
-        function showTab(tabName) {
-            // Hide all panels
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            
-            // Show selected panel and tab
-            document.getElementById(`${tabName}-panel`).classList.add('active');
-            event.target.classList.add('active');
-        }
-
-        async function triggerUpdate() {
-            const btn = event.target;
-            btn.disabled = true;
-            btn.textContent = '⏳ Updating...';
-            
-            adminPanel.addLog('info', 'Manual update triggered');
-            
-            try {
-                const response = await fetch(`${adminPanel.API_BASE}/api/admin?action=regenerate`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${adminPanel.adminKey}`
-                    },
-                    body: JSON.stringify({})
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    adminPanel.addLog('success', `Update completed - ${data.processing.articles_processed} articles processed (${data.processing.success_rate}% success rate)`);
-                    await adminPanel.loadData();
-                    adminPanel.updateStats();
-                } else {
-                    adminPanel.addLog('error', 'Update failed: ' + data.error);
-                }
-            } catch (error) {
-                adminPanel.addLog('error', 'Update request failed: ' + error.message);
-                // Fallback to manual trigger endpoint
-                try {
-                    const fallbackResponse = await fetch(`${adminPanel.API_BASE}/api/manual-trigger`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ trigger_key: 'force-update-2025' })
-                    });
-                    const fallbackData = await fallbackResponse.json();
-                    if (fallbackData.success) {
-                        adminPanel.addLog('success', 'Fallback update successful');
-                        await adminPanel.loadData();
-                    }
-                } catch (fallbackError) {
-                    adminPanel.addLog('error', 'Fallback also failed: ' + fallbackError.message);
-                }
-            }
-            
-            btn.disabled = false;
-            btn.textContent = '🚀 Force Update Today';
-        }
-
-        async function refreshData() {
-            adminPanel.addLog('info', 'Refreshing data...');
-            await adminPanel.loadData();
-            adminPanel.updateStats();
-        }
-
-        function testPrompt() {
-            adminPanel.addLog('info', 'Prompt testing not implemented yet');
-        }
-
-        function clearToday() {
-            if (confirm('Clear today\'s edition? This cannot be undone.')) {
-                adminPanel.addLog('warning', 'Clear today function not implemented yet');
-            }
-        }
-
-        function refreshLogs() {
-            adminPanel.addLog('info', 'Logs refreshed');
-        }
-
-        function clearLogs() {
-            document.getElementById('logs-container').innerHTML = '';
-            adminPanel.addLog('info', 'Logs cleared');
-        }
-
-        function saveSettings() {
-            adminPanel.saveSettings();
-        }
-
-        function resetSettings() {
-            adminPanel.resetSettings();
-        }
-
-        function closeModal() {
-            adminPanel.closeModal();
-        }
-
-        // Initialize admin panel
-        let adminPanel;
-        document.addEventListener('DOMContentLoaded', () => {
-            adminPanel = new AdminPanel();
-            adminPanel.populateSettingsForm();
-        });
-
-        // Bind modal saveAnalysis globally for the modal button
-        window.saveAnalysis = function() { adminPanel.saveAnalysis(); };
-    </script>
+    <!-- JavaScript Files -->
+    <script src="js/admin-core.js"></script>
+    <script src="js/admin-ui.js"></script>
+    <script src="js/admin-prompts.js"></script>
+    <script src="js/admin-bulk.js"></script>
+    <script src="js/admin-init.js"></script>
 </body>
 </html>
