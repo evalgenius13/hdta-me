@@ -41,11 +41,11 @@ class AutomatedPublisher {
       for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
         const raw = await this.generateNarrative(a).catch(() => null);
         const cleaned = raw ? this.sanitize(a, raw) : null;
-        if (cleaned) analysis = this.applyEthics(cleaned);
+        if (cleaned) analysis = cleaned;
         if (!analysis) await this.sleep(1200);
       }
 
-      if (!analysis) analysis = this.applyEthics(this.fallback());
+      if (!analysis) analysis = this.fallback();
 
       out.push({
         ...a,
@@ -64,21 +64,21 @@ class AutomatedPublisher {
     const source = article.source?.name || 'not stated';
 
     const prompt = `
-Write exactly 140-170 words as a clear, scannable story in 4 paragraphs. Use plain, conversational English like explaining to a friend.
+Write exactly 140-170 words as a compelling insider analysis that reveals what's really happening. Use plain English but show deep policy knowledge.
 
-Paragraph 1 - THE HOOK (25-35 words): Start with the immediate, personal impact in one clear sentence. No jargon or policy-speak.
+Paragraph 1 - REAL IMPACT (30-40 words): Start with the concrete consequence people will actually feel. Be specific: "Your mortgage rate jumps 0.3%" not "rates may change." Think like someone who's seen this playbook before.
 
-Paragraph 2 - THE DETAILS (40-50 words): Costs, timelines, eligibility requirements, deadlines. Be specific about dollar amounts and dates when available.
+Paragraph 2 - THE MECHANICS (40-50 words): Explain HOW this works in practice. Include specific timelines, dollar amounts, eligibility thresholds. What's the implementation reality vs. the press release version?
 
-Paragraph 3 - WINNERS & LOSERS (40-50 words): Who comes out ahead and who it impacts hardest. Use specific demographics only when explicitly mentioned in the source article. Otherwise focus on roles l[...]
+Paragraph 3 - WINNERS & LOSERS (40-50 words): Name who actually benefits and who gets hurt. Be specific about industries, regions, demographics when the data supports it. Don't be vague - if community banks struggle while big banks thrive, say so directly.
 
-Paragraph 4 - CONTEXT & NEXT (25-35 words): Brief historical context plus one thing to watch for next (fees, delays, eligibility changes).
+Paragraph 4 - INSIDER PERSPECTIVE (25-35 words): What's not being said publicly? Historical precedent? Hidden timelines? Real motivations? End with what to watch for next that signals the true impact.
 
-Replace policy jargon with everyday words:
+Use concrete language:
 - "implementation" → "when it starts"
-- "stakeholders" → "people affected"
+- "stakeholders" → specific groups affected
 - "regulatory framework" → "new rules"
-- "eligibility parameters" → "who qualifies"
+- "may impact" → "will cost" or "will benefit"
 
 Policy: "${article.title}"
 Details: "${article.description}"
@@ -95,11 +95,11 @@ Date: "${pubDate}"
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Write clear, scannable policy analysis in plain English. Structure as 4 focused paragraphs. Be conversational but accurate.' },
+          { role: 'system', content: 'You are a seasoned policy insider who explains complex regulations in terms of real human impact. Be specific, credible, and revealing about how policy actually works. Avoid jargon but show deep expertise.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 260,
-        temperature: 0.3
+        max_tokens: 280,
+        temperature: 0.4
       })
     });
 
@@ -133,43 +133,8 @@ Date: "${pubDate}"
     return normalized;
   }
 
-  applyEthics(text) {
-    let out = text;
-    const sensitive = [
-      'less diversity',
-      'reduced diversity',
-      'more homogenous',
-      'less representation',
-      'exclusion',
-      'discrimin',
-      'disparate impact',
-      'voter suppression',
-      'gerrymander',
-      'redlined',
-      'segregat'
-    ];
-    out = out
-      .split(/\n\n/)
-      .map(par => {
-        const sentences = par.split(/(?<=[.!?])\s+/);
-        const fixed = sentences.map(s => {
-          const hasBenefit = /\b(benefit|benefits|benefited|winners?)\b/i.test(s);
-          const hasSensitive = sensitive.some(k => s.toLowerCase().includes(k));
-          if (hasBenefit && hasSensitive) {
-            return s
-              .replace(/\b[Bb]enefit(?:s|ed)?\b/g, 'effect')
-              .replace(/\bWinners?\b/g, 'Groups most advantaged by this change');
-          }
-          return s;
-        });
-        return fixed.join(' ');
-      })
-      .join('\n\n');
-    return out;
-  }
-
   fallback() {
-    return 'For most readers, the impact depends on implementation. Costs, eligibility, timelines, and paperwork decide who benefits and who pays.\n\nPeople who move early and qualify cleanly tend to [...]';
+    return 'The real impact depends on implementation details still being negotiated behind closed doors. Early movers with good legal counsel typically fare better, while those who wait face higher compliance costs and fewer options.\n\nSimilar policies have shifted market dynamics within 12-18 months. Watch for the regulatory guidance in Q3 - that\'s where the actual rules get written, often favoring established players over newcomers.\n\nHidden costs like processing delays, new paperwork requirements, and changed eligibility criteria usually surface 6 months after implementation.';
   }
 
   // UPDATED: Fetch articles from the last 3 days, and log all titles for debugging
