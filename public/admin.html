@@ -630,38 +630,31 @@
                 this.closeModal();
             }
 
-            async regenerateAnalysis(index) {
-                const article = this.articles[index];
-                this.addLog('info', `Regenerating analysis for: ${article.title.substring(0, 50)}...`);
-                
-                try {
-                    const response = await fetch(`${this.API_BASE}/api/personalize`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ article })
-                    });
-                    
-                    const data = await response.json();
-                    if (data.impact) {
-                        this.articles[index].preGeneratedAnalysis = data.impact;
-                        this.addLog('success', 'Analysis regenerated successfully');
-                        
-                        // Force full re-render instead of just updating one element
-                        this.renderArticles();
-                        this.updateStats();
-                        
-                        // Try to save to database if we have an article ID
-                        if (article.id) {
-                            this.saveAnalysisToDatabase(article.id, data.impact);
-                        }
-                    } else {
-                        this.addLog('error', 'No analysis returned from API');
-                    }
-                } catch (error) {
-                    this.addLog('error', 'Failed to regenerate analysis: ' + error.message);
-                }
+           async regenerateAnalysis(index) {
+    const article = this.articles[index];
+    this.addLog('info', `Regenerating analysis for: ${article.title.substring(0, 50)}...`);
+    
+    try {
+        const response = await fetch(`${this.API_BASE}/api/personalize`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ article })
+        });
+        
+        const data = await response.json();
+        if (data.impact) {
+            this.articles[index].preGeneratedAnalysis = data.impact;
+            this.renderArticles(); // <-- This line ensures the UI fully updates
+            this.addLog('success', 'Analysis regenerated successfully');
+            // Try to save to database if we have an article ID
+            if (article.id) {
+                this.saveAnalysisToDatabase(article.id, data.impact);
             }
-
+        }
+    } catch (error) {
+        this.addLog('error', 'Failed to regenerate analysis: ' + error.message);
+    }
+}
             async saveAnalysisToDatabase(articleId, analysis) {
                 try {
                     await fetch(`${this.API_BASE}/api/admin?action=update-analysis`, {
