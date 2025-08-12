@@ -22,14 +22,136 @@ class AutomatedPublisher {
     if (existing) return existing;
 
     const articles = await this.fetchPolicyNews();
-    // Debug: How many articles raw from GNews
     console.log('🔵 fetchPolicyNews returned:', articles.length, 'articles');
-    const selected = await this.selectBest(articles);
-    // Debug: How many after filtering
-    console.log('🟡 selectBest after filtering:', selected.length, 'articles');
-    const analyzed = await this.analyzeAll(selected);
+    
+    const scored = await this.scoreAndCategorizeAll(articles);
+    console.log('🟡 scoreAndCategorizeAll processed:', scored.length, 'articles');
+    
+    const analyzed = await this.analyzeSelected(scored);
     const edition = await this.createEdition(today, analyzed, 'published');
     return edition;
+  }
+
+  async scoreAndCategorizeAll(articles) {
+    // Filter and dedupe all articles
+    const filtered = this.filterValidArticles(articles);
+    console.log(`🔽 After content filtering: ${filtered.length} articles`);
+    
+    const deduped = this.dedupe(filtered);
+    console.log(`🔽 After deduplication: ${deduped.length} articles`);
+    
+    // Score all articles
+    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
+    const sorted = scored.sort((x, y) => y.score - x.score);
+    
+    // Categorize articles by score and position
+    const categorized = sorted.map((article, index) => {
+      let status, shouldAnalyze;
+      
+      if (index < 6) {
+        // Top 6 = Published (analyze immediately)
+        status = 'published';
+        shouldAnalyze = true;
+        article.order = index + 1;
+      } else if (index < 12) {
+        // Next 6 = Drafts (analyze for potential promotion)
+        status = 'draft';
+        shouldAnalyze = true;
+      } else if (index < 20) {
+        // Next 8 = Queue (don't analyze yet, but available)
+        status = 'queue';
+        shouldAnalyze = false;
+      } else {
+        // Rest = Rejected (low scores, keep for reference)
+        status = 'rejected';
+        shouldAnalyze = false;
+      }
+      
+      return { ...article, status, shouldAnalyze };
+    });
+    
+    console.log('📊 Article categorization:');
+    console.log(`  Published: ${categorized.filter(a => a.status === 'published').length}`);
+    console.log(`  Drafts: ${categorized.filter(a => a.status === 'draft').length}`);
+    console.log(`  Queue: ${categorized.filter(a => a.status === 'queue').length}`);
+    console.log(`  Rejected: ${categorized.filter(a => a.status === 'rejected').length}`);
+    
+    return categorized;
+  }
+
+  async analyzeSelected(articles) {
+    const toAnalyze = articles.filter(a => a.shouldAnalyze);
+    const analyzed = [];
+    
+    console.log(`\n🔬 Analyzing ${toAnalyze.length} articles (published + drafts)`);
+    
+    for (let i = 0; i < toAnalyze.length; i++) {
+      const a = toAnalyze[i];
+      let analysis = null;
+
+      console.log(`\n🔬 Analyzing article ${i + 1}/${toAnalyze.length}: ${a.title.substring(0, 60)}...`);
+
+      // Try up to 3 attempts
+      for (let attempt = 0; attempt < 3 && !analysis; attempt++) {
+        console.log(`  Attempt ${attempt + 1}/3...`);
+        
+        const raw = await this.generateNarrative(a).catch(err => {
+          console.log(`    ❌ AI generation failed: ${err.message}`);
+          return null;
+        });
+        
+        if (raw) {
+          console.log(`    ✅ AI generated ${raw.length} characters`);
+          const cleaned = this.sanitize(a, raw);
+          if (cleaned) {
+            analysis = cleaned;
+            console.log(`    ✅ Analysis accepted (${analysis.split(/\s+/).length} words)`);
+          } else {
+            console.log(`    ❌ Analysis rejected by sanitizer`);
+          }
+        }
+        
+        if (!analysis && attempt < 2) {
+          console.log(`    ⏳ Waiting before retry...`);
+          await this.sleep(1500);
+        }
+      }
+
+      if (!analysis) {
+        analysis = this.fallback();
+        console.log(`    🔄 Using fallback content`);
+      }
+
+      analyzed.push({
+        ...a,
+        analysis,
+        analysis_generated_at: new Date().toISOString(),
+        analysis_word_count: analysis.split(/\s+/).filter(Boolean).length
+      });
+    }
+    
+    // Add non-analyzed articles without analysis
+    const nonAnalyzed = articles.filter(a => !a.shouldAnalyze).map(a => ({
+      ...a,
+      analysis: null,
+      analysis_generated_at: null,
+      analysis_word_count: 0
+    }));
+    
+    return [...analyzed, ...nonAnalyzed];
+  }
+
+  filterValidArticles(list) {
+    return list.filter(a =>
+      a?.title &&
+      a?.description &&
+      // Re-enable filtering to exclude non-policy content
+      !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks|sports|rapper|kardashian|tesla stock|bitcoin)\b/i.test(a.title) &&
+      // Must contain at least one policy-relevant term
+      /\b(bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves|ruling|decision|agency|federal)\b/i.test(
+        (a.title || '') + ' ' + (a.description || '')
+      )
+    );
   }
 
   async analyzeAll(articles) {
@@ -323,15 +445,16 @@ Date: "${pubDate}"
         edition_date: date,
         issue_number: issue,
         status,
-        featured_headline: articles[0]?.title || 'Policy Updates'
+        featured_headline: articles.find(a => a.status === 'published')?.title || 'Policy Updates'
       })
       .select()
       .single();
     if (e1) throw e1;
 
+    // Save ALL articles, not just published ones
     const rows = articles.map(a => ({
       edition_id: edition.id,
-      article_order: a.order,
+      article_order: a.order || null,
       title: a.title,
       description: a.description,
       url: a.url,
@@ -340,11 +463,19 @@ Date: "${pubDate}"
       published_at: a.publishedAt,
       analysis_text: a.analysis,
       analysis_generated_at: a.analysis_generated_at,
-      analysis_word_count: a.analysis_word_count
+      analysis_word_count: a.analysis_word_count || 0,
+      article_status: a.status,  // Add status field
+      article_score: a.score || 0  // Add score field
     }));
 
     const { error: e2 } = await supabase.from('analyzed_articles').insert(rows);
     if (e2) throw e2;
+
+    console.log(`✅ Created edition #${issue} with ${articles.length} total articles:`);
+    console.log(`  - ${articles.filter(a => a.status === 'published').length} published`);
+    console.log(`  - ${articles.filter(a => a.status === 'draft').length} drafts`);
+    console.log(`  - ${articles.filter(a => a.status === 'queue').length} queued`);
+    console.log(`  - ${articles.filter(a => a.status === 'rejected').length} rejected`);
 
     return edition;
   }
