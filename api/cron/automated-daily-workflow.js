@@ -38,14 +38,39 @@ class AutomatedPublisher {
       const a = articles[i];
       let analysis = null;
 
-      for (let attempt = 0; attempt < 2 && !analysis; attempt++) {
-        const raw = await this.generateNarrative(a).catch(() => null);
-        const cleaned = raw ? this.sanitize(a, raw) : null;
-        if (cleaned) analysis = cleaned;
-        if (!analysis) await this.sleep(1200);
+      console.log(`\n🔬 Analyzing article ${i + 1}: ${a.title.substring(0, 60)}...`);
+
+      // Try up to 3 attempts with different strategies
+      for (let attempt = 0; attempt < 3 && !analysis; attempt++) {
+        console.log(`  Attempt ${attempt + 1}/3...`);
+        
+        const raw = await this.generateNarrative(a).catch(err => {
+          console.log(`    ❌ AI generation failed: ${err.message}`);
+          return null;
+        });
+        
+        if (raw) {
+          console.log(`    ✅ AI generated ${raw.length} characters`);
+          const cleaned = this.sanitize(a, raw);
+          if (cleaned) {
+            analysis = cleaned;
+            console.log(`    ✅ Analysis accepted (${analysis.split(/\s+/).length} words)`);
+          } else {
+            console.log(`    ❌ Analysis rejected by sanitizer`);
+            console.log(`    Raw preview: ${raw.substring(0, 100)}...`);
+          }
+        }
+        
+        if (!analysis && attempt < 2) {
+          console.log(`    ⏳ Waiting before retry...`);
+          await this.sleep(1500);
+        }
       }
 
-      if (!analysis) analysis = this.fallback();
+      if (!analysis) {
+        analysis = this.fallback();
+        console.log(`    🔄 Using fallback content`);
+      }
 
       out.push({
         ...a,
@@ -110,6 +135,7 @@ Date: "${pubDate}"
 
   sanitize(article, text) {
     if (!text) return null;
+    
     const normalized = text
       .replace(/\r/g, '')
       .split('\n')
@@ -118,18 +144,40 @@ Date: "${pubDate}"
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 110 || wc > 220) return null;
+    console.log(`    📊 Word count: ${wc} (need 100-250)`);
+    
+    // Relaxed word count limits
+    if (wc < 100 || wc > 250) {
+      console.log(`    ❌ Rejected: word count ${wc} outside 100-250 range`);
+      return null;
+    }
 
-    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) return null;
+    // Check for unwanted formatting
+    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
+      console.log(`    ❌ Rejected: contains bullet points or numbered lists`);
+      return null;
+    }
 
+    // Relaxed year checking - only reject obvious fabrications
     const inputs = [article.title || '', article.description || '', article.publishedAt || '']
       .join(' ')
       .toLowerCase();
-    const years = normalized.match(/\b(19|20)\d{2}\b/g) || [];
-    for (const y of years) {
-      if (!inputs.includes(String(y).toLowerCase())) return null;
+    const years = normalized.match(/\b(20[0-2]\d)\b/g) || []; // Only check recent years
+    
+    for (const year of years) {
+      const yearNum = parseInt(year);
+      const currentYear = new Date().getFullYear();
+      
+      // Only reject if it's a very recent year (last 5 years) that's not in source
+      if (yearNum >= currentYear - 5 && yearNum <= currentYear + 1) {
+        if (!inputs.includes(year.toLowerCase())) {
+          console.log(`    ❌ Rejected: mentions recent year ${year} not in source material`);
+          return null;
+        }
+      }
     }
 
+    console.log(`    ✅ Sanitization passed`);
     return normalized;
   }
 
@@ -141,51 +189,70 @@ Date: "${pubDate}"
   async fetchPolicyNews() {
   try {
     const API_KEY = process.env.GNEWS_API_KEY;
-    const query = 'congress OR senate OR "executive order" OR regulation OR "supreme court"';
+    
+    // Expanded query to catch more policy content
+    const query = 'congress OR senate OR "executive order" OR regulation OR "supreme court" OR "federal agency" OR "new rule" OR "bill signed" OR governor OR legislature OR "court ruling" OR EPA OR FDA OR IRS OR "policy change"';
 
-    // Use a 2-day rolling window for recency (adjust as you like, or remove for no date filter)
+    // Use a 3-day rolling window for more content
     const today = new Date();
     const fromDate = new Date(today);
-    fromDate.setDate(today.getDate() - 2);
+    fromDate.setDate(today.getDate() - 3);
     const fromStr = fromDate.toISOString().split('T')[0];
     const toStr = today.toISOString().split('T')[0];
 
-    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=20&from=${fromStr}&to=${toStr}&token=${API_KEY}`;
+    // Increased max articles to get more options
+    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=30&from=${fromStr}&to=${toStr}&token=${API_KEY}`;
 
     const response = await fetch(url);
     const data = await response.json();
 
-    // Debug: log the full response object
-    console.log('GNews API full response:', JSON.stringify(data, null, 2));
+    console.log('GNews API response status:', response.status);
+    console.log('GNews API response keys:', Object.keys(data || {}));
 
-    // Defensive: GNews sometimes uses publishedAt, sometimes published_at
     const articles = Array.isArray(data.articles) ? data.articles : [];
-    console.log(`Fetched ${articles.length} articles from GNews`);
+    console.log(`✅ Fetched ${articles.length} articles from GNews`);
+    
     articles.forEach((a, i) => {
-      if (a && a.title) console.log(`Article ${i + 1}: ${a.title}`);
+      if (a && a.title) {
+        const recency = a.publishedAt ? this.getTimeAgo(a.publishedAt) : 'no date';
+        console.log(`Article ${i + 1} (${recency}): ${a.title.substring(0, 80)}...`);
+      }
     });
 
     return articles;
   } catch (error) {
-    console.error('Failed to fetch news:', error);
+    console.error('❌ Failed to fetch news:', error);
     return [];
   }
 }
   async selectBest(list) {
+    // Re-enable filtering to exclude non-policy content
     const filtered = list.filter(
       a =>
         a?.title &&
-        a?.description
-        // Comment out exclusion temporarily to observe
-        // && !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks)\b/i.test(a.title)
+        a?.description &&
+        !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks|sports|rapper|kardashian|tesla stock|bitcoin)\b/i.test(a.title) &&
+        // Must contain at least one policy-relevant term
+        /\b(bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves|ruling|decision|agency|federal)\b/i.test(
+          (a.title || '') + ' ' + (a.description || '')
+        )
     );
-    console.log('After filtering:', filtered.length);
+    console.log(`🔽 After content filtering: ${filtered.length} articles`);
+    
     const deduped = this.dedupe(filtered);
-    console.log('After dedupe:', deduped.length);
-    return deduped
-      .map(a => ({ ...a, score: this.score(a) }))
-      .sort((x, y) => y.score - x.score)
-      .slice(0, this.maxArticles);
+    console.log(`🔽 After deduplication: ${deduped.length} articles`);
+    
+    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
+    const sorted = scored.sort((x, y) => y.score - x.score);
+    
+    // Log top articles with scores for debugging
+    console.log('🏆 Top scored articles:');
+    sorted.slice(0, 8).forEach((a, i) => {
+      const recency = a.publishedAt ? this.getTimeAgo(a.publishedAt) : 'no date';
+      console.log(`  ${i + 1}. Score: ${a.score} (${recency}) - ${a.title.substring(0, 70)}...`);
+    });
+    
+    return sorted.slice(0, this.maxArticles);
   }
 
   dedupe(list) {
@@ -201,7 +268,8 @@ Date: "${pubDate}"
       let dup = false;
       for (const s of seen) {
         const sim = this.jaccard(norm, s);
-        if (sim > 0.82) {
+        if (sim > 0.75) { // Relaxed from 0.82 to 0.75
+          console.log(`    🔄 Duplicate detected: "${a.title.substring(0, 50)}..." (${(sim * 100).toFixed(1)}% similar)`);
           dup = true;
           break;
         }
@@ -299,6 +367,20 @@ Date: "${pubDate}"
     const { data, error } = await supabase.from('daily_editions').select('*').eq('edition_date', date).single();
     if (error && error.code !== 'PGRST116') throw error;
     return data;
+  }
+
+  getTimeAgo(publishedAt) {
+    if (!publishedAt) return 'unknown time';
+    const now = new Date();
+    const pub = new Date(publishedAt);
+    const hours = Math.floor((now - pub) / 3600000);
+    const days = Math.floor(hours / 24);
+    
+    if (hours < 1) return 'just published';
+    if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return 'yesterday';
+    if (days < 7) return `${days}d ago`;
+    return pub.toLocaleDateString();
   }
 
   sleep(ms) {
