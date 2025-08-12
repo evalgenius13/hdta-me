@@ -523,44 +523,57 @@
 
             renderArticles() {
                 const grid = document.getElementById('articles-grid');
-                grid.innerHTML = this.articles.map((article, index) => `
-                    <div class="article-card">
-                        <div class="article-header">
-                            <div style="flex: 1;">
-                                <div class="article-title">${this.escapeHtml(article.title)}</div>
-                                <div class="article-meta">
-                                    ${article.source?.name || 'Unknown Source'} • 
-                                    ${this.getTimeAgo(article.publishedAt)}
+                if (!grid) return;
+                
+                grid.innerHTML = this.articles.map((article, index) => {
+                    const safeIndex = String(index);
+                    const safeTitle = this.escapeHtml(article.title || '');
+                    const safeDescription = this.escapeHtml(article.description || '');
+                    const safeMeta = this.escapeHtml(article.source?.name || 'Unknown Source');
+                    const timeAgo = this.getTimeAgo(article.publishedAt);
+                    const hasAnalysis = article.preGeneratedAnalysis;
+                    const statusClass = hasAnalysis ? 'status-success' : 'status-warning';
+                    const statusText = hasAnalysis ? 'Analysis Generated' : 'Using Fallback';
+                    const analysisContent = this.formatAnalysis(article.preGeneratedAnalysis || 'No analysis available');
+                    
+                    return `
+                        <div class="article-card">
+                            <div class="article-header">
+                                <div style="flex: 1;">
+                                    <div class="article-title">${safeTitle}</div>
+                                    <div class="article-meta">
+                                        ${safeMeta} • ${timeAgo}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="article-score">Score: --</div>
-                        </div>
-                        
-                        <div class="article-content">
-                            <div class="article-description">
-                                ${this.escapeHtml(article.description || '')}
+                                <div class="article-score">Score: --</div>
                             </div>
                             
-                            <div class="analysis-section">
-                                <div class="analysis-status">
-                                    <span class="status-dot ${article.preGeneratedAnalysis ? 'status-success' : 'status-warning'}"></span>
-                                    ${article.preGeneratedAnalysis ? 'Analysis Generated' : 'Using Fallback'}
+                            <div class="article-content">
+                                <div class="article-description">
+                                    ${safeDescription}
                                 </div>
-                                <div class="analysis-label">Analysis</div>
-                                <div class="analysis-content" id="analysis-${index}">
-                                    ${this.formatAnalysis(article.preGeneratedAnalysis || 'No analysis available')}
+                                
+                                <div class="analysis-section">
+                                    <div class="analysis-status">
+                                        <span class="status-dot ${statusClass}"></span>
+                                        ${statusText}
+                                    </div>
+                                    <div class="analysis-label">Analysis</div>
+                                    <div class="analysis-content" id="analysis-${safeIndex}">
+                                        ${analysisContent}
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <div class="article-actions">
+                                <button class="btn btn-small" onclick="adminPanel.editAnalysis(${safeIndex})">✏️ Edit</button>
+                                <button class="btn btn-small btn-secondary" onclick="adminPanel.regenerateAnalysis(${safeIndex})">🔄 Regenerate</button>
+                                <button class="btn btn-small btn-secondary" onclick="window.open('${this.escapeHtml(article.url || '')}', '_blank')">🔗 View Original</button>
+                                <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${safeIndex})">🗑️ Remove</button>
+                            </div>
                         </div>
-                        
-                        <div class="article-actions">
-                            <button class="btn btn-small" onclick="adminPanel.editAnalysis(${index})">✏️ Edit</button>
-                            <button class="btn btn-small btn-secondary" onclick="adminPanel.regenerateAnalysis(${index})">🔄 Regenerate</button>
-                            <button class="btn btn-small btn-secondary" onclick="window.open('${article.url}', '_blank')">🔗 View Original</button>
-                            <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${index})">🗑️ Remove</button>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             }
 
             formatAnalysis(text) {
@@ -631,13 +644,18 @@
                     const data = await response.json();
                     if (data.impact) {
                         this.articles[index].preGeneratedAnalysis = data.impact;
-                        document.getElementById(`analysis-${index}`).innerHTML = this.formatAnalysis(data.impact);
                         this.addLog('success', 'Analysis regenerated successfully');
+                        
+                        // Force full re-render instead of just updating one element
+                        this.renderArticles();
+                        this.updateStats();
                         
                         // Try to save to database if we have an article ID
                         if (article.id) {
                             this.saveAnalysisToDatabase(article.id, data.impact);
                         }
+                    } else {
+                        this.addLog('error', 'No analysis returned from API');
                     }
                 } catch (error) {
                     this.addLog('error', 'Failed to regenerate analysis: ' + error.message);
