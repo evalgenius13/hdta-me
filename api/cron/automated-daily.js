@@ -1,98 +1,84 @@
 import { runAutomatedWorkflow } from './automated-daily-workflow.js';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 export default async function handler(req, res) {
-  // Verify this is a legitimate cron request
-  const authHeader = req.headers.authorization;
-  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
-  
-  if (!authHeader || authHeader !== expectedAuth) {
-    console.error('🚨 Unauthorized cron access attempt:', {
-      ip: req.headers['x-forwarded-for'] || req.connection.remoteAddress,
-      userAgent: req.headers['user-agent'],
-      timestamp: new Date().toISOString()
-    });
-    
-    return res.status(401).json({ error: 'Unauthorized' });
+  // --- CORS HEADERS ---
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  // Accept both GET and POST for flexibility
-  if (req.method !== 'GET' && req.method !== 'POST') {
+  if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const startTime = Date.now();
-  console.log('🤖 Automated daily workflow started:', new Date().toISOString());
+  // --- AUTHORIZATION ---
+  const authHeader = req.headers.authorization || '';
+  const expectedSecret = process.env.CRON_SECRET;
+  if (!authHeader.startsWith('Bearer ') || authHeader.slice(7) !== expectedSecret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
+  const startTime = Date.now();
   try {
-    // Run the fully automated workflow
+    // Run the workflow
     const edition = await runAutomatedWorkflow();
-    
+
+    // Get articles for response
+    const { data: articles } = await supabase
+      .from('analyzed_articles')
+      .select('title, analysis_text, article_status, article_score')
+      .eq('edition_id', edition.id)
+      .order('article_order');
+
+    const articlesWithAnalysis = articles?.filter(a =>
+      a.analysis_text &&
+      !a.analysis_text.includes('depends on implementation')
+    ) || [];
+
     const duration = Math.floor((Date.now() - startTime) / 1000);
-    
-    const successResponse = {
+
+    const response = {
       success: true,
+      message: 'Workflow completed successfully',
       edition: {
         id: edition.id,
         issue_number: edition.issue_number,
         date: edition.edition_date,
-        status: edition.status,
-        featured_headline: edition.featured_headline
+        status: edition.status
       },
-      workflow: {
-        processing_time_seconds: duration,
-        auto_published: true,
-        newsletter_scheduled: true
+      processing: {
+        duration_seconds: duration,
+        articles_processed: articles?.length || 0,
+        articles_analyzed: articlesWithAnalysis.length,
+        success_rate: articles?.length > 0 ? Math.round((articlesWithAnalysis.length / articles.length) * 100) : 0
       },
+      articles_preview: articles?.slice(0, 3).map(a => ({
+        title: a.title.substring(0, 60) + '...',
+        has_analysis: !!(a.analysis_text && !a.analysis_text.includes('depends on implementation')),
+        status: a.article_status || 'unknown'
+      })) || [],
       timestamp: new Date().toISOString()
     };
 
-    console.log('✅ Automated workflow completed successfully:', successResponse);
-    
-    res.json(successResponse);
+    return res.json(response);
 
   } catch (error) {
     const duration = Math.floor((Date.now() - startTime) / 1000);
-    
-    const errorResponse = {
+    return res.status(500).json({
       success: false,
-      error: {
-        message: error.message,
-        type: error.constructor.name
-      },
-      workflow: {
-        processing_time_seconds: duration,
-        auto_published: false,
-        fallback_attempted: true
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      processing: {
+        duration_seconds: duration,
+        failed_at: 'workflow_execution'
       },
       timestamp: new Date().toISOString()
-    };
-
-    console.error('❌ Automated workflow failed:', errorResponse);
-    
-    // Try to send admin notification
-    await notifyAdminOfFailure(error, errorResponse);
-    
-    res.status(500).json(errorResponse);
-  }
-}
-
-async function notifyAdminOfFailure(error, errorResponse) {
-  try {
-    // Log detailed failure information
-    console.error('🚨 AUTOMATED WORKFLOW FAILURE DETAILS:', {
-      error: error.message,
-      stack: error.stack,
-      response: errorResponse,
-      environment: {
-        nodeVersion: process.version,
-        platform: process.platform,
-        memory: process.memoryUsage()
-      }
     });
-
-    console.log('📧 Admin notification logged (implement actual notification when ready)');
-    
-  } catch (notificationError) {
-    console.error('Failed to send admin notification:', notificationError);
   }
 }
