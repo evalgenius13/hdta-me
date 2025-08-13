@@ -449,12 +449,30 @@
                     const statusText = hasAnalysis ? 'Analysis Generated' : 'No Analysis';
                     const analysisContent = this.formatAnalysis(article.preGeneratedAnalysis || 'No analysis available');
                     
-                    const isPublished = article.status === 'published' || article.order <= 6;
+                    // ✅ FIXED: Use actual status field, not order-based logic
+                    const status = article.status || 'queue';
                     let statusBadge = '';
-                    if (isPublished) {
-                        statusBadge = '<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 12px; font-size: 11px;">PUBLISHED</span>';
-                    } else {
-                        statusBadge = '<span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 12px; font-size: 11px;">QUEUE</span>';
+                    let statusActions = '';
+                    
+                    switch (status) {
+                        case 'published':
+                            statusBadge = '<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 12px; font-size: 11px;">PUBLISHED</span>';
+                            statusActions = `<button class="btn btn-small btn-secondary" onclick="adminPanel.demoteArticle(${index})">⬇️ Demote</button>`;
+                            break;
+                        case 'draft':
+                            statusBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 12px; font-size: 11px;">DRAFT</span>';
+                            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${index})">⬆️ Promote</button>`;
+                            break;
+                        case 'queue':
+                            statusBadge = '<span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 12px; font-size: 11px;">QUEUE</span>';
+                            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${index})">⬆️ Promote</button>`;
+                            break;
+                        case 'rejected':
+                            statusBadge = '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 12px; font-size: 11px;">REJECTED</span>';
+                            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${index})">⬆️ Restore</button>`;
+                            break;
+                        default:
+                            statusBadge = '<span style="background: #f3f4f6; color: #6b7280; padding: 2px 6px; border-radius: 12px; font-size: 11px;">UNKNOWN</span>';
                     }
                     
                     return `
@@ -466,7 +484,7 @@
                                         ${statusBadge}
                                     </div>
                                     <div class="article-meta">
-                                        ${safeMeta} • ${timeAgo}
+                                        ${safeMeta} • ${timeAgo} • Order: ${article.order || '--'}
                                     </div>
                                 </div>
                                 <div class="article-score">Score: ${article.score || '--'}</div>
@@ -479,6 +497,27 @@
                                 
                                 <div class="analysis-section">
                                     <div class="analysis-status">
+                                        <span class="status-dot ${statusClass}"></span>
+                                        ${statusText}
+                                    </div>
+                                    <div class="analysis-label">Analysis</div>
+                                    <div class="analysis-content">
+                                        ${analysisContent}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="article-actions">
+                                <button class="btn btn-small" onclick="adminPanel.editAnalysis(${index})">✏️ Edit</button>
+                                <button class="btn btn-small btn-secondary" onclick="adminPanel.regenerateOne(${index})">🔄 Regenerate</button>
+                                ${statusActions}
+                                <button class="btn btn-small btn-secondary" onclick="window.open('${this.escapeHtml(article.url || '')}', '_blank')">🔗 View</button>
+                                <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${index})">🗑️ Remove</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }                    <div class="analysis-status">
                                         <span class="status-dot ${statusClass}"></span>
                                         ${statusText}
                                     </div>
