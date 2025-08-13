@@ -66,22 +66,29 @@ class AutomatedPublisher {
   }
 
   async selectBest(list) {
-    const filtered = list.filter(a =>
-      a?.title &&
-      a?.description &&
-      !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks|sports|rapper|kardashian|tesla stock|bitcoin)\b/i.test(a.title) &&
-      /\b(bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves|ruling|decision|agency|federal)\b/i.test(
-        (a.title || '') + ' ' + (a.description || '')
-      )
-    );
-
-    const deduped = this.dedupe(filtered);
-    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
-    return scored
-      .sort((x, y) => y.score - x.score)
-      .slice(0, this.maxArticles);
-  }
-
+  // TEMPORARILY DISABLE FILTERS FOR TESTING
+  console.log('🧪 TESTING: Disabling all filters to see raw articles');
+  
+  /*
+  const filtered = list.filter(a =>
+    a?.title &&
+    a?.description &&
+    !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks|sports|rapper|kardashian|tesla stock|bitcoin)\b/i.test(a.title) &&
+    /\b(bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves|ruling|decision|agency|federal)\b/i.test(
+      (a.title || '') + ' ' + (a.description || '')
+    )
+  );
+  */
+  
+  // Just use the pre-filtered articles from fetchPolicyNews
+  const filtered = list;
+  
+  const deduped = this.dedupe(filtered);
+  const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
+  return scored
+    .sort((x, y) => y.score - x.score)
+    .slice(0, this.maxArticles);
+}
   async createEdition(date, articles, status) {
     const { data: next } = await supabase.rpc('get_next_issue_number');
     const issue = next || 1;
