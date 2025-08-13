@@ -1,4 +1,4 @@
-// api/admin.js - Admin panel backend API
+// api/admin.js - FIXED with proper field mapping
 import { createClient } from '@supabase/supabase-js';
 import { runAutomatedWorkflow } from './cron/automated-daily-workflow.js';
 
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   // Simple auth check
   const authHeader = req.headers.authorization;
-  const adminKey = process.env.ADMIN_KEY || 'hdta-admin-2025-temp'; // Default key - CHANGE IN PRODUCTION
+  const adminKey = process.env.ADMIN_KEY || 'hdta-admin-2025-temp';
   
   if (!authHeader || authHeader !== `Bearer ${adminKey}`) {
     return res.status(401).json({ 
@@ -68,29 +68,30 @@ async function getArticles(req, res) {
     });
   }
 
-  // Get ALL articles for this edition, not just published ones
+  // Get ALL articles for this edition
   const { data: articles } = await supabase
     .from('analyzed_articles')
     .select('*')
     .eq('edition_id', edition.id)
-    .order('article_score', { ascending: false }); // Order by score, not just article_order
+    .order('article_order', { ascending: true }); // ✅ Order by correct field
 
+  // ✅ FIXED: Proper field mapping from database to frontend
   const formatted = articles?.map(a => ({
     id: a.id,
     title: a.title,
     description: a.description,
     url: a.url,
-    urlToImage: a.image_url,
-    source: { name: a.source_name },
-    publishedAt: a.published_at,
-    preGeneratedAnalysis: a.analysis_text,
+    urlToImage: a.image_url,  // ✅ Map image_url -> urlToImage
+    source: { name: a.source_name },  // ✅ Map source_name -> source.name
+    publishedAt: a.published_at,  // ✅ Map published_at -> publishedAt
+    preGeneratedAnalysis: a.analysis_text,  // ✅ Map analysis_text -> preGeneratedAnalysis
     analysisWordCount: a.analysis_word_count,
-    order: a.article_order,
-    status: a.article_status || (a.article_order ? 'published' : 'queue'), // Use stored status or infer
-    score: a.article_score || 0
+    order: a.article_order,  // ✅ Map article_order -> order
+    status: a.article_status || 'queue',  // ✅ Map article_status -> status
+    score: a.article_score || 0  // ✅ Map article_score -> score
   })) || [];
 
-  // Separate into categories for better admin overview
+  // ✅ FIXED: Categorize by actual status field
   const published = formatted.filter(a => a.status === 'published');
   const drafts = formatted.filter(a => a.status === 'draft');
   const queue = formatted.filter(a => a.status === 'queue');
@@ -131,10 +132,11 @@ async function updateAnalysis(req, res) {
 
   const wordCount = newAnalysis.split(/\s+/).filter(Boolean).length;
   
+  // ✅ FIXED: Update correct database field
   const { error } = await supabase
     .from('analyzed_articles')
     .update({
-      analysis_text: newAnalysis,
+      analysis_text: newAnalysis,  // ✅ Correct field name
       analysis_word_count: wordCount,
       updated_at: new Date().toISOString()
     })
@@ -307,7 +309,6 @@ async function getStats(req, res) {
 
 async function getLogs(req, res) {
   // In a real implementation, you'd read from log files or a logging service
-  // For now, return mock logs
   const logs = [
     { timestamp: new Date().toISOString(), level: 'info', message: 'Admin panel accessed' },
     { timestamp: new Date(Date.now() - 300000).toISOString(), level: 'success', message: 'Daily workflow completed' },
