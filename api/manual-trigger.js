@@ -1,13 +1,10 @@
-// api/manual-trigger.js - FIXED: Preserve daily articles instead of re-fetching, with real AI analysis generator
+// api/manual-trigger.js - FIXED: Preserve daily articles instead of re-fetching, generate real OpenAI analysis, always set analysis_generated_at
 import { runAutomatedWorkflow } from './cron/automated-daily-workflow.js';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-/**
- * Calls OpenAI to generate a fresh policy analysis for an article.
- * Returns sanitized analysis or a fallback string if OpenAI fails or the output is invalid.
- */
+// OpenAI-powered analysis generator
 async function generateAnalysisForArticle(article) {
   try {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -48,7 +45,7 @@ Source: "${source}"
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -87,9 +84,7 @@ Source: "${source}"
   }
 }
 
-/**
- * Fallback analysis string.
- */
+// Fallback analysis string.
 function fallbackNarrative() {
   return (
     'The real impact depends on implementation details still being negotiated behind closed doors. Early movers with good legal counsel typically fare better, while those who wait face higher compliance risk. Watch for updates from regulatory agencies and state governments—those will reveal who really benefits and when.'
@@ -159,7 +154,7 @@ export default async function handler(req, res) {
       edition = existingEdition;
       preservedArticles = true;
       
-      // Just regenerate analysis for existing articles if needed
+      // Regenerate analysis for existing articles if needed
       await regenerateAnalysisForEdition(existingEdition);
       
     } else if (existingEdition && force_refetch) {
@@ -248,9 +243,7 @@ export default async function handler(req, res) {
   }
 }
 
-// ...rest of your code above
-
-// Regenerate analysis for existing articles without re-fetching news
+// Regenerate analysis for existing articles without re-fetching news, using real OpenAI analysis generator
 async function regenerateAnalysisForEdition(edition) {
   console.log('🔄 Regenerating analysis for existing articles...');
   
@@ -267,8 +260,10 @@ async function regenerateAnalysisForEdition(edition) {
   
   for (const article of articlesNeedingAnalysis.slice(0, 3)) { // Limit to avoid costs
     try {
-      // Replace with your actual analysis logic or call OpenAI here
-      const newAnalysis = "Fallback: Automated analysis would go here.";
+      let newAnalysis = await generateAnalysisForArticle(article);
+      if (!newAnalysis) {
+        newAnalysis = fallbackNarrative();
+      }
       const wordCount = newAnalysis.split(/\s+/).filter(Boolean).length;
       await supabase
         .from('analyzed_articles')
