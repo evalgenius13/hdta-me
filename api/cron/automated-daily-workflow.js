@@ -135,39 +135,90 @@ class AutomatedPublisher {
     return 'The real impact depends on implementation details still being negotiated behind closed doors. Early movers with good legal counsel typically fare better, while those who wait face higher compliance costs and fewer options.\n\nSimilar policies have shifted market dynamics within 12-18 months. Watch for the regulatory guidance in Q3 - that\'s where the actual rules get written, often favoring established players over newcomers.\n\nHidden costs like processing delays, new paperwork requirements, and changed eligibility criteria usually surface 6 months after implementation.';
   }
 
-  // Helper: fetch news from GNews API
+  // FIXED: Use GNews top headlines instead of search
   async fetchPolicyNews() {
     try {
       const API_KEY = process.env.GNEWS_API_KEY;
-      const query = 'congress OR senate OR "executive order" OR regulation OR "supreme court" OR "federal agency" OR "new rule" OR "bill signed" OR governor OR legislature OR "court ruling" OR EPA OR FDA OR IRS OR "policy change"';
+      if (!API_KEY) {
+        console.error('❌ GNEWS_API_KEY not found in environment variables');
+        return [];
+      }
 
-      const today = new Date();
-      const fromDate = new Date(today);
-      fromDate.setDate(today.getDate() - 3);
-      const fromStr = fromDate.toISOString().split('T')[0];
-      const toStr = today.toISOString().split('T')[0];
-
-      const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=30&from=${fromStr}&to=${toStr}&token=${API_KEY}`;
+      console.log('📡 Fetching top headlines from GNews...');
+      
+      // Use top headlines endpoint - much more reliable than search
+      const url = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=50&token=${API_KEY}`;
 
       const response = await fetch(url);
-      const data = await response.json();
+      
+      console.log('GNews Headlines API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ GNews Headlines API error:', response.status, errorText);
+        return [];
+      }
 
-      console.log('GNews API response status:', response.status);
-      console.log('GNews API response keys:', Object.keys(data || {}));
+      const data = await response.json();
+      
+      console.log('GNews Headlines API response keys:', Object.keys(data || {}));
+      console.log('Total headlines available:', data.totalArticles || 0);
 
       const articles = Array.isArray(data.articles) ? data.articles : [];
-      console.log(`✅ Fetched ${articles.length} articles from GNews`);
+      console.log(`📰 Raw headlines fetched: ${articles.length}`);
 
-      articles.forEach((a, i) => {
-        if (a && a.title) {
-          const recency = a.publishedAt ? this.getTimeAgo(a.publishedAt) : 'no date';
-          console.log(`Article ${i + 1} (${recency}): ${a.title.substring(0, 80)}...`);
+      if (articles.length === 0) {
+        console.warn('⚠️ No headlines returned from GNews');
+        return [];
+      }
+
+      // Filter for policy/government related content from headlines
+      const policyArticles = articles.filter(article => {
+        if (!article?.title || !article?.description) return false;
+        
+        const content = (article.title + ' ' + article.description).toLowerCase();
+        
+        // Look for policy/government keywords
+        const policyKeywords = [
+          'congress', 'senate', 'house', 'bill', 'law', 'legislation',
+          'supreme court', 'court', 'federal', 'government', 'policy',
+          'regulation', 'executive', 'president', 'governor', 'mayor',
+          'ruling', 'decision', 'vote', 'election', 'political',
+          'epa', 'fda', 'irs', 'justice department', 'homeland security',
+          'treasury', 'defense department', 'state department'
+        ];
+        
+        const hasPolicy = policyKeywords.some(keyword => content.includes(keyword));
+        
+        // Exclude sports, entertainment, celebrity content
+        const excludeKeywords = [
+          'nfl', 'nba', 'mlb', 'nhl', 'sports', 'game', 'celebrity',
+          'entertainment', 'music', 'movie', 'hollywood', 'kardashian',
+          'taylor swift', 'concert', 'album', 'show'
+        ];
+        
+        const hasExcluded = excludeKeywords.some(keyword => content.includes(keyword));
+        
+        if (hasPolicy && !hasExcluded) {
+          console.log(`✅ Policy article found: ${article.title.substring(0, 60)}...`);
+          return true;
         }
+        
+        return false;
       });
 
-      return articles;
+      console.log(`✅ Filtered to ${policyArticles.length} policy-related articles`);
+      
+      // Log sample articles for debugging
+      policyArticles.slice(0, 5).forEach((a, i) => {
+        const recency = a.publishedAt ? this.getTimeAgo(a.publishedAt) : 'no date';
+        console.log(`Policy article ${i + 1} (${recency}): ${a.title.substring(0, 80)}...`);
+      });
+
+      return policyArticles;
+      
     } catch (error) {
-      console.error('❌ Failed to fetch news:', error);
+      console.error('❌ Failed to fetch headlines:', error);
       return [];
     }
   }
@@ -211,22 +262,33 @@ class AutomatedPublisher {
   score(article) {
     let s = 0;
     const t = (article.title + ' ' + article.description).toLowerCase();
+    
+    // High value keywords
     ['executive order', 'supreme court', 'federal', 'regulation', 'congress passes', 'senate votes', 'bill signed', 'new rule'].forEach(k => {
       if (t.includes(k)) s += 10;
     });
+    
+    // Medium value keywords
     ['policy', 'law', 'court', 'judge', 'ruling', 'decision', 'congress', 'senate', 'house', 'governor', 'legislature'].forEach(k => {
       if (t.includes(k)) s += 5;
     });
+    
+    // Negative keywords
     ['golf', 'sports', 'celebrity', 'entertainment', 'music', 'movie'].forEach(k => {
       if (t.includes(k)) s -= 15;
     });
+    
+    // Recency bonus
     if (article.publishedAt) {
       const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
       if (hrs < 24) s += 5;
       if (hrs < 12) s += 3;
     }
-    const qs = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'los angeles times'];
-    if (qs.some(src => article.source?.name?.toLowerCase().includes(src))) s += 3;
+    
+    // Quality source bonus
+    const qualitySources = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'los angeles times'];
+    if (qualitySources.some(src => article.source?.name?.toLowerCase().includes(src))) s += 3;
+    
     return Math.max(0, s);
   }
 
