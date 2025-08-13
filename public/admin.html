@@ -64,6 +64,31 @@
         .btn-danger { background: #dc2626; }
         .btn-danger:hover { background: #b91c1c; }
 
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .stat-card { 
+            background: #f9fafb; 
+            padding: 16px; 
+            border-radius: 6px; 
+            border: 1px solid #e5e7eb;
+        }
+        .stat-label { 
+            font-size: 12px; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            color: #6b7280; 
+            margin-bottom: 4px;
+        }
+        .stat-value { 
+            font-size: 24px; 
+            font-weight: 700; 
+            color: #111827;
+        }
+
         .tabs { 
             display: flex; 
             gap: 4px; 
@@ -89,31 +114,6 @@
             display: none;
         }
         .panel.active { display: block; }
-
-        .stats-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-        .stat-card { 
-            background: #f9fafb; 
-            padding: 16px; 
-            border-radius: 6px; 
-            border: 1px solid #e5e7eb;
-        }
-        .stat-label { 
-            font-size: 12px; 
-            font-weight: 600; 
-            text-transform: uppercase; 
-            color: #6b7280; 
-            margin-bottom: 4px;
-        }
-        .stat-value { 
-            font-size: 24px; 
-            font-weight: 700; 
-            color: #111827;
-        }
 
         .article-grid { display: grid; gap: 16px; }
         .article-card { 
@@ -295,6 +295,15 @@
             border-radius: 6px;
             margin-bottom: 20px;
         }
+
+        .success-banner {
+            background: #dcfce7;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -302,16 +311,15 @@
         <div class="header">
             <div>
                 <h1>HDTA Admin Panel</h1>
-                <div class="status-badge status-live">System Live</div>
+                <div class="status-badge status-live">News Management</div>
             </div>
             <div id="edition-info">Loading...</div>
         </div>
 
         <div class="actions">
-            <button class="btn" onclick="regenerateAnalysis()">🔄 Regenerate Analysis</button>
-            <button class="btn btn-warning" onclick="forceRefetch()">🚀 Force Refetch News</button>
-            <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh Data</button>
-            <button class="btn btn-secondary" onclick="testWithMock()">🧪 Test with Mock</button>
+            <button class="btn" onclick="fetchFreshArticles()">🔄 Fetch Fresh Articles</button>
+            <button class="btn btn-warning" onclick="forceRefetch()">🚀 Force Refetch (Replace All)</button>
+            <button class="btn btn-secondary" onclick="refreshData()">📊 Reload Data</button>
             <button class="btn btn-danger" onclick="clearToday()">🗑️ Clear Today's Edition</button>
         </div>
 
@@ -321,21 +329,22 @@
                 <div class="stat-value" id="stat-total">--</div>
             </div>
             <div class="stat-card">
+                <div class="stat-label">Published</div>
+                <div class="stat-value" id="stat-published">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Queued</div>
+                <div class="stat-value" id="stat-queued">--</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-label">With Analysis</div>
                 <div class="stat-value" id="stat-analyzed">--</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Success Rate</div>
-                <div class="stat-value" id="stat-success">--</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Edition Status</div>
-                <div class="stat-value" id="stat-status">--</div>
             </div>
         </div>
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('articles')">📰 Articles</button>
+            <button class="tab" onclick="showTab('prompts')">🎯 Prompts</button>
             <button class="tab" onclick="showTab('logs')">📋 Logs</button>
         </div>
 
@@ -343,8 +352,8 @@
             <div class="article-filter-tabs">
                 <button class="btn btn-small" id="filter-all" onclick="filterArticles('all')">All Articles</button>
                 <button class="btn btn-small btn-secondary" id="filter-published" onclick="filterArticles('published')">Published</button>
-                <button class="btn btn-small btn-secondary" id="filter-drafts" onclick="filterArticles('drafts')">Drafts</button>
                 <button class="btn btn-small btn-secondary" id="filter-queue" onclick="filterArticles('queue')">Queue</button>
+                <button class="btn btn-small btn-secondary" id="filter-drafts" onclick="filterArticles('drafts')">Drafts</button>
                 <button class="btn btn-small btn-secondary" id="filter-rejected" onclick="filterArticles('rejected')">Rejected</button>
             </div>
             
@@ -355,13 +364,70 @@
             <div class="article-grid" id="articles-grid" style="display: none;"></div>
         </div>
 
+        <div id="prompts-panel" class="panel">
+            <h3 style="margin-bottom: 16px;">System Prompt Management</h3>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">System Prompt:</label>
+                <textarea id="system-prompt-editor" style="height: 120px;" placeholder="Enter system prompt that defines the AI's role and behavior...">You are a seasoned policy insider who explains complex regulations in terms of real human impact. Be specific, credible, and revealing about how policy actually works in practice. Avoid euphemisms and jargon while maintaining credibility.</textarea>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">User Prompt Template:</label>
+                <textarea id="user-prompt-editor" style="height: 200px;" placeholder="Enter user prompt template with {title}, {description}, {source}, {date} placeholders...">Write 130 to 170 words as a compelling insider analysis that reveals what's really happening. Plain English but deep policy knowledge.
+
+1) IMMEDIATE IMPACT: Lead with the concrete consequence people will feel. Be specific - "Your student loan payment drops $150/month" not "payments may change." Think like someone who's seen this before.
+
+2) THE REAL MECHANICS: How does this actually work? Include specific timelines, dollar amounts, eligibility details. What's the implementation reality vs. the press release spin?
+
+3) WINNERS & LOSERS: Who actually benefits and who gets hurt? Be direct about specific industries, regions, or groups when the evidence supports it.
+
+4) INSIDER PERSPECTIVE: What's not being emphasized publicly? Historical context? Hidden timelines? Watch for details that signal the true long-term impact.
+
+Policy: "{title}"
+Details: "{description}"
+Source: "{source}"
+Date: "{date}"</textarea>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Content Filters:</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="font-size: 14px;">Keywords to Boost:</label>
+                        <textarea id="boost-keywords" style="height: 80px;" placeholder="congress, senate, federal, policy, legislation">congress, senate, federal, policy, legislation, supreme court, executive order, regulation, biden, trump</textarea>
+                    </div>
+                    <div>
+                        <label style="font-size: 14px;">Keywords to Avoid:</label>
+                        <textarea id="avoid-keywords" style="height: 80px;" placeholder="celebrity, entertainment, sports">celebrity, entertainment, sports, death, shooting, crime, gossip</textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Quality Sources (higher priority):</label>
+                <textarea id="quality-sources" style="height: 60px;" placeholder="reuters, ap news, bloomberg">reuters, ap news, bloomberg, wall street journal, washington post, new york times, politico, cnn, fox news</textarea>
+            </div>
+            
+            <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+                <button class="btn" onclick="savePromptSettings()">💾 Save Prompt Settings</button>
+                <button class="btn btn-secondary" onclick="resetPromptSettings()">🔄 Reset to Defaults</button>
+                <button class="btn btn-warning" onclick="testCurrentPrompt()">🧪 Test with Sample Article</button>
+            </div>
+            
+            <div id="prompt-test-result" style="display: none; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                <strong>Test Result:</strong>
+                <div id="test-output"></div>
+            </div>
+        </div>
+
         <div id="logs-panel" class="panel">
             <div style="margin-bottom: 12px;">
                 <button class="btn btn-secondary btn-small" onclick="refreshLogs()">🔄 Refresh</button>
                 <button class="btn btn-secondary btn-small" onclick="clearLogs()">🗑️ Clear</button>
             </div>
             <div class="logs" id="logs-container">
-                <div class="log-line log-success">[12:34:56] System initialized</div>
+                <div class="log-line log-success">[System] Admin panel ready</div>
             </div>
         </div>
     </div>
@@ -383,15 +449,16 @@
         </div>
     </div>
 
-    <!-- FIXED: Load all required JavaScript files in correct order -->
     <script>
-        // FIXED: Create a simple AdminPanel class inline (since we can't guarantee external file loading)
+        // FIXED AdminPanel - Database persistence and error handling
         class AdminPanel {
             constructor() {
-                this.API_BASE = ''; // FIXED: Use relative URLs
+                this.API_BASE = ''; // Relative URLs
                 this.articles = [];
                 this.adminKey = 'hdta-admin-2025-temp';
                 this.currentFilter = 'all';
+                this.currentEditIndex = null;
+                this.loadPromptSettings();
             }
 
             async init() {
@@ -402,57 +469,66 @@
 
             async loadData() {
                 try {
-                    this.addLog('info', 'Loading data...');
+                    this.addLog('info', 'Loading articles from database...');
                     
                     const response = await fetch(`${this.API_BASE}/api/admin?action=get-articles`, {
-                        headers: {
-                            'Authorization': `Bearer ${this.adminKey}`
-                        }
+                        headers: { 'Authorization': `Bearer ${this.adminKey}` }
                     });
                     
                     if (!response.ok) {
-                        if (response.status === 401) {
-                            throw new Error('Unauthorized - Check admin key');
-                        }
-                        throw new Error(`HTTP ${response.status}`);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
                     
                     const data = await response.json();
-                    
                     this.articles = data.articles || [];
                     
+                    // Update edition info
                     if (data.edition) {
-                        const info = data.edition;
                         document.getElementById('edition-info').textContent = 
-                            `Issue #${info.issue_number} • ${info.date} (${info.status})`;
+                            `Issue #${data.edition.issue_number} • ${data.edition.date}`;
                     } else {
-                        document.getElementById('edition-info').textContent = 'No edition found for today';
+                        document.getElementById('edition-info').textContent = 'No edition found';
                     }
                     
-                    this.renderArticles(this.currentFilter);
+                    this.renderArticles();
                     document.getElementById('articles-loading').style.display = 'none';
                     document.getElementById('articles-grid').style.display = 'grid';
                     
                     this.addLog('success', `Loaded ${this.articles.length} articles`);
                     
                 } catch (error) {
-                    console.error('Failed to load data:', error);
+                    console.error('Failed to load articles:', error);
                     this.addLog('error', 'Failed to load articles: ' + error.message);
                     
-                    // Fallback to public API if admin fails
-                    if (error.message.includes('Unauthorized')) {
-                        this.addLog('warning', 'Falling back to public API...');
-                        await this.loadPublicData();
-                    }
+                    // FALLBACK: Try public API if admin fails
+                    this.addLog('warning', 'Trying public API fallback...');
+                    await this.loadPublicData();
                 }
             }
 
             async loadPublicData() {
                 try {
                     const response = await fetch(`${this.API_BASE}/api/fetch-news`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
                     const data = await response.json();
                     
-                    this.articles = data.articles || [];
+                    // Convert public API format to admin format
+                    this.articles = (data.articles || []).map((article, index) => ({
+                        id: `public-${index}`, // Fake ID for public articles
+                        title: article.title,
+                        description: article.description,
+                        url: article.url,
+                        urlToImage: article.urlToImage,
+                        source: article.source,
+                        publishedAt: article.publishedAt,
+                        preGeneratedAnalysis: article.preGeneratedAnalysis,
+                        status: article.preGeneratedAnalysis ? 'published' : 'queue',
+                        score: 0,
+                        order: index + 1
+                    }));
                     
                     if (data.edition_info) {
                         const info = data.edition_info;
@@ -460,14 +536,29 @@
                             `Issue #${info.issue_number} • ${info.date} (Public View)`;
                     }
                     
-                    this.renderArticles(this.currentFilter);
+                    this.renderArticles();
                     document.getElementById('articles-loading').style.display = 'none';
                     document.getElementById('articles-grid').style.display = 'grid';
+                    
+                    this.addLog('success', `Loaded ${this.articles.length} articles from public API`);
                     
                 } catch (error) {
                     console.error('Failed to load public data:', error);
                     this.addLog('error', 'Failed to load public data: ' + error.message);
+                    this.showErrorState('Both admin and public APIs failed: ' + error.message);
                 }
+            }
+
+            showErrorState(message) {
+                const loading = document.getElementById('articles-loading');
+                loading.innerHTML = `
+                    <div class="error-banner">
+                        <div style="font-weight: 600; margin-bottom: 8px;">⚠️ Failed to Load Articles</div>
+                        <div style="font-size: 14px; margin-bottom: 12px;">${this.escapeHtml(message)}</div>
+                        <button class="btn" onclick="adminPanel.loadData()">🔄 Retry</button>
+                        <button class="btn btn-warning" onclick="fetchFreshArticles()" style="margin-left: 8px;">🚀 Fetch Fresh Articles</button>
+                    </div>
+                `;
             }
 
             renderArticles(filter = 'all') {
@@ -479,20 +570,19 @@
                 // Apply filter
                 if (filter === 'published') {
                     articlesToShow = this.articles.filter(a => a.status === 'published');
-                } else if (filter === 'drafts') {
-                    articlesToShow = this.articles.filter(a => a.status === 'draft');
                 } else if (filter === 'queue') {
                     articlesToShow = this.articles.filter(a => a.status === 'queue');
+                } else if (filter === 'drafts') {
+                    articlesToShow = this.articles.filter(a => a.status === 'draft');
                 } else if (filter === 'rejected') {
                     articlesToShow = this.articles.filter(a => a.status === 'rejected');
                 }
                 
-                // Update filter button states
                 this.updateFilterButtons(filter);
                 this.currentFilter = filter;
                 
                 if (articlesToShow.length === 0) {
-                    grid.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 40px;">No articles found</div>';
+                    grid.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 40px;">No articles found for this filter</div>';
                     return;
                 }
                 
@@ -502,34 +592,38 @@
                     const safeDescription = this.escapeHtml(article.description || '');
                     const safeMeta = this.escapeHtml(article.source?.name || 'Unknown Source');
                     const timeAgo = this.getTimeAgo(article.publishedAt);
-                    const hasAnalysis = article.preGeneratedAnalysis && !article.preGeneratedAnalysis.includes('Analysis pending');
+                    const hasAnalysis = article.preGeneratedAnalysis;
                     const statusClass = hasAnalysis ? 'status-success' : 'status-warning';
                     const statusText = hasAnalysis ? 'Analysis Generated' : 'No Analysis';
                     const analysisContent = this.formatAnalysis(article.preGeneratedAnalysis || 'No analysis available');
                     
-                    const status = article.status || 'queue';
+                    // Status badge
                     let statusBadge = '';
-                    let statusActions = '';
-                    
-                    switch (status) {
+                    switch (article.status) {
                         case 'published':
                             statusBadge = '<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 12px; font-size: 11px;">PUBLISHED</span>';
-                            statusActions = `<button class="btn btn-small btn-secondary" onclick="adminPanel.demoteArticle(${realIndex})">⬇️ Demote</button>`;
                             break;
                         case 'draft':
                             statusBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 12px; font-size: 11px;">DRAFT</span>';
-                            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${realIndex})">⬆️ Promote</button>`;
                             break;
                         case 'queue':
                             statusBadge = '<span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 12px; font-size: 11px;">QUEUE</span>';
-                            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${realIndex})">⬆️ Promote</button>`;
                             break;
                         case 'rejected':
                             statusBadge = '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 12px; font-size: 11px;">REJECTED</span>';
-                            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${realIndex})">⬆️ Restore</button>`;
                             break;
                         default:
                             statusBadge = '<span style="background: #f3f4f6; color: #6b7280; padding: 2px 6px; border-radius: 12px; font-size: 11px;">UNKNOWN</span>';
+                    }
+                    
+                    // Status actions
+                    let statusActions = '';
+                    if (article.status === 'published') {
+                        statusActions = `<button class="btn btn-small btn-secondary" onclick="adminPanel.demoteArticle(${realIndex})">⬇️ Move to Queue</button>`;
+                    } else if (article.status === 'queue' || article.status === 'draft') {
+                        statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${realIndex})">⬆️ Publish</button>`;
+                    } else if (article.status === 'rejected') {
+                        statusActions = `<button class="btn btn-small" onclick="adminPanel.restoreArticle(${realIndex})">↩️ Restore</button>`;
                     }
                     
                     return `
@@ -537,20 +631,18 @@
                             <div class="article-header">
                                 <div style="flex: 1;">
                                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                        <div class="article-title" style="flex: 1;">${safeTitle}</div>
+                                        <div class="article-title">${safeTitle}</div>
                                         ${statusBadge}
                                     </div>
                                     <div class="article-meta">
-                                        ${safeMeta} • ${timeAgo} • Order: ${article.order || '--'}
+                                        ${safeMeta} • ${timeAgo} • Order: ${article.order || realIndex + 1}
                                     </div>
                                 </div>
                                 <div class="article-score">Score: ${article.score || '--'}</div>
                             </div>
                             
                             <div class="article-content">
-                                <div class="article-description">
-                                    ${safeDescription}
-                                </div>
+                                <div class="article-description">${safeDescription}</div>
                                 
                                 <div class="analysis-section">
                                     <div class="analysis-status">
@@ -558,17 +650,15 @@
                                         ${statusText}
                                     </div>
                                     <div class="analysis-label">Analysis</div>
-                                    <div class="analysis-content">
-                                        ${analysisContent}
-                                    </div>
+                                    <div class="analysis-content">${analysisContent}</div>
                                 </div>
                             </div>
                             
                             <div class="article-actions">
-                                <button class="btn btn-small" onclick="adminPanel.editAnalysis(${realIndex})">✏️ Edit</button>
-                                <button class="btn btn-small btn-secondary" onclick="adminPanel.regenerateOne(${realIndex})">🔄 Regenerate</button>
+                                <button class="btn btn-small" onclick="adminPanel.editAnalysis(${realIndex})">✏️ Edit Analysis</button>
+                                <button class="btn btn-small btn-secondary" onclick="adminPanel.regenerateAnalysis(${realIndex})">🔄 Regenerate</button>
                                 ${statusActions}
-                                <button class="btn btn-small btn-secondary" onclick="window.open('${this.escapeHtml(article.url || '')}', '_blank')">🔗 View</button>
+                                <button class="btn btn-small btn-secondary" onclick="window.open('${this.escapeHtml(article.url || '')}', '_blank')">🔗 View Original</button>
                                 <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${realIndex})">🗑️ Remove</button>
                             </div>
                         </div>
@@ -578,30 +668,23 @@
 
             updateFilterButtons(activeFilter) {
                 const published = this.articles.filter(a => a.status === 'published').length;
-                const drafts = this.articles.filter(a => a.status === 'draft').length;
                 const queue = this.articles.filter(a => a.status === 'queue').length;
+                const drafts = this.articles.filter(a => a.status === 'draft').length;
                 const rejected = this.articles.filter(a => a.status === 'rejected').length;
                 
-                // Update button text with counts
                 const buttons = {
-                    'all': document.getElementById('filter-all'),
-                    'published': document.getElementById('filter-published'),
-                    'drafts': document.getElementById('filter-drafts'),
-                    'queue': document.getElementById('filter-queue'),
-                    'rejected': document.getElementById('filter-rejected')
+                    'filter-all': `All Articles (${this.articles.length})`,
+                    'filter-published': `Published (${published})`,
+                    'filter-queue': `Queue (${queue})`,
+                    'filter-drafts': `Drafts (${drafts})`,
+                    'filter-rejected': `Rejected (${rejected})`
                 };
                 
-                if (buttons.all) buttons.all.textContent = `All Articles (${this.articles.length})`;
-                if (buttons.published) buttons.published.textContent = `Published (${published})`;
-                if (buttons.drafts) buttons.drafts.textContent = `Drafts (${drafts})`;
-                if (buttons.queue) buttons.queue.textContent = `Queue (${queue})`;
-                if (buttons.rejected) buttons.rejected.textContent = `Rejected (${rejected})`;
-                
-                // Update button states
-                Object.keys(buttons).forEach(key => {
-                    const btn = buttons[key];
+                Object.keys(buttons).forEach(id => {
+                    const btn = document.getElementById(id);
                     if (btn) {
-                        if (key === activeFilter) {
+                        btn.textContent = buttons[id];
+                        if (id.includes(activeFilter)) {
                             btn.classList.remove('btn-secondary');
                         } else {
                             btn.classList.add('btn-secondary');
@@ -610,22 +693,20 @@
                 });
             }
 
-            formatAnalysis(text) {
-                if (!text) return '<em>No analysis available</em>';
-                return text.split('\n\n').map(p => `<p>${this.escapeHtml(p)}</p>`).join('');
-            }
-
             updateStats() {
                 const published = this.articles.filter(a => a.status === 'published').length;
                 const queue = this.articles.filter(a => a.status === 'queue').length;
-                const drafts = this.articles.filter(a => a.status === 'draft').length;
-                const analyzed = this.articles.filter(a => a.preGeneratedAnalysis && !a.preGeneratedAnalysis.includes('Analysis pending')).length;
-                const successRate = this.articles.length > 0 ? Math.round((analyzed / this.articles.length) * 100) : 0;
+                const analyzed = this.articles.filter(a => a.preGeneratedAnalysis).length;
                 
                 document.getElementById('stat-total').textContent = this.articles.length;
+                document.getElementById('stat-published').textContent = published;
+                document.getElementById('stat-queued').textContent = queue;
                 document.getElementById('stat-analyzed').textContent = analyzed;
-                document.getElementById('stat-success').textContent = `${successRate}%`;
-                document.getElementById('stat-status').textContent = `${published}P/${queue}Q/${drafts}D`;
+            }
+
+            formatAnalysis(text) {
+                if (!text) return '<em>No analysis available</em>';
+                return text.split('\n\n').map(p => `<p>${this.escapeHtml(p)}</p>`).join('');
             }
 
             editAnalysis(index) {
@@ -640,25 +721,66 @@
                 }
             }
 
-            saveAnalysis() {
+            // FIXED: Save analysis to database
+            async saveAnalysis() {
                 if (this.currentEditIndex === null) return;
                 
                 const editor = document.getElementById('analysis-editor');
                 const newAnalysis = editor.value.trim();
+                const article = this.articles[this.currentEditIndex];
                 
-                if (newAnalysis) {
+                if (!newAnalysis) {
+                    this.addLog('error', 'Analysis cannot be empty');
+                    return;
+                }
+
+                // Check if this is a public API article (no real database ID)
+                if (!article.id || article.id.startsWith('public-')) {
+                    // Local update only for public articles
                     this.articles[this.currentEditIndex].preGeneratedAnalysis = newAnalysis;
                     this.renderArticles(this.currentFilter);
-                    this.updateStats();
-                    this.addLog('success', `Updated analysis for article ${this.currentEditIndex + 1}`);
+                    this.closeModal();
+                    this.addLog('warning', 'Updated locally only (public API mode - no database save)');
+                    return;
                 }
-                
-                this.closeModal();
+
+                try {
+                    this.addLog('info', 'Saving analysis to database...');
+                    
+                    const response = await fetch(`${this.API_BASE}/api/admin?action=update-analysis`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.adminKey}`
+                        },
+                        body: JSON.stringify({
+                            articleId: article.id,
+                            newAnalysis: newAnalysis
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    // Update local copy
+                    this.articles[this.currentEditIndex].preGeneratedAnalysis = newAnalysis;
+                    this.renderArticles(this.currentFilter);
+                    this.closeModal();
+                    
+                    this.addLog('success', `Analysis saved successfully (${result.wordCount} words)`);
+                    
+                } catch (error) {
+                    console.error('Failed to save analysis:', error);
+                    this.addLog('error', 'Failed to save analysis: ' + error.message);
+                }
             }
 
-            async regenerateOne(index) {
+            async regenerateAnalysis(index) {
                 const article = this.articles[index];
-                this.addLog('info', `Regenerating analysis for: ${article.title.substring(0, 50)}...`);
+                this.addLog('info', `Regenerating analysis: ${article.title.substring(0, 50)}...`);
                 
                 try {
                     const response = await fetch(`${this.API_BASE}/api/personalize`, {
@@ -667,59 +789,211 @@
                         body: JSON.stringify({ article })
                     });
                     
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
                     const data = await response.json();
                     if (data.impact) {
+                        // Update locally first
                         this.articles[index].preGeneratedAnalysis = data.impact;
                         this.renderArticles(this.currentFilter);
-                        this.updateStats();
+                        
+                        // Save to database if we have article ID
+                        if (article.id) {
+                            await this.saveAnalysisToDatabase(article.id, data.impact);
+                        }
+                        
                         this.addLog('success', 'Analysis regenerated successfully');
                     } else {
                         this.addLog('error', 'No analysis returned from API');
                     }
                 } catch (error) {
-                    this.addLog('error', 'Failed to regenerate analysis: ' + error.message);
+                    console.error('Failed to regenerate analysis:', error);
+                    this.addLog('error', 'Failed to regenerate: ' + error.message);
                 }
             }
 
-            promoteArticle(index) {
+            async saveAnalysisToDatabase(articleId, analysis) {
+                try {
+                    await fetch(`${this.API_BASE}/api/admin?action=update-analysis`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.adminKey}`
+                        },
+                        body: JSON.stringify({ articleId, newAnalysis: analysis })
+                    });
+                } catch (error) {
+                    this.addLog('warning', 'Failed to save regenerated analysis to database');
+                }
+            }
+
+            // FIXED: Promote article with database persistence
+            async promoteArticle(index) {
                 const article = this.articles[index];
-                const currentStatus = article.status || 'queue';
                 
-                if (currentStatus === 'queue' || currentStatus === 'rejected') {
-                    article.status = 'draft';
-                    this.addLog('info', `Promoted article to draft: ${article.title.substring(0, 30)}...`);
-                } else if (currentStatus === 'draft') {
-                    article.status = 'published';
-                    this.addLog('success', `Promoted article to published: ${article.title.substring(0, 30)}...`);
+                // Check if this is a public API article
+                if (!article.id || article.id.startsWith('public-')) {
+                    // Local update only for public articles
+                    this.articles[index].status = 'published';
+                    this.renderArticles(this.currentFilter);
+                    this.updateStats();
+                    this.addLog('warning', `Published locally: ${article.title.substring(0, 30)}... (no database save)`);
+                    return;
                 }
-                
-                this.renderArticles(this.currentFilter);
-                this.updateStats();
+
+                try {
+                    this.addLog('info', `Publishing article: ${article.title.substring(0, 30)}...`);
+                    
+                    const response = await fetch(`${this.API_BASE}/api/admin?action=update-status`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.adminKey}`
+                        },
+                        body: JSON.stringify({
+                            articleId: article.id,
+                            status: 'published'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    // Update local copy
+                    this.articles[index].status = 'published';
+                    this.renderArticles(this.currentFilter);
+                    this.updateStats();
+                    
+                    this.addLog('success', `Published: ${article.title.substring(0, 30)}...`);
+                    
+                } catch (error) {
+                    console.error('Failed to promote article:', error);
+                    this.addLog('error', 'Failed to publish article: ' + error.message);
+                }
             }
 
-            demoteArticle(index) {
+            // FIXED: Demote article with database persistence
+            async demoteArticle(index) {
                 const article = this.articles[index];
-                const currentStatus = article.status || 'published';
                 
-                if (currentStatus === 'published') {
-                    article.status = 'draft';
-                    this.addLog('warning', `Demoted article to draft: ${article.title.substring(0, 30)}...`);
-                } else if (currentStatus === 'draft') {
-                    article.status = 'queue';
-                    this.addLog('warning', `Demoted article to queue: ${article.title.substring(0, 30)}...`);
+                if (!article.id) {
+                    this.addLog('error', 'Article ID missing - cannot update status');
+                    return;
                 }
-                
-                this.renderArticles(this.currentFilter);
-                this.updateStats();
+
+                try {
+                    this.addLog('info', `Moving to queue: ${article.title.substring(0, 30)}...`);
+                    
+                    const response = await fetch(`${this.API_BASE}/api/admin?action=update-status`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.adminKey}`
+                        },
+                        body: JSON.stringify({
+                            articleId: article.id,
+                            status: 'queue'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    // Update local copy
+                    this.articles[index].status = 'queue';
+                    this.renderArticles(this.currentFilter);
+                    this.updateStats();
+                    
+                    this.addLog('warning', `Moved to queue: ${article.title.substring(0, 30)}...`);
+                    
+                } catch (error) {
+                    console.error('Failed to demote article:', error);
+                    this.addLog('error', 'Failed to move article: ' + error.message);
+                }
             }
 
-            removeArticle(index) {
-                if (confirm('Remove this article?')) {
+            // NEW: Restore rejected article
+            async restoreArticle(index) {
+                const article = this.articles[index];
+                
+                if (!article.id) {
+                    this.addLog('error', 'Article ID missing - cannot update status');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${this.API_BASE}/api/admin?action=update-status`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.adminKey}`
+                        },
+                        body: JSON.stringify({
+                            articleId: article.id,
+                            status: 'queue'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    this.articles[index].status = 'queue';
+                    this.renderArticles(this.currentFilter);
+                    this.updateStats();
+                    
+                    this.addLog('success', `Restored: ${article.title.substring(0, 30)}...`);
+                    
+                } catch (error) {
+                    console.error('Failed to restore article:', error);
+                    this.addLog('error', 'Failed to restore article: ' + error.message);
+                }
+            }
+
+            // FIXED: Remove article with database persistence
+            async removeArticle(index) {
+                const article = this.articles[index];
+                
+                if (!confirm('Remove this article permanently?')) return;
+                
+                if (!article.id) {
+                    this.addLog('error', 'Article ID missing - cannot remove from database');
+                    return;
+                }
+
+                try {
+                    this.addLog('warning', `Removing article: ${article.title.substring(0, 30)}...`);
+                    
+                    const response = await fetch(`${this.API_BASE}/api/admin?action=remove-article`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.adminKey}`
+                        },
+                        body: JSON.stringify({
+                            articleId: article.id
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    // Remove from local array
                     const title = this.articles[index].title.substring(0, 30);
                     this.articles.splice(index, 1);
                     this.renderArticles(this.currentFilter);
                     this.updateStats();
-                    this.addLog('warning', `Removed article: ${title}...`);
+                    
+                    this.addLog('warning', `Removed: ${title}...`);
+                    
+                } catch (error) {
+                    console.error('Failed to remove article:', error);
+                    this.addLog('error', 'Failed to remove article: ' + error.message);
                 }
             }
 
@@ -761,10 +1035,98 @@
 
             closeModal() {
                 document.getElementById('edit-modal').style.display = 'none';
+                this.currentEditIndex = null;
+            }
+
+            // Prompt Management Functions
+            loadPromptSettings() {
+                const savedSystem = localStorage.getItem('hdta-system-prompt');
+                const savedUser = localStorage.getItem('hdta-user-prompt');
+                const savedBoost = localStorage.getItem('hdta-boost-keywords');
+                const savedAvoid = localStorage.getItem('hdta-avoid-keywords');
+                const savedSources = localStorage.getItem('hdta-quality-sources');
+
+                setTimeout(() => {
+                    const systemEditor = document.getElementById('system-prompt-editor');
+                    const userEditor = document.getElementById('user-prompt-editor');
+                    const boostEditor = document.getElementById('boost-keywords');
+                    const avoidEditor = document.getElementById('avoid-keywords');
+                    const sourcesEditor = document.getElementById('quality-sources');
+
+                    if (savedSystem && systemEditor) systemEditor.value = savedSystem;
+                    if (savedUser && userEditor) userEditor.value = savedUser;
+                    if (savedBoost && boostEditor) boostEditor.value = savedBoost;
+                    if (savedAvoid && avoidEditor) avoidEditor.value = savedAvoid;
+                    if (savedSources && sourcesEditor) sourcesEditor.value = savedSources;
+                }, 100);
+            }
+
+            savePromptSettings() {
+                const systemPrompt = document.getElementById('system-prompt-editor')?.value || '';
+                const userPrompt = document.getElementById('user-prompt-editor')?.value || '';
+                const boostKeywords = document.getElementById('boost-keywords')?.value || '';
+                const avoidKeywords = document.getElementById('avoid-keywords')?.value || '';
+                const qualitySources = document.getElementById('quality-sources')?.value || '';
+
+                localStorage.setItem('hdta-system-prompt', systemPrompt);
+                localStorage.setItem('hdta-user-prompt', userPrompt);
+                localStorage.setItem('hdta-boost-keywords', boostKeywords);
+                localStorage.setItem('hdta-avoid-keywords', avoidKeywords);
+                localStorage.setItem('hdta-quality-sources', qualitySources);
+
+                this.addLog('success', 'Prompt settings saved successfully');
+            }
+
+            resetPromptSettings() {
+                localStorage.removeItem('hdta-system-prompt');
+                localStorage.removeItem('hdta-user-prompt');
+                localStorage.removeItem('hdta-boost-keywords');
+                localStorage.removeItem('hdta-avoid-keywords');
+                localStorage.removeItem('hdta-quality-sources');
+
+                this.loadPromptSettings();
+                this.addLog('info', 'Prompt settings reset to defaults');
+            }
+
+            async testCurrentPrompt() {
+                if (this.articles.length === 0) {
+                    this.addLog('error', 'No articles available for testing');
+                    return;
+                }
+
+                const testArticle = this.articles[0];
+                const systemPrompt = document.getElementById('system-prompt-editor')?.value || '';
+                const userPrompt = document.getElementById('user-prompt-editor')?.value || '';
+
+                this.addLog('info', `Testing prompt with: ${testArticle.title.substring(0, 50)}...`);
+
+                // Show test result area
+                const resultDiv = document.getElementById('prompt-test-result');
+                const outputDiv = document.getElementById('test-output');
+                
+                if (resultDiv && outputDiv) {
+                    resultDiv.style.display = 'block';
+                    outputDiv.innerHTML = `
+                        <div style="margin-bottom: 12px;">
+                            <strong>Test Article:</strong> ${this.escapeHtml(testArticle.title)}
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong>System Prompt:</strong> ${this.escapeHtml(systemPrompt.substring(0, 100))}...
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong>User Prompt:</strong> ${this.escapeHtml(userPrompt.substring(0, 100))}...
+                        </div>
+                        <div style="color: #f59e0b; font-style: italic;">
+                            Note: Live prompt testing requires backend integration. This shows the current prompt configuration.
+                        </div>
+                    `;
+                }
+
+                this.addLog('warning', 'Prompt test preview shown - live testing requires backend integration');
             }
         }
 
-        // Global functions for button onclick handlers
+        // Global functions for UI with proper error handling
         function showTab(tabName) {
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -774,141 +1136,136 @@
             
             const tabButtons = document.querySelectorAll('.tab');
             tabButtons.forEach(tab => {
-                if (tab.textContent.includes(tabName === 'articles' ? '📰' : '📋')) {
+                if (tab.textContent.includes(getTabIcon(tabName))) {
                     tab.classList.add('active');
                 }
             });
         }
 
+        function getTabIcon(tabName) {
+            const icons = {
+                'articles': '📰',
+                'prompts': '🎯', 
+                'logs': '📋'
+            };
+            return icons[tabName] || tabName;
+        }
+
         function filterArticles(filter) {
-            document.querySelectorAll('.article-filter-tabs button').forEach(btn => {
-                btn.classList.add('btn-secondary');
-            });
-            
-            const filterBtn = document.getElementById(`filter-${filter}`);
-            if (filterBtn) {
-                filterBtn.classList.remove('btn-secondary');
-            }
-            
             if (window.adminPanel) {
                 adminPanel.renderArticles(filter);
             }
         }
 
-        async function regenerateAnalysis() {
-            if (window.adminPanel) {
-                adminPanel.addLog('info', 'Regenerating analysis...');
-                try {
-                    const response = await fetch(`/api/admin?action=regenerate`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${window.adminPanel.adminKey}`
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        adminPanel.addLog('success', 'Analysis regeneration completed');
-                        await adminPanel.loadData();
-                        adminPanel.updateStats();
-                    } else {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                } catch (error) {
-                    adminPanel.addLog('error', 'Failed to regenerate: ' + error.message);
+        // ENHANCED: Fetch fresh articles with proper error handling
+        async function fetchFreshArticles() {
+            if (!window.adminPanel) return;
+            
+            try {
+                adminPanel.addLog('info', 'Fetching fresh articles (preserves existing if today\'s edition exists)...');
+                
+                const response = await fetch('/api/manual-trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trigger_key: 'force-update-2025' })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
+                
+                const data = await response.json();
+                if (data.success) {
+                    adminPanel.addLog('success', `${data.processing.action} - ${data.processing.articles_total} articles`);
+                    await adminPanel.loadData();
+                    adminPanel.updateStats();
+                } else {
+                    adminPanel.addLog('error', 'Failed: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Fetch fresh articles failed:', error);
+                adminPanel.addLog('error', 'Request failed: ' + error.message);
             }
         }
 
+        // ENHANCED: Force refetch with confirmation and error handling
         async function forceRefetch() {
-            if (window.adminPanel) {
-                adminPanel.addLog('info', 'Force refetching news...');
-                try {
-                    const response = await fetch(`/api/manual-trigger`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            trigger_key: 'force-update-2025',
-                            force_refetch: true 
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        adminPanel.addLog('success', 'Fresh articles fetched');
-                        await adminPanel.loadData();
-                        adminPanel.updateStats();
-                    } else {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                } catch (error) {
-                    adminPanel.addLog('error', 'Failed to force refetch: ' + error.message);
+            if (!confirm('Force refetch will DELETE all of today\'s articles and fetch completely fresh ones. Continue?')) return;
+            
+            if (!window.adminPanel) return;
+            
+            try {
+                adminPanel.addLog('warning', 'Force refetching - replacing all articles...');
+                
+                const response = await fetch('/api/manual-trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        trigger_key: 'force-update-2025',
+                        force_refetch: true 
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
+                
+                const data = await response.json();
+                if (data.success) {
+                    adminPanel.addLog('success', `Refetched - ${data.processing.articles_total} fresh articles`);
+                    await adminPanel.loadData();
+                    adminPanel.updateStats();
+                } else {
+                    adminPanel.addLog('error', 'Failed: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Force refetch failed:', error);
+                adminPanel.addLog('error', 'Request failed: ' + error.message);
             }
         }
 
         async function refreshData() {
-            if (window.adminPanel) {
-                adminPanel.addLog('info', 'Refreshing data...');
+            if (!window.adminPanel) return;
+            
+            try {
+                adminPanel.addLog('info', 'Refreshing data from database...');
                 await adminPanel.loadData();
                 adminPanel.updateStats();
                 adminPanel.addLog('success', 'Data refreshed');
-            }
-        }
-
-        async function testWithMock() {
-            if (window.adminPanel) {
-                adminPanel.addLog('info', 'Creating mock test data...');
-                try {
-                    const response = await fetch(`/api/manual-trigger`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            trigger_key: 'force-update-2025',
-                            mock_data: true 
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        adminPanel.addLog('success', 'Mock data created');
-                        await adminPanel.loadData();
-                        adminPanel.updateStats();
-                    } else {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                } catch (error) {
-                    adminPanel.addLog('error', 'Failed to create mock: ' + error.message);
-                }
+            } catch (error) {
+                console.error('Refresh data failed:', error);
+                adminPanel.addLog('error', 'Refresh failed: ' + error.message);
             }
         }
 
         async function clearToday() {
-            if (!confirm('Clear today\'s edition? This cannot be undone.')) return;
+            if (!confirm('Clear today\'s edition? This will DELETE all articles and cannot be undone.')) return;
             
-            if (window.adminPanel) {
+            if (!window.adminPanel) return;
+            
+            try {
                 adminPanel.addLog('warning', 'Clearing today\'s edition...');
-                try {
-                    const response = await fetch(`/api/admin?action=clear-today`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${window.adminPanel.adminKey}`
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        adminPanel.articles = [];
-                        adminPanel.renderArticles();
-                        adminPanel.updateStats();
-                        adminPanel.addLog('success', 'Edition cleared');
-                    } else {
-                        throw new Error(`HTTP ${response.status}`);
+                
+                const response = await fetch('/api/admin?action=clear-today', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.adminPanel.adminKey}`
                     }
-                } catch (error) {
-                    adminPanel.addLog('error', 'Failed to clear: ' + error.message);
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
+                
+                adminPanel.articles = [];
+                adminPanel.renderArticles();
+                adminPanel.updateStats();
+                adminPanel.addLog('success', 'Edition cleared successfully');
+                
+            } catch (error) {
+                console.error('Clear today failed:', error);
+                adminPanel.addLog('error', 'Failed to clear: ' + error.message);
             }
         }
 
@@ -921,15 +1278,15 @@
         function clearLogs() {
             const logsContainer = document.getElementById('logs-container');
             if (logsContainer) {
-                logsContainer.innerHTML = '';
-                if (window.adminPanel) {
-                    adminPanel.addLog('info', 'Logs cleared');
-                }
+                logsContainer.innerHTML = '<div class="log-line log-success">[System] Logs cleared</div>';
             }
         }
 
         function closeModal() {
             document.getElementById('edit-modal').style.display = 'none';
+            if (window.adminPanel) {
+                adminPanel.currentEditIndex = null;
+            }
         }
 
         function saveAnalysis() {
@@ -938,7 +1295,26 @@
             }
         }
 
-        // Initialize admin panel when page loads
+        // Prompt management functions
+        function savePromptSettings() {
+            if (window.adminPanel) {
+                adminPanel.savePromptSettings();
+            }
+        }
+
+        function resetPromptSettings() {
+            if (window.adminPanel) {
+                adminPanel.resetPromptSettings();
+            }
+        }
+
+        function testCurrentPrompt() {
+            if (window.adminPanel) {
+                adminPanel.testCurrentPrompt();
+            }
+        }
+
+        // Initialize admin panel
         let adminPanel;
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -946,19 +1322,9 @@
                 adminPanel = new AdminPanel();
                 window.adminPanel = adminPanel;
                 await adminPanel.init();
-                console.log('✅ Admin panel initialized');
+                console.log('✅ Admin panel initialized with database persistence');
             } catch (error) {
                 console.error('❌ Failed to initialize admin panel:', error);
-                const loadingEl = document.getElementById('articles-loading');
-                if (loadingEl) {
-                    loadingEl.innerHTML = `
-                        <div class="error-banner">
-                            <div style="font-weight: 600; margin-bottom: 8px;">⚠️ Admin Panel Failed to Initialize</div>
-                            <div style="font-size: 14px;">${error.message}</div>
-                            <button class="btn" onclick="location.reload()" style="margin-top: 12px;">🔄 Reload</button>
-                        </div>
-                    `;
-                }
             }
         });
     </script>
