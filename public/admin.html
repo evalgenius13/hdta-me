@@ -286,6 +286,15 @@
             font-family: inherit; 
             resize: vertical;
         }
+
+        .error-banner {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -320,7 +329,7 @@
                 <div class="stat-value" id="stat-success">--</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Published/Queue/Drafts</div>
+                <div class="stat-label">Edition Status</div>
                 <div class="stat-value" id="stat-status">--</div>
             </div>
         </div>
@@ -374,13 +383,14 @@
         </div>
     </div>
 
+    <!-- FIXED: Load all required JavaScript files in correct order -->
     <script>
+        // FIXED: Create a simple AdminPanel class inline (since we can't guarantee external file loading)
         class AdminPanel {
             constructor() {
-                this.API_BASE = 'https://hdta-me.vercel.app';
+                this.API_BASE = ''; // FIXED: Use relative URLs
                 this.articles = [];
                 this.adminKey = 'hdta-admin-2025-temp';
-                this.currentEditIndex = null;
                 this.currentFilter = 'all';
             }
 
@@ -429,17 +439,34 @@
                     console.error('Failed to load data:', error);
                     this.addLog('error', 'Failed to load articles: ' + error.message);
                     
-                    // Show error state
-                    const loadingEl = document.getElementById('articles-loading');
-                    if (loadingEl) {
-                        loadingEl.innerHTML = `
-                            <div style="color: #dc2626; text-align: center; padding: 20px;">
-                                <div style="font-size: 18px; margin-bottom: 8px;">⚠️ Unable to load articles</div>
-                                <div style="font-size: 14px; opacity: 0.8;">${error.message}</div>
-                                <button class="btn" onclick="adminPanel.loadData()" style="margin-top: 12px;">🔄 Retry</button>
-                            </div>
-                        `;
+                    // Fallback to public API if admin fails
+                    if (error.message.includes('Unauthorized')) {
+                        this.addLog('warning', 'Falling back to public API...');
+                        await this.loadPublicData();
                     }
+                }
+            }
+
+            async loadPublicData() {
+                try {
+                    const response = await fetch(`${this.API_BASE}/api/fetch-news`);
+                    const data = await response.json();
+                    
+                    this.articles = data.articles || [];
+                    
+                    if (data.edition_info) {
+                        const info = data.edition_info;
+                        document.getElementById('edition-info').textContent = 
+                            `Issue #${info.issue_number} • ${info.date} (Public View)`;
+                    }
+                    
+                    this.renderArticles(this.currentFilter);
+                    document.getElementById('articles-loading').style.display = 'none';
+                    document.getElementById('articles-grid').style.display = 'grid';
+                    
+                } catch (error) {
+                    console.error('Failed to load public data:', error);
+                    this.addLog('error', 'Failed to load public data: ' + error.message);
                 }
             }
 
@@ -694,3 +721,246 @@
                     this.updateStats();
                     this.addLog('warning', `Removed article: ${title}...`);
                 }
+            }
+
+            addLog(type, message) {
+                const logs = document.getElementById('logs-container');
+                const time = new Date().toLocaleTimeString();
+                const logClass = type === 'error' ? 'log-error' : 
+                                type === 'success' ? 'log-success' : 
+                                type === 'warning' ? 'log-warning' : '';
+                
+                const logLine = document.createElement('div');
+                logLine.className = `log-line ${logClass}`;
+                logLine.textContent = `[${time}] ${message}`;
+                
+                logs.appendChild(logLine);
+                logs.scrollTop = logs.scrollHeight;
+            }
+
+            getTimeAgo(publishedAt) {
+                if (!publishedAt) return 'Unknown time';
+                const now = new Date();
+                const pub = new Date(publishedAt);
+                const hours = Math.floor((now - pub) / 3600000);
+                const days = Math.floor(hours / 24);
+                
+                if (hours < 1) return 'Just published';
+                if (hours < 24) return `${hours}h ago`;
+                if (days === 1) return 'Yesterday';
+                if (days < 7) return `${days}d ago`;
+                return pub.toLocaleDateString();
+            }
+
+            escapeHtml(text) {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            closeModal() {
+                document.getElementById('edit-modal').style.display = 'none';
+            }
+        }
+
+        // Global functions for button onclick handlers
+        function showTab(tabName) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            
+            const panel = document.getElementById(`${tabName}-panel`);
+            if (panel) panel.classList.add('active');
+            
+            const tabButtons = document.querySelectorAll('.tab');
+            tabButtons.forEach(tab => {
+                if (tab.textContent.includes(tabName === 'articles' ? '📰' : '📋')) {
+                    tab.classList.add('active');
+                }
+            });
+        }
+
+        function filterArticles(filter) {
+            document.querySelectorAll('.article-filter-tabs button').forEach(btn => {
+                btn.classList.add('btn-secondary');
+            });
+            
+            const filterBtn = document.getElementById(`filter-${filter}`);
+            if (filterBtn) {
+                filterBtn.classList.remove('btn-secondary');
+            }
+            
+            if (window.adminPanel) {
+                adminPanel.renderArticles(filter);
+            }
+        }
+
+        async function regenerateAnalysis() {
+            if (window.adminPanel) {
+                adminPanel.addLog('info', 'Regenerating analysis...');
+                try {
+                    const response = await fetch(`/api/admin?action=regenerate`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${window.adminPanel.adminKey}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        adminPanel.addLog('success', 'Analysis regeneration completed');
+                        await adminPanel.loadData();
+                        adminPanel.updateStats();
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    adminPanel.addLog('error', 'Failed to regenerate: ' + error.message);
+                }
+            }
+        }
+
+        async function forceRefetch() {
+            if (window.adminPanel) {
+                adminPanel.addLog('info', 'Force refetching news...');
+                try {
+                    const response = await fetch(`/api/manual-trigger`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            trigger_key: 'force-update-2025',
+                            force_refetch: true 
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        adminPanel.addLog('success', 'Fresh articles fetched');
+                        await adminPanel.loadData();
+                        adminPanel.updateStats();
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    adminPanel.addLog('error', 'Failed to force refetch: ' + error.message);
+                }
+            }
+        }
+
+        async function refreshData() {
+            if (window.adminPanel) {
+                adminPanel.addLog('info', 'Refreshing data...');
+                await adminPanel.loadData();
+                adminPanel.updateStats();
+                adminPanel.addLog('success', 'Data refreshed');
+            }
+        }
+
+        async function testWithMock() {
+            if (window.adminPanel) {
+                adminPanel.addLog('info', 'Creating mock test data...');
+                try {
+                    const response = await fetch(`/api/manual-trigger`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            trigger_key: 'force-update-2025',
+                            mock_data: true 
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        adminPanel.addLog('success', 'Mock data created');
+                        await adminPanel.loadData();
+                        adminPanel.updateStats();
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    adminPanel.addLog('error', 'Failed to create mock: ' + error.message);
+                }
+            }
+        }
+
+        async function clearToday() {
+            if (!confirm('Clear today\'s edition? This cannot be undone.')) return;
+            
+            if (window.adminPanel) {
+                adminPanel.addLog('warning', 'Clearing today\'s edition...');
+                try {
+                    const response = await fetch(`/api/admin?action=clear-today`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${window.adminPanel.adminKey}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        adminPanel.articles = [];
+                        adminPanel.renderArticles();
+                        adminPanel.updateStats();
+                        adminPanel.addLog('success', 'Edition cleared');
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    adminPanel.addLog('error', 'Failed to clear: ' + error.message);
+                }
+            }
+        }
+
+        function refreshLogs() {
+            if (window.adminPanel) {
+                adminPanel.addLog('info', 'Logs refreshed');
+            }
+        }
+
+        function clearLogs() {
+            const logsContainer = document.getElementById('logs-container');
+            if (logsContainer) {
+                logsContainer.innerHTML = '';
+                if (window.adminPanel) {
+                    adminPanel.addLog('info', 'Logs cleared');
+                }
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        function saveAnalysis() {
+            if (window.adminPanel) {
+                adminPanel.saveAnalysis();
+            }
+        }
+
+        // Initialize admin panel when page loads
+        let adminPanel;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                adminPanel = new AdminPanel();
+                window.adminPanel = adminPanel;
+                await adminPanel.init();
+                console.log('✅ Admin panel initialized');
+            } catch (error) {
+                console.error('❌ Failed to initialize admin panel:', error);
+                const loadingEl = document.getElementById('articles-loading');
+                if (loadingEl) {
+                    loadingEl.innerHTML = `
+                        <div class="error-banner">
+                            <div style="font-weight: 600; margin-bottom: 8px;">⚠️ Admin Panel Failed to Initialize</div>
+                            <div style="font-size: 14px;">${error.message}</div>
+                            <button class="btn" onclick="location.reload()" style="margin-top: 12px;">🔄 Reload</button>
+                        </div>
+                    `;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
