@@ -1,30 +1,41 @@
+// api/cron/automated-daily-workflow.js - FINAL VERSION with improved error handling
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 class AutomatedPublisher {
   constructor() {
-    this.maxArticles = 20; // Total articles to store
-    this.numAnalyzed = 6;  // Articles to analyze for main site
-    this.maxRetries = 3;   // Analysis retry attempts
-    this.retryDelay = 1500; // Delay between retries (ms)
+    this.maxArticles = 26;      // 26 total articles
+    this.numAnalyzed = 6;       // First 6 get AI analysis
+    this.maxRetries = 3;        
+    this.retryDelay = 1500;     
     this.startTime = Date.now();
   }
 
   async runFullWorkflow() {
+    console.log('🚀 Starting daily workflow...');
     const edition = await this.curateAndAnalyze();
     await this.publishToWebsite(edition.id);
     await this.markNewsletterSent(edition.id);
+    console.log('✅ Daily workflow completed');
     return edition;
   }
 
   async curateAndAnalyze() {
     const today = new Date().toISOString().split('T')[0];
     const existing = await this.findEdition(today);
-    if (existing) return existing;
+    if (existing) {
+      console.log(`📰 Edition already exists for ${today}, returning existing`);
+      return existing;
+    }
 
-    const articles = await this.fetchPolicyNews();
-    console.log('🔵 fetchPolicyNews returned:', articles.length, 'articles');
+    // Fetch articles with improved error handling
+    const articles = await this.fetchCombinedNewsWithFallback();
+    console.log('🔵 fetchCombinedNews returned:', articles.length, 'articles');
+
+    if (articles.length === 0) {
+      throw new Error('No articles could be fetched from any source');
+    }
 
     const selected = await this.selectBest(articles);
     console.log('🟡 selectBest after filtering:', selected.length, 'articles');
@@ -32,6 +43,91 @@ class AutomatedPublisher {
     const analyzed = await this.analyzeAll(selected);
     const edition = await this.createEdition(today, analyzed, 'published');
     return edition;
+  }
+
+  // IMPROVED: Fetch with partial failure handling
+  async fetchCombinedNewsWithFallback() {
+    const API_KEY = process.env.GNEWS_API_KEY;
+    if (!API_KEY) {
+      console.error('❌ GNEWS_API_KEY not found');
+      return [];
+    }
+
+    console.log('📡 Fetching combined news with fallback handling...');
+    
+    let generalArticles = [];
+    let politicsArticles = [];
+
+    // TRY 1: Fetch general headlines
+    try {
+      console.log('📰 Fetching 20 general headlines...');
+      const generalUrl = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=20&token=${API_KEY}`;
+      
+      const generalResponse = await fetch(generalUrl);
+      if (generalResponse.ok) {
+        const generalData = await generalResponse.json();
+        generalArticles = generalData.articles || [];
+        console.log(`✅ General headlines: ${generalArticles.length} articles`);
+      } else {
+        console.warn(`⚠️ General headlines failed: ${generalResponse.status}`);
+      }
+    } catch (error) {
+      console.warn('⚠️ General headlines error:', error.message);
+    }
+
+    // Small delay between API calls
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // TRY 2: Fetch politics headlines
+    try {
+      console.log('🏛️ Fetching 6 politics headlines...');
+      const politicsUrl = `https://gnews.io/api/v4/top-headlines?category=politics&lang=en&country=us&max=6&token=${API_KEY}`;
+      
+      const politicsResponse = await fetch(politicsUrl);
+      if (politicsResponse.ok) {
+        const politicsData = await politicsResponse.json();
+        politicsArticles = politicsData.articles || [];
+        console.log(`✅ Politics headlines: ${politicsArticles.length} articles`);
+      } else {
+        console.warn(`⚠️ Politics headlines failed: ${politicsResponse.status}`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Politics headlines error:', error.message);
+    }
+
+    // FALLBACK: If both fail, try single top headlines call
+    if (generalArticles.length === 0 && politicsArticles.length === 0) {
+      console.log('🔄 Both calls failed, trying fallback...');
+      
+      try {
+        const fallbackUrl = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=20&token=${API_KEY}`;
+        const fallbackResponse = await fetch(fallbackUrl);
+        
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          generalArticles = fallbackData.articles || [];
+          console.log(`✅ Fallback headlines: ${generalArticles.length} articles`);
+        }
+      } catch (error) {
+        console.error('❌ All API calls failed:', error.message);
+      }
+    }
+
+    // Combine what we have
+    let allArticles = [...generalArticles, ...politicsArticles];
+
+    console.log(`📊 Combined: ${allArticles.length} articles (${generalArticles.length} general + ${politicsArticles.length} politics)`);
+
+    // Filter invalid articles
+    allArticles = allArticles.filter(article => {
+      if (!article?.title || !article?.description) {
+        return false;
+      }
+      return true;
+    });
+
+    console.log(`📊 Valid articles: ${allArticles.length}`);
+    return allArticles;
   }
 
   async analyzeAll(articles) {
@@ -52,13 +148,12 @@ class AutomatedPublisher {
         if (!analysis) analysis = this.fallback();
       }
 
-      // ✅ CRITICAL FIX: Always provide analysis_text (never null)
       const finalAnalysis = analysis || this.queueFallback();
 
       out.push({
         ...a,
-        order: i + 1, // Always assign an order (1-based)
-        analysis: finalAnalysis, // Always has a value - never null
+        order: i + 1,
+        analysis: finalAnalysis,
         analysis_generated_at: analysis ? new Date().toISOString() : null,
         analysis_word_count: finalAnalysis.split(/\s+/).filter(Boolean).length,
         status: shouldAnalyze ? 'published' : 'queue',
@@ -69,14 +164,13 @@ class AutomatedPublisher {
   }
 
   async selectBest(list) {
-    console.log('🔍 Starting with', list.length, 'politics articles from GNews');
+    console.log('🔍 Starting selection with', list.length, 'articles');
     
-    // No complex filtering needed - politics category already gives us what we want
-    // Just remove duplicates and score them
     const deduped = this.dedupe(list);
     console.log('🔍 After deduplication:', deduped.length, 'articles');
     
     const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
+    
     const final = scored
       .sort((x, y) => y.score - x.score)
       .slice(0, this.maxArticles);
@@ -89,53 +183,76 @@ class AutomatedPublisher {
     return final;
   }
 
+  // IMPROVED: Better database error handling
   async createEdition(date, articles, status) {
     const { data: next } = await supabase.rpc('get_next_issue_number');
     const issue = next || 1;
 
     if (!articles || articles.length === 0) {
       console.warn('⚠️ No articles to create edition with');
+      throw new Error('Cannot create edition without articles');
     }
 
-    const { data: edition, error: e1 } = await supabase
-      .from('daily_editions')
-      .insert({
-        edition_date: date,
-        issue_number: issue,
-        status,
-        featured_headline: articles?.[0]?.title || 'Policy Updates'
-      })
-      .select()
-      .single();
-    if (e1) throw e1;
-
-    if (articles && articles.length > 0) {
-      const rows = articles.map(a => ({
-        edition_id: edition.id,
-        article_order: a.order,  // Maps to correct database field
-        title: a.title,
-        description: a.description,
-        url: a.url,
-        image_url: a.urlToImage || a.image,
-        source_name: a.source?.name,
-        published_at: a.publishedAt || new Date().toISOString(), // Fallback for publishedAt
-        analysis_text: a.analysis,  // Maps to correct database field (always has value)
-        analysis_generated_at: a.analysis_generated_at,
-        analysis_word_count: a.analysis_word_count,
-        article_status: a.status,  // Maps to correct database field
-        article_score: a.score
-      }));
-
-      const { error: e2 } = await supabase.from('analyzed_articles').insert(rows);
-      if (e2) {
-        console.error('❌ Failed to insert articles:', e2);
-        throw e2;
+    // Create edition with retry logic
+    let edition;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { data: editionData, error: e1 } = await supabase
+          .from('daily_editions')
+          .insert({
+            edition_date: date,
+            issue_number: issue,
+            status,
+            featured_headline: articles[0]?.title || 'Daily Headlines'
+          })
+          .select()
+          .single();
+          
+        if (e1) throw e1;
+        edition = editionData;
+        break;
+      } catch (error) {
+        console.warn(`⚠️ Edition creation attempt ${attempt} failed:`, error.message);
+        if (attempt === 3) throw error;
+        await this.sleep(2000); // Wait before retry
       }
-
-      console.log(`✅ Created edition #${issue} with ${articles.length} articles (top ${this.numAnalyzed} analyzed)`);
-    } else {
-      console.log(`✅ Created empty edition #${issue}`);
     }
+
+    // Insert articles with retry logic
+    const rows = articles.map(a => ({
+      edition_id: edition.id,
+      article_order: a.order,
+      title: a.title,
+      description: a.description,
+      url: a.url,
+      image_url: a.urlToImage || a.image,
+      source_name: a.source?.name || 'Unknown Source',
+      published_at: a.publishedAt || new Date().toISOString(),
+      analysis_text: a.analysis,
+      analysis_generated_at: a.analysis_generated_at,
+      analysis_word_count: a.analysis_word_count,
+      article_status: a.status,
+      article_score: a.score
+    }));
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { error: e2 } = await supabase.from('analyzed_articles').insert(rows);
+        if (e2) throw e2;
+        break;
+      } catch (error) {
+        console.warn(`⚠️ Articles insert attempt ${attempt} failed:`, error.message);
+        if (attempt === 3) {
+          // Clean up edition if articles can't be inserted
+          await supabase.from('daily_editions').delete().eq('id', edition.id);
+          throw error;
+        }
+        await this.sleep(2000);
+      }
+    }
+
+    console.log(`✅ Created edition #${issue} with ${articles.length} articles`);
+    console.log(`📊 Breakdown: ${articles.filter(a => a.status === 'published').length} published, ${articles.filter(a => a.status === 'queue').length} queued`);
 
     return edition;
   }
@@ -147,81 +264,6 @@ class AutomatedPublisher {
 
   queueFallback() {
     return 'This article is in the queue for detailed analysis. The policy impact assessment will consider implementation timelines, affected stakeholders, and practical consequences for individuals and businesses once the full analysis is completed.';
-  }
-
-  // FIXED: Use GNews politics category - much simpler and more reliable
-  async fetchPolicyNews() {
-    try {
-      const API_KEY = process.env.GNEWS_API_KEY;
-      if (!API_KEY) {
-        console.error('❌ GNEWS_API_KEY not found in environment variables');
-        return [];
-      }
-
-      console.log('📡 Fetching politics headlines from GNews...');
-      
-      // Use politics category - gets exactly what we want without complex filtering
-      const url = `https://gnews.io/api/v4/top-headlines?category=politics&lang=en&country=us&max=50&token=${API_KEY}`;
-
-      const response = await fetch(url);
-      
-      console.log('GNews Politics API response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ GNews Politics API error:', response.status, errorText);
-        return [];
-      }
-
-      const data = await response.json();
-      
-      console.log('GNews Politics API response keys:', Object.keys(data || {}));
-      console.log('Total politics articles available:', data.totalArticles || 0);
-
-      const articles = Array.isArray(data.articles) ? data.articles : [];
-      console.log(`📰 Raw politics articles fetched: ${articles.length}`);
-
-      if (articles.length === 0) {
-        console.warn('⚠️ No politics articles returned from GNews');
-        return [];
-      }
-
-      // Simple filtering - just remove obviously non-policy content
-      const cleanArticles = articles.filter(article => {
-        if (!article?.title || !article?.description) {
-          console.log(`❌ Skipping article with missing title/description`);
-          return false;
-        }
-        
-        const content = (article.title + ' ' + article.description).toLowerCase();
-        
-        // Only exclude obvious non-policy content (sports that sometimes appear in politics)
-        const excludeKeywords = ['nfl', 'nba', 'mlb', 'nhl', 'sports scores', 'game highlights'];
-        const hasExcluded = excludeKeywords.some(keyword => content.includes(keyword));
-        
-        if (hasExcluded) {
-          console.log(`❌ Excluding sports content: ${article.title.substring(0, 50)}...`);
-          return false;
-        }
-        
-        console.log(`✅ Politics article: ${article.title.substring(0, 60)}...`);
-        return true;
-      });
-
-      console.log(`✅ After basic filtering: ${cleanArticles.length} politics articles`);
-      
-      // Log sample articles for debugging
-      cleanArticles.slice(0, 10).forEach((a, i) => {
-        const recency = a.publishedAt ? this.getTimeAgo(a.publishedAt) : 'no date';
-        console.log(`Article ${i + 1} (${recency}): ${a.title.substring(0, 80)}...`);
-      });
-
-      return cleanArticles;
-      
-    } catch (error) {
-      console.error('❌ Failed to fetch politics headlines:', error);
-      return [];
-    }
   }
 
   dedupe(list) {
@@ -264,25 +306,25 @@ class AutomatedPublisher {
     let s = 0;
     const t = (article.title + ' ' + (article.description || '')).toLowerCase();
     
-    // High value keywords - government action
+    // High value keywords
     const highValue = ['executive order', 'supreme court', 'congress passes', 'senate votes', 'bill signed', 'federal ruling', 'white house', 'biden', 'trump'];
     highValue.forEach(k => {
       if (t.includes(k)) s += 15;
     });
     
-    // Medium value keywords - policy/government
+    // Medium value keywords
     const mediumValue = ['congress', 'senate', 'house', 'federal', 'government', 'policy', 'legislation', 'court', 'judge', 'ruling', 'election', 'political'];
     mediumValue.forEach(k => {
       if (t.includes(k)) s += 8;
     });
     
-    // Low value keywords - general politics
-    const lowValue = ['mayor', 'governor', 'local', 'state', 'political', 'campaign', 'vote'];
+    // Low value keywords
+    const lowValue = ['mayor', 'governor', 'local', 'state', 'business', 'economy', 'health', 'education'];
     lowValue.forEach(k => {
       if (t.includes(k)) s += 3;
     });
     
-    // Negative keywords - reduce score
+    // Negative keywords
     const negative = ['celebrity', 'entertainment', 'sports', 'death', 'dies', 'shooting', 'crime'];
     negative.forEach(k => {
       if (t.includes(k)) s -= 5;
@@ -291,9 +333,9 @@ class AutomatedPublisher {
     // Recency bonus
     if (article.publishedAt) {
       const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
-      if (hrs < 6) s += 8;   // Very recent
-      else if (hrs < 12) s += 5;  // Recent  
-      else if (hrs < 24) s += 3;  // Today
+      if (hrs < 6) s += 8;
+      else if (hrs < 12) s += 5;
+      else if (hrs < 24) s += 3;
     }
     
     // Quality source bonus
@@ -315,15 +357,12 @@ class AutomatedPublisher {
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    console.log(`    📊 Word count: ${wc} (need 100-250)`);
     if (wc < 100 || wc > 250) {
-      console.log(`    ❌ Rejected: word count ${wc} outside 100-250 range`);
       this.logFallbackUsage('word_count', `${wc} words`);
       return null;
     }
 
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
-      console.log(`    ❌ Rejected: contains bullet points or numbered lists`);
       this.logFallbackUsage('formatting', 'bullet points detected');
       return null;
     }
@@ -337,14 +376,12 @@ class AutomatedPublisher {
       const currentYear = new Date().getFullYear();
       if (yearNum >= currentYear - 5 && yearNum <= currentYear + 1) {
         if (!inputs.includes(year.toLowerCase())) {
-          console.log(`    ❌ Rejected: mentions recent year ${year} not in source material`);
           this.logFallbackUsage('invalid_year', `year ${year} not in source`);
           return null;
         }
       }
     }
 
-    console.log(`    ✅ Sanitization passed`);
     return normalized;
   }
 
@@ -358,6 +395,7 @@ class AutomatedPublisher {
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY environment variable is not set');
     }
+    
     const pubDate = article.publishedAt || 'not stated';
     const source = article.source?.name || 'not stated';
 
@@ -371,12 +409,6 @@ Paragraph 2 - THE MECHANICS (40-50 words): Explain HOW this works in practice. I
 Paragraph 3 - WINNERS & LOSERS (40-50 words): Name who actually benefits and who gets hurt. Be specific about industries, regions, demographics when the data supports it. Don't be vague - if community banks struggle while big banks thrive, say so directly.
 
 Paragraph 4 - INSIDER PERSPECTIVE (25-35 words): What's not being said publicly? Historical precedent? Hidden timelines? Real motivations? End with what to watch for next that signals the true impact.
-
-Use concrete language:
-- "implementation" → "when it starts"
-- "stakeholders" → specific groups affected
-- "regulatory framework" → "new rules"
-- "may impact" → "will cost" or "will benefit"
 
 Policy: "${article.title}"
 Details: "${article.description}"
@@ -403,13 +435,7 @@ Date: "${pubDate}"
       });
 
       if (!r.ok) {
-        if (r.status === 429) {
-          throw new Error(`OpenAI rate limit hit (429) - will retry`);
-        } else if (r.status === 401) {
-          throw new Error(`OpenAI authentication failed (401) - check API key`);
-        } else {
-          throw new Error(`OpenAI API error ${r.status}: ${r.statusText}`);
-        }
+        throw new Error(`OpenAI API error ${r.status}: ${r.statusText}`);
       }
 
       const data = await r.json();
@@ -427,11 +453,7 @@ Date: "${pubDate}"
         .update({ status: 'published', updated_at: new Date().toISOString() })
         .eq('id', editionId);
 
-      if (error) {
-        console.error('❌ Failed to publish to website:', error);
-        throw error;
-      }
-
+      if (error) throw error;
       console.log('✅ Edition published to website');
     } catch (error) {
       console.error('❌ publishToWebsite failed:', error.message);
@@ -467,11 +489,10 @@ Date: "${pubDate}"
         if (error.code === 'PGRST116') {
           return null;  // No edition found - normal case
         }
-        console.error('❌ Error finding edition:', error);
         throw error;
       }
       
-      // If edition exists but is empty (no articles), treat as if no edition exists
+      // Check if edition has articles
       const { data: articles } = await supabase
         .from('analyzed_articles')
         .select('id')
@@ -479,8 +500,7 @@ Date: "${pubDate}"
         .limit(1);
         
       if (!articles || articles.length === 0) {
-        console.log('🗑️ Found empty edition, will recreate with articles');
-        // Delete the empty edition
+        console.log('🗑️ Found empty edition, will recreate');
         await supabase.from('daily_editions').delete().eq('id', data.id);
         return null;
       }
@@ -490,20 +510,6 @@ Date: "${pubDate}"
       console.error('❌ findEdition failed:', error.message);
       throw error;
     }
-  }
-
-  getTimeAgo(publishedAt) {
-    if (!publishedAt) return 'unknown time';
-    const now = new Date();
-    const pub = new Date(publishedAt);
-    const hours = Math.floor((now - pub) / 3600000);
-    const days = Math.floor(hours / 24);
-
-    if (hours < 1) return 'just published';
-    if (hours < 24) return `${hours}h ago`;
-    if (days === 1) return 'yesterday';
-    if (days < 7) return `${days}d ago`;
-    return pub.toLocaleDateString();
   }
 
   sleep(ms) {
