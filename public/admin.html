@@ -3,241 +3,694 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDTA Admin</title>
+    <title>HDTA Admin Panel</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23374151'/><text x='50%' y='60%' text-anchor='middle' font-size='32' fill='white' font-family='system-ui'>⚙️</text></svg>">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui; background: #f8fafc; color: #1f2937; }
+        body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            background: #f8fafc; 
+            color: #1f2937; 
+            line-height: 1.5;
+        }
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         
-        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; }
-        .actions { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 12px; }
-        .btn { background: #3b82f6; color: white; padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; }
+        .header { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 24px; font-weight: 700; }
+        .status-badge { 
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            font-size: 14px; 
+            font-weight: 600;
+        }
+        .status-live { background: #dcfce7; color: #166534; }
+
+        .actions { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .btn { 
+            background: #3b82f6; 
+            color: white; 
+            padding: 10px 16px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 14px; 
+            font-weight: 600;
+            transition: background 0.2s;
+        }
         .btn:hover { background: #2563eb; }
+        .btn:disabled { background: #9ca3af; cursor: not-allowed; }
+        .btn-secondary { background: #6b7280; }
+        .btn-secondary:hover { background: #4b5563; }
+        .btn-warning { background: #f59e0b; }
+        .btn-warning:hover { background: #d97706; }
         .btn-danger { background: #dc2626; }
-        
+        .btn-danger:hover { background: #b91c1c; }
+
+        .tabs { 
+            display: flex; 
+            gap: 4px; 
+            margin-bottom: 20px;
+        }
+        .tab { 
+            padding: 12px 20px; 
+            background: white; 
+            border: none; 
+            cursor: pointer; 
+            border-radius: 6px 6px 0 0;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .tab.active { background: #3b82f6; color: white; }
+        .tab:not(.active):hover { background: #f1f5f9; }
+
+        .panel { 
+            background: white; 
+            border-radius: 0 8px 8px 8px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            padding: 20px;
+            display: none;
+        }
+        .panel.active { display: block; }
+
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .stat-card { 
+            background: #f9fafb; 
+            padding: 16px; 
+            border-radius: 6px; 
+            border: 1px solid #e5e7eb;
+        }
+        .stat-label { 
+            font-size: 12px; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            color: #6b7280; 
+            margin-bottom: 4px;
+        }
+        .stat-value { 
+            font-size: 24px; 
+            font-weight: 700; 
+            color: #111827;
+        }
+
         .article-grid { display: grid; gap: 16px; }
-        .article-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; }
-        .article-header { padding: 16px; border-bottom: 1px solid #f3f4f6; }
-        .article-title { font-weight: 600; font-size: 16px; }
-        .article-meta { font-size: 12px; color: #6b7280; margin-top: 4px; }
-        .article-content { padding: 16px; }
-        .article-description { color: #4b5563; font-size: 14px; margin-bottom: 12px; }
-        .analysis-content { background: #f9fafb; padding: 12px; border-radius: 6px; font-size: 14px; }
-        .article-actions { padding: 12px 16px; background: #f9fafb; display: flex; gap: 8px; }
-        .btn-small { padding: 6px 12px; font-size: 12px; }
+        .article-card { 
+            border: 1px solid #e5e7eb; 
+            border-radius: 8px; 
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        .article-card:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         
-        .loading { text-align: center; padding: 40px; color: #6b7280; }
-        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
-        .stat-card { background: white; padding: 16px; border-radius: 8px; text-align: center; }
-        .stat-value { font-size: 24px; font-weight: 700; }
-        .stat-label { font-size: 12px; color: #6b7280; }
+        .article-header { 
+            padding: 16px; 
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .article-title { 
+            font-weight: 600; 
+            font-size: 16px; 
+            line-height: 1.4;
+            flex: 1;
+        }
+        .article-meta { 
+            font-size: 12px; 
+            color: #6b7280; 
+            margin-top: 4px;
+        }
+        .article-score { 
+            background: #f3f4f6; 
+            padding: 4px 8px; 
+            border-radius: 4px; 
+            font-size: 12px; 
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .article-content { padding: 16px; }
+        .article-description { 
+            color: #4b5563; 
+            font-size: 14px; 
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .analysis-section { margin-top: 12px; }
+        .analysis-label { 
+            font-size: 12px; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            color: #374151; 
+            margin-bottom: 6px;
+        }
+        .analysis-content { 
+            background: #f9fafb; 
+            padding: 12px; 
+            border-radius: 6px; 
+            font-size: 14px; 
+            line-height: 1.6;
+        }
+        .analysis-status { 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 6px; 
+            font-size: 12px; 
+            margin-bottom: 8px;
+        }
+        .status-dot { 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+        }
+        .status-success { background: #10b981; }
+        .status-warning { background: #f59e0b; }
+
+        .article-actions { 
+            padding: 12px 16px; 
+            background: #f9fafb; 
+            border-top: 1px solid #f3f4f6;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn-small { 
+            padding: 6px 12px; 
+            font-size: 12px; 
+        }
+
+        .article-filter-tabs { 
+            margin-bottom: 16px; 
+            display: flex; 
+            gap: 8px; 
+            flex-wrap: wrap;
+        }
+
+        .logs { 
+            background: #1f2937; 
+            color: #f9fafb; 
+            padding: 16px; 
+            border-radius: 8px; 
+            font-family: 'Courier New', monospace; 
+            font-size: 13px; 
+            height: 400px; 
+            overflow-y: auto;
+        }
+        .log-line { margin-bottom: 4px; }
+        .log-error { color: #fca5a5; }
+        .log-success { color: #86efac; }
+        .log-warning { color: #fcd34d; }
+
+        .loading { 
+            text-align: center; 
+            padding: 40px; 
+            color: #6b7280;
+        }
+        .spinner { 
+            width: 20px; 
+            height: 20px; 
+            border: 2px solid #e5e7eb; 
+            border-top: 2px solid #3b82f6; 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+            display: inline-block; 
+            margin-right: 8px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .modal { 
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0,0,0,0.5); 
+            z-index: 1000;
+        }
+        .modal-content { 
+            background: white; 
+            margin: 50px auto; 
+            padding: 20px; 
+            border-radius: 8px; 
+            max-width: 600px; 
+            max-height: 80vh; 
+            overflow-y: auto;
+        }
+        .modal-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px;
+        }
+        .modal-title { font-size: 18px; font-weight: 600; }
+        .close-btn { 
+            background: none; 
+            border: none; 
+            font-size: 24px; 
+            cursor: pointer; 
+            color: #6b7280;
+        }
+        .close-btn:hover { color: #374151; }
+
+        textarea { 
+            width: 100%; 
+            min-height: 200px; 
+            padding: 12px; 
+            border: 1px solid #d1d5db; 
+            border-radius: 6px; 
+            font-family: inherit; 
+            resize: vertical;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>HDTA Admin</h1>
+            <div>
+                <h1>HDTA Admin Panel</h1>
+                <div class="status-badge status-live">System Live</div>
+            </div>
             <div id="edition-info">Loading...</div>
         </div>
 
         <div class="actions">
-            <button class="btn" onclick="regenerate()">🔄 Regenerate</button>
-            <button class="btn" onclick="refetch()">🚀 Force Refetch</button>
-            <button class="btn" onclick="refresh()">🔄 Refresh</button>
-            <button class="btn btn-danger" onclick="clear()">🗑️ Clear</button>
+            <button class="btn" onclick="regenerateAnalysis()">🔄 Regenerate Analysis</button>
+            <button class="btn btn-warning" onclick="forceRefetch()">🚀 Force Refetch News</button>
+            <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh Data</button>
+            <button class="btn btn-secondary" onclick="testWithMock()">🧪 Test with Mock</button>
+            <button class="btn btn-danger" onclick="clearToday()">🗑️ Clear Today's Edition</button>
         </div>
 
-        <div class="stats">
+        <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value" id="stat-total">--</div>
                 <div class="stat-label">Total Articles</div>
+                <div class="stat-value" id="stat-total">--</div>
             </div>
             <div class="stat-card">
+                <div class="stat-label">With Analysis</div>
                 <div class="stat-value" id="stat-analyzed">--</div>
-                <div class="stat-label">Analyzed</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="stat-success">--</div>
                 <div class="stat-label">Success Rate</div>
+                <div class="stat-value" id="stat-success">--</div>
             </div>
             <div class="stat-card">
+                <div class="stat-label">Published/Queue/Drafts</div>
                 <div class="stat-value" id="stat-status">--</div>
-                <div class="stat-label">Status</div>
             </div>
         </div>
 
-        <div class="loading" id="loading">Loading articles...</div>
-        <div class="article-grid" id="articles" style="display: none;"></div>
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('articles')">📰 Articles</button>
+            <button class="tab" onclick="showTab('logs')">📋 Logs</button>
+        </div>
+
+        <div id="articles-panel" class="panel active">
+            <div class="article-filter-tabs">
+                <button class="btn btn-small" id="filter-all" onclick="filterArticles('all')">All Articles</button>
+                <button class="btn btn-small btn-secondary" id="filter-published" onclick="filterArticles('published')">Published</button>
+                <button class="btn btn-small btn-secondary" id="filter-drafts" onclick="filterArticles('drafts')">Drafts</button>
+                <button class="btn btn-small btn-secondary" id="filter-queue" onclick="filterArticles('queue')">Queue</button>
+                <button class="btn btn-small btn-secondary" id="filter-rejected" onclick="filterArticles('rejected')">Rejected</button>
+            </div>
+            
+            <div class="loading" id="articles-loading">
+                <span class="spinner"></span>
+                Loading articles...
+            </div>
+            <div class="article-grid" id="articles-grid" style="display: none;"></div>
+        </div>
+
+        <div id="logs-panel" class="panel">
+            <div style="margin-bottom: 12px;">
+                <button class="btn btn-secondary btn-small" onclick="refreshLogs()">🔄 Refresh</button>
+                <button class="btn btn-secondary btn-small" onclick="clearLogs()">🗑️ Clear</button>
+            </div>
+            <div class="logs" id="logs-container">
+                <div class="log-line log-success">[12:34:56] System initialized</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for editing analysis -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Analysis</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div>
+                <textarea id="analysis-editor" placeholder="Edit the analysis content..."></textarea>
+                <div style="margin-top: 12px;">
+                    <button class="btn" onclick="saveAnalysis()">💾 Save</button>
+                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        const API_BASE = 'https://hdta-me.vercel.app';
-        const ADMIN_KEY = 'hdta-admin-2025-temp';
-        let articles = [];
+        class AdminPanel {
+            constructor() {
+                this.API_BASE = 'https://hdta-me.vercel.app';
+                this.articles = [];
+                this.adminKey = 'hdta-admin-2025-temp';
+                this.currentEditIndex = null;
+                this.currentFilter = 'all';
+            }
 
-        async function loadData() {
-            try {
-                const response = await fetch(`${API_BASE}/api/admin?action=get-articles`, {
-                    headers: { 'Authorization': `Bearer ${ADMIN_KEY}` }
-                });
+            async init() {
+                await this.loadData();
+                this.updateStats();
+                this.addLog('success', 'Admin panel initialized');
+            }
+
+            async loadData() {
+                try {
+                    this.addLog('info', 'Loading data...');
+                    
+                    const response = await fetch(`${this.API_BASE}/api/admin?action=get-articles`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.adminKey}`
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            throw new Error('Unauthorized - Check admin key');
+                        }
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    this.articles = data.articles || [];
+                    
+                    if (data.edition) {
+                        const info = data.edition;
+                        document.getElementById('edition-info').textContent = 
+                            `Issue #${info.issue_number} • ${info.date} (${info.status})`;
+                    } else {
+                        document.getElementById('edition-info').textContent = 'No edition found for today';
+                    }
+                    
+                    this.renderArticles(this.currentFilter);
+                    document.getElementById('articles-loading').style.display = 'none';
+                    document.getElementById('articles-grid').style.display = 'grid';
+                    
+                    this.addLog('success', `Loaded ${this.articles.length} articles`);
+                    
+                } catch (error) {
+                    console.error('Failed to load data:', error);
+                    this.addLog('error', 'Failed to load articles: ' + error.message);
+                    
+                    // Show error state
+                    const loadingEl = document.getElementById('articles-loading');
+                    if (loadingEl) {
+                        loadingEl.innerHTML = `
+                            <div style="color: #dc2626; text-align: center; padding: 20px;">
+                                <div style="font-size: 18px; margin-bottom: 8px;">⚠️ Unable to load articles</div>
+                                <div style="font-size: 14px; opacity: 0.8;">${error.message}</div>
+                                <button class="btn" onclick="adminPanel.loadData()" style="margin-top: 12px;">🔄 Retry</button>
+                            </div>
+                        `;
+                    }
+                }
+            }
+
+            renderArticles(filter = 'all') {
+                const grid = document.getElementById('articles-grid');
+                if (!grid) return;
                 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
+                let articlesToShow = this.articles;
                 
-                articles = data.articles || [];
-                
-                if (data.edition) {
-                    document.getElementById('edition-info').textContent = 
-                        `Issue #${data.edition.issue_number} • ${data.edition.date}`;
+                // Apply filter
+                if (filter === 'published') {
+                    articlesToShow = this.articles.filter(a => a.status === 'published');
+                } else if (filter === 'drafts') {
+                    articlesToShow = this.articles.filter(a => a.status === 'draft');
+                } else if (filter === 'queue') {
+                    articlesToShow = this.articles.filter(a => a.status === 'queue');
+                } else if (filter === 'rejected') {
+                    articlesToShow = this.articles.filter(a => a.status === 'rejected');
                 }
                 
-                renderArticles();
-                updateStats();
+                // Update filter button states
+                this.updateFilterButtons(filter);
+                this.currentFilter = filter;
                 
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('articles').style.display = 'grid';
-                
-            } catch (error) {
-                console.error('Failed to load:', error);
-                document.getElementById('loading').innerHTML = 
-                    `<div style="color: #dc2626;">Failed to load: ${error.message}</div>`;
-            }
-        }
-
-        function renderArticles() {
-            const grid = document.getElementById('articles');
-            
-            if (articles.length === 0) {
-                grid.innerHTML = '<div style="text-align: center; padding: 40px; color: #6b7280;">No articles found</div>';
-                return;
-            }
-            
-            grid.innerHTML = articles.map((article, index) => `
-                <div class="article-card">
-                    <div class="article-header">
-                        <div class="article-title">${escapeHtml(article.title || '')}</div>
-                        <div class="article-meta">
-                            ${escapeHtml(article.source?.name || 'Unknown')} • 
-                            Status: ${article.status || 'queue'} • 
-                            Order: ${article.order || '--'}
-                        </div>
-                    </div>
-                    <div class="article-content">
-                        <div class="article-description">
-                            ${escapeHtml(article.description || '')}
-                        </div>
-                        <div class="analysis-content">
-                            ${escapeHtml(article.preGeneratedAnalysis || 'No analysis')}
-                        </div>
-                    </div>
-                    <div class="article-actions">
-                        <button class="btn btn-small" onclick="regenerateOne(${index})">🔄 Regenerate</button>
-                        <button class="btn btn-small" onclick="window.open('${escapeHtml(article.url || '')}', '_blank')">🔗 View</button>
-                        <button class="btn btn-small btn-danger" onclick="removeArticle(${index})">🗑️ Remove</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function updateStats() {
-            const analyzed = articles.filter(a => a.preGeneratedAnalysis).length;
-            const successRate = articles.length > 0 ? Math.round((analyzed / articles.length) * 100) : 0;
-            
-            document.getElementById('stat-total').textContent = articles.length;
-            document.getElementById('stat-analyzed').textContent = analyzed;
-            document.getElementById('stat-success').textContent = `${successRate}%`;
-            document.getElementById('stat-status').textContent = articles.length > 0 ? 'Active' : 'Empty';
-        }
-
-        async function regenerate() {
-            await trigger(false);
-        }
-
-        async function refetch() {
-            await trigger(true);
-        }
-
-        async function trigger(forceRefetch = false) {
-            try {
-                const response = await fetch(`${API_BASE}/api/manual-trigger`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        trigger_key: 'force-update-2025',
-                        force_refetch: forceRefetch
-                    })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    await loadData();
-                    console.log('Success:', data);
-                } else {
-                    console.error('Failed:', data.error);
+                if (articlesToShow.length === 0) {
+                    grid.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 40px;">No articles found</div>';
+                    return;
                 }
-            } catch (error) {
-                console.error('Trigger failed:', error);
+                
+                grid.innerHTML = articlesToShow.map((article, index) => {
+                    const realIndex = this.articles.indexOf(article);
+                    const safeTitle = this.escapeHtml(article.title || '');
+                    const safeDescription = this.escapeHtml(article.description || '');
+                    const safeMeta = this.escapeHtml(article.source?.name || 'Unknown Source');
+                    const timeAgo = this.getTimeAgo(article.publishedAt);
+                    const hasAnalysis = article.preGeneratedAnalysis && !article.preGeneratedAnalysis.includes('Analysis pending');
+                    const statusClass = hasAnalysis ? 'status-success' : 'status-warning';
+                    const statusText = hasAnalysis ? 'Analysis Generated' : 'No Analysis';
+                    const analysisContent = this.formatAnalysis(article.preGeneratedAnalysis || 'No analysis available');
+                    
+                    const status = article.status || 'queue';
+                    let statusBadge = '';
+                    let statusActions = '';
+                    
+                    switch (status) {
+                        case 'published':
+                            statusBadge = '<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 12px; font-size: 11px;">PUBLISHED</span>';
+                            statusActions = `<button class="btn btn-small btn-secondary" onclick="adminPanel.demoteArticle(${realIndex})">⬇️ Demote</button>`;
+                            break;
+                        case 'draft':
+                            statusBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 12px; font-size: 11px;">DRAFT</span>';
+                            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${realIndex})">⬆️ Promote</button>`;
+                            break;
+                        case 'queue':
+                            statusBadge = '<span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 12px; font-size: 11px;">QUEUE</span>';
+                            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${realIndex})">⬆️ Promote</button>`;
+                            break;
+                        case 'rejected':
+                            statusBadge = '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 12px; font-size: 11px;">REJECTED</span>';
+                            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${realIndex})">⬆️ Restore</button>`;
+                            break;
+                        default:
+                            statusBadge = '<span style="background: #f3f4f6; color: #6b7280; padding: 2px 6px; border-radius: 12px; font-size: 11px;">UNKNOWN</span>';
+                    }
+                    
+                    return `
+                        <div class="article-card">
+                            <div class="article-header">
+                                <div style="flex: 1;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                        <div class="article-title" style="flex: 1;">${safeTitle}</div>
+                                        ${statusBadge}
+                                    </div>
+                                    <div class="article-meta">
+                                        ${safeMeta} • ${timeAgo} • Order: ${article.order || '--'}
+                                    </div>
+                                </div>
+                                <div class="article-score">Score: ${article.score || '--'}</div>
+                            </div>
+                            
+                            <div class="article-content">
+                                <div class="article-description">
+                                    ${safeDescription}
+                                </div>
+                                
+                                <div class="analysis-section">
+                                    <div class="analysis-status">
+                                        <span class="status-dot ${statusClass}"></span>
+                                        ${statusText}
+                                    </div>
+                                    <div class="analysis-label">Analysis</div>
+                                    <div class="analysis-content">
+                                        ${analysisContent}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="article-actions">
+                                <button class="btn btn-small" onclick="adminPanel.editAnalysis(${realIndex})">✏️ Edit</button>
+                                <button class="btn btn-small btn-secondary" onclick="adminPanel.regenerateOne(${realIndex})">🔄 Regenerate</button>
+                                ${statusActions}
+                                <button class="btn btn-small btn-secondary" onclick="window.open('${this.escapeHtml(article.url || '')}', '_blank')">🔗 View</button>
+                                <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${realIndex})">🗑️ Remove</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
             }
-        }
 
-        async function refresh() {
-            await loadData();
-        }
-
-        async function clear() {
-            if (!confirm('Clear today\'s edition?')) return;
-            
-            try {
-                await fetch(`${API_BASE}/api/admin?action=clear-today`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${ADMIN_KEY}`
+            updateFilterButtons(activeFilter) {
+                const published = this.articles.filter(a => a.status === 'published').length;
+                const drafts = this.articles.filter(a => a.status === 'draft').length;
+                const queue = this.articles.filter(a => a.status === 'queue').length;
+                const rejected = this.articles.filter(a => a.status === 'rejected').length;
+                
+                // Update button text with counts
+                const buttons = {
+                    'all': document.getElementById('filter-all'),
+                    'published': document.getElementById('filter-published'),
+                    'drafts': document.getElementById('filter-drafts'),
+                    'queue': document.getElementById('filter-queue'),
+                    'rejected': document.getElementById('filter-rejected')
+                };
+                
+                if (buttons.all) buttons.all.textContent = `All Articles (${this.articles.length})`;
+                if (buttons.published) buttons.published.textContent = `Published (${published})`;
+                if (buttons.drafts) buttons.drafts.textContent = `Drafts (${drafts})`;
+                if (buttons.queue) buttons.queue.textContent = `Queue (${queue})`;
+                if (buttons.rejected) buttons.rejected.textContent = `Rejected (${rejected})`;
+                
+                // Update button states
+                Object.keys(buttons).forEach(key => {
+                    const btn = buttons[key];
+                    if (btn) {
+                        if (key === activeFilter) {
+                            btn.classList.remove('btn-secondary');
+                        } else {
+                            btn.classList.add('btn-secondary');
+                        }
                     }
                 });
-                await loadData();
-            } catch (error) {
-                console.error('Clear failed:', error);
             }
-        }
 
-        async function regenerateOne(index) {
-            const article = articles[index];
-            try {
-                const response = await fetch(`${API_BASE}/api/personalize`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ article })
-                });
+            formatAnalysis(text) {
+                if (!text) return '<em>No analysis available</em>';
+                return text.split('\n\n').map(p => `<p>${this.escapeHtml(p)}</p>`).join('');
+            }
+
+            updateStats() {
+                const published = this.articles.filter(a => a.status === 'published').length;
+                const queue = this.articles.filter(a => a.status === 'queue').length;
+                const drafts = this.articles.filter(a => a.status === 'draft').length;
+                const analyzed = this.articles.filter(a => a.preGeneratedAnalysis && !a.preGeneratedAnalysis.includes('Analysis pending')).length;
+                const successRate = this.articles.length > 0 ? Math.round((analyzed / this.articles.length) * 100) : 0;
                 
-                const data = await response.json();
-                if (data.impact) {
-                    articles[index].preGeneratedAnalysis = data.impact;
-                    renderArticles();
-                    updateStats();
+                document.getElementById('stat-total').textContent = this.articles.length;
+                document.getElementById('stat-analyzed').textContent = analyzed;
+                document.getElementById('stat-success').textContent = `${successRate}%`;
+                document.getElementById('stat-status').textContent = `${published}P/${queue}Q/${drafts}D`;
+            }
+
+            editAnalysis(index) {
+                this.currentEditIndex = index;
+                const article = this.articles[index];
+                const modal = document.getElementById('edit-modal');
+                const editor = document.getElementById('analysis-editor');
+                
+                if (editor && modal) {
+                    editor.value = article.preGeneratedAnalysis || '';
+                    modal.style.display = 'block';
                 }
-            } catch (error) {
-                console.error('Regenerate failed:', error);
             }
-        }
 
-        function removeArticle(index) {
-            if (confirm('Remove this article?')) {
-                articles.splice(index, 1);
-                renderArticles();
-                updateStats();
+            saveAnalysis() {
+                if (this.currentEditIndex === null) return;
+                
+                const editor = document.getElementById('analysis-editor');
+                const newAnalysis = editor.value.trim();
+                
+                if (newAnalysis) {
+                    this.articles[this.currentEditIndex].preGeneratedAnalysis = newAnalysis;
+                    this.renderArticles(this.currentFilter);
+                    this.updateStats();
+                    this.addLog('success', `Updated analysis for article ${this.currentEditIndex + 1}`);
+                }
+                
+                this.closeModal();
             }
-        }
 
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+            async regenerateOne(index) {
+                const article = this.articles[index];
+                this.addLog('info', `Regenerating analysis for: ${article.title.substring(0, 50)}...`);
+                
+                try {
+                    const response = await fetch(`${this.API_BASE}/api/personalize`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ article })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.impact) {
+                        this.articles[index].preGeneratedAnalysis = data.impact;
+                        this.renderArticles(this.currentFilter);
+                        this.updateStats();
+                        this.addLog('success', 'Analysis regenerated successfully');
+                    } else {
+                        this.addLog('error', 'No analysis returned from API');
+                    }
+                } catch (error) {
+                    this.addLog('error', 'Failed to regenerate analysis: ' + error.message);
+                }
+            }
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', loadData);
-    </script>
-</body>
-</html>
+            promoteArticle(index) {
+                const article = this.articles[index];
+                const currentStatus = article.status || 'queue';
+                
+                if (currentStatus === 'queue' || currentStatus === 'rejected') {
+                    article.status = 'draft';
+                    this.addLog('info', `Promoted article to draft: ${article.title.substring(0, 30)}...`);
+                } else if (currentStatus === 'draft') {
+                    article.status = 'published';
+                    this.addLog('success', `Promoted article to published: ${article.title.substring(0, 30)}...`);
+                }
+                
+                this.renderArticles(this.currentFilter);
+                this.updateStats();
+            }
+
+            demoteArticle(index) {
+                const article = this.articles[index];
+                const currentStatus = article.status || 'published';
+                
+                if (currentStatus === 'published') {
+                    article.status = 'draft';
+                    this.addLog('warning', `Demoted article to draft: ${article.title.substring(0, 30)}...`);
+                } else if (currentStatus === 'draft') {
+                    article.status = 'queue';
+                    this.addLog('warning', `Demoted article to queue: ${article.title.substring(0, 30)}...`);
+                }
+                
+                this.renderArticles(this.currentFilter);
+                this.updateStats();
+            }
+
+            removeArticle(index) {
+                if (confirm('Remove this article?')) {
+                    const title = this.articles[index].title.substring(0, 30);
+                    this.articles.splice(index, 1);
+                    this.renderArticles(this.currentFilter);
+                    this.updateStats();
+                    this.addLog('warning', `Removed article: ${title}...`);
+                }
