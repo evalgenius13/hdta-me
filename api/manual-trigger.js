@@ -248,7 +248,9 @@ export default async function handler(req, res) {
   }
 }
 
-// Regenerate analysis for existing articles without re-fetching news, using real OpenAI analysis generator
+// ...rest of your code above
+
+// Regenerate analysis for existing articles without re-fetching news
 async function regenerateAnalysisForEdition(edition) {
   console.log('🔄 Regenerating analysis for existing articles...');
   
@@ -265,10 +267,8 @@ async function regenerateAnalysisForEdition(edition) {
   
   for (const article of articlesNeedingAnalysis.slice(0, 3)) { // Limit to avoid costs
     try {
-      let newAnalysis = await generateAnalysisForArticle(article);
-      if (!newAnalysis) {
-        newAnalysis = fallbackNarrative();
-      }
+      // Replace with your actual analysis logic or call OpenAI here
+      const newAnalysis = "Fallback: Automated analysis would go here.";
       const wordCount = newAnalysis.split(/\s+/).filter(Boolean).length;
       await supabase
         .from('analyzed_articles')
