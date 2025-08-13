@@ -66,29 +66,26 @@ class AutomatedPublisher {
   }
 
   async selectBest(list) {
-  // TEMPORARILY DISABLE FILTERS FOR TESTING
-  console.log('🧪 TESTING: Disabling all filters to see raw articles');
-  
-  /*
-  const filtered = list.filter(a =>
-    a?.title &&
-    a?.description &&
-    !/\b(golf|nba|nfl|ncaa|celebrity|entertainment|music|movie|earnings|stocks|sports|rapper|kardashian|tesla stock|bitcoin)\b/i.test(a.title) &&
-    /\b(bill|law|court|legislature|governor|congress|senate|regulation|rule|policy|executive|signed|passed|approves|ruling|decision|agency|federal)\b/i.test(
-      (a.title || '') + ' ' + (a.description || '')
-    )
-  );
-  */
-  
-  // Just use the pre-filtered articles from fetchPolicyNews
-  const filtered = list;
-  
-  const deduped = this.dedupe(filtered);
-  const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
-  return scored
-    .sort((x, y) => y.score - x.score)
-    .slice(0, this.maxArticles);
-}
+    console.log('🔍 Starting with', list.length, 'politics articles from GNews');
+    
+    // No complex filtering needed - politics category already gives us what we want
+    // Just remove duplicates and score them
+    const deduped = this.dedupe(list);
+    console.log('🔍 After deduplication:', deduped.length, 'articles');
+    
+    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
+    const final = scored
+      .sort((x, y) => y.score - x.score)
+      .slice(0, this.maxArticles);
+      
+    console.log('🔍 Final selection:', final.length, 'articles');
+    final.forEach((a, i) => {
+      console.log(`  ${i + 1}. Score ${a.score}: ${a.title.substring(0, 60)}...`);
+    });
+    
+    return final;
+  }
+
   async createEdition(date, articles, status) {
     const { data: next } = await supabase.rpc('get_next_issue_number');
     const issue = next || 1;
@@ -142,7 +139,7 @@ class AutomatedPublisher {
     return 'The real impact depends on implementation details still being negotiated behind closed doors. Early movers with good legal counsel typically fare better, while those who wait face higher compliance costs and fewer options.\n\nSimilar policies have shifted market dynamics within 12-18 months. Watch for the regulatory guidance in Q3 - that\'s where the actual rules get written, often favoring established players over newcomers.\n\nHidden costs like processing delays, new paperwork requirements, and changed eligibility criteria usually surface 6 months after implementation.';
   }
 
-  // FIXED: Use GNews top headlines instead of search
+  // FIXED: Use GNews politics category - much simpler and more reliable
   async fetchPolicyNews() {
     try {
       const API_KEY = process.env.GNEWS_API_KEY;
@@ -151,81 +148,68 @@ class AutomatedPublisher {
         return [];
       }
 
-      console.log('📡 Fetching top headlines from GNews...');
+      console.log('📡 Fetching politics headlines from GNews...');
       
-      // Use top headlines endpoint - much more reliable than search
-      const url = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=50&token=${API_KEY}`;
+      // Use politics category - gets exactly what we want without complex filtering
+      const url = `https://gnews.io/api/v4/top-headlines?category=politics&lang=en&country=us&max=50&token=${API_KEY}`;
 
       const response = await fetch(url);
       
-      console.log('GNews Headlines API response status:', response.status);
+      console.log('GNews Politics API response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ GNews Headlines API error:', response.status, errorText);
+        console.error('❌ GNews Politics API error:', response.status, errorText);
         return [];
       }
 
       const data = await response.json();
       
-      console.log('GNews Headlines API response keys:', Object.keys(data || {}));
-      console.log('Total headlines available:', data.totalArticles || 0);
+      console.log('GNews Politics API response keys:', Object.keys(data || {}));
+      console.log('Total politics articles available:', data.totalArticles || 0);
 
       const articles = Array.isArray(data.articles) ? data.articles : [];
-      console.log(`📰 Raw headlines fetched: ${articles.length}`);
+      console.log(`📰 Raw politics articles fetched: ${articles.length}`);
 
       if (articles.length === 0) {
-        console.warn('⚠️ No headlines returned from GNews');
+        console.warn('⚠️ No politics articles returned from GNews');
         return [];
       }
 
-      // Filter for policy/government related content from headlines
-      const policyArticles = articles.filter(article => {
-        if (!article?.title || !article?.description) return false;
+      // Simple filtering - just remove obviously non-policy content
+      const cleanArticles = articles.filter(article => {
+        if (!article?.title || !article?.description) {
+          console.log(`❌ Skipping article with missing title/description`);
+          return false;
+        }
         
         const content = (article.title + ' ' + article.description).toLowerCase();
         
-        // Look for policy/government keywords
-        const policyKeywords = [
-          'congress', 'senate', 'house', 'bill', 'law', 'legislation',
-          'supreme court', 'court', 'federal', 'government', 'policy',
-          'regulation', 'executive', 'president', 'governor', 'mayor',
-          'ruling', 'decision', 'vote', 'election', 'political',
-          'epa', 'fda', 'irs', 'justice department', 'homeland security',
-          'treasury', 'defense department', 'state department'
-        ];
-        
-        const hasPolicy = policyKeywords.some(keyword => content.includes(keyword));
-        
-        // Exclude sports, entertainment, celebrity content
-        const excludeKeywords = [
-          'nfl', 'nba', 'mlb', 'nhl', 'sports', 'game', 'celebrity',
-          'entertainment', 'music', 'movie', 'hollywood', 'kardashian',
-          'taylor swift', 'concert', 'album', 'show'
-        ];
-        
+        // Only exclude obvious non-policy content (sports that sometimes appear in politics)
+        const excludeKeywords = ['nfl', 'nba', 'mlb', 'nhl', 'sports scores', 'game highlights'];
         const hasExcluded = excludeKeywords.some(keyword => content.includes(keyword));
         
-        if (hasPolicy && !hasExcluded) {
-          console.log(`✅ Policy article found: ${article.title.substring(0, 60)}...`);
-          return true;
+        if (hasExcluded) {
+          console.log(`❌ Excluding sports content: ${article.title.substring(0, 50)}...`);
+          return false;
         }
         
-        return false;
+        console.log(`✅ Politics article: ${article.title.substring(0, 60)}...`);
+        return true;
       });
 
-      console.log(`✅ Filtered to ${policyArticles.length} policy-related articles`);
+      console.log(`✅ After basic filtering: ${cleanArticles.length} politics articles`);
       
       // Log sample articles for debugging
-      policyArticles.slice(0, 5).forEach((a, i) => {
+      cleanArticles.slice(0, 10).forEach((a, i) => {
         const recency = a.publishedAt ? this.getTimeAgo(a.publishedAt) : 'no date';
-        console.log(`Policy article ${i + 1} (${recency}): ${a.title.substring(0, 80)}...`);
+        console.log(`Article ${i + 1} (${recency}): ${a.title.substring(0, 80)}...`);
       });
 
-      return policyArticles;
+      return cleanArticles;
       
     } catch (error) {
-      console.error('❌ Failed to fetch headlines:', error);
+      console.error('❌ Failed to fetch politics headlines:', error);
       return [];
     }
   }
