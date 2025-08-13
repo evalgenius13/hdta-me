@@ -54,7 +54,7 @@ class AutomatedPublisher {
 
       out.push({
         ...a,
-        order: shouldAnalyze ? i + 1 : null,
+        order: i + 1, // FIX: Always assign an order (1-based), not just for analyzed articles
         analysis,
         analysis_generated_at: analysis ? new Date().toISOString() : null,
         analysis_word_count: analysis ? analysis.split(/\s+/).filter(Boolean).length : 0,
