@@ -134,7 +134,7 @@ class AutomatedPublisher {
         url: a.url,
         image_url: a.urlToImage || a.image,
         source_name: a.source?.name,
-        published_at: a.publishedAt,
+        published_at: a.publishedAt || new Date().toISOString(),
         analysis_text: a.analysis,
         analysis_generated_at: a.analysis_generated_at,
         analysis_word_count: a.analysis_word_count,
