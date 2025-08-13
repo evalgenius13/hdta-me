@@ -252,33 +252,45 @@ class AutomatedPublisher {
 
   score(article) {
     let s = 0;
-    const t = (article.title + ' ' + article.description).toLowerCase();
+    const t = (article.title + ' ' + (article.description || '')).toLowerCase();
     
-    // High value keywords
-    ['executive order', 'supreme court', 'federal', 'regulation', 'congress passes', 'senate votes', 'bill signed', 'new rule'].forEach(k => {
-      if (t.includes(k)) s += 10;
+    // High value keywords - government action
+    const highValue = ['executive order', 'supreme court', 'congress passes', 'senate votes', 'bill signed', 'federal ruling', 'white house', 'biden', 'trump'];
+    highValue.forEach(k => {
+      if (t.includes(k)) s += 15;
     });
     
-    // Medium value keywords
-    ['policy', 'law', 'court', 'judge', 'ruling', 'decision', 'congress', 'senate', 'house', 'governor', 'legislature'].forEach(k => {
-      if (t.includes(k)) s += 5;
+    // Medium value keywords - policy/government
+    const mediumValue = ['congress', 'senate', 'house', 'federal', 'government', 'policy', 'legislation', 'court', 'judge', 'ruling', 'election', 'political'];
+    mediumValue.forEach(k => {
+      if (t.includes(k)) s += 8;
     });
     
-    // Negative keywords
-    ['golf', 'sports', 'celebrity', 'entertainment', 'music', 'movie'].forEach(k => {
-      if (t.includes(k)) s -= 15;
+    // Low value keywords - general politics
+    const lowValue = ['mayor', 'governor', 'local', 'state', 'political', 'campaign', 'vote'];
+    lowValue.forEach(k => {
+      if (t.includes(k)) s += 3;
+    });
+    
+    // Negative keywords - reduce score
+    const negative = ['celebrity', 'entertainment', 'sports', 'death', 'dies', 'shooting', 'crime'];
+    negative.forEach(k => {
+      if (t.includes(k)) s -= 5;
     });
     
     // Recency bonus
     if (article.publishedAt) {
       const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
-      if (hrs < 24) s += 5;
-      if (hrs < 12) s += 3;
+      if (hrs < 6) s += 8;   // Very recent
+      else if (hrs < 12) s += 5;  // Recent  
+      else if (hrs < 24) s += 3;  // Today
     }
     
     // Quality source bonus
-    const qualitySources = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'los angeles times'];
-    if (qualitySources.some(src => article.source?.name?.toLowerCase().includes(src))) s += 3;
+    const qualitySources = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'new york times', 'politico', 'cnn', 'fox news'];
+    if (qualitySources.some(src => (article.source?.name || '').toLowerCase().includes(src))) {
+      s += 5;
+    }
     
     return Math.max(0, s);
   }
@@ -443,11 +455,26 @@ Date: "${pubDate}"
 
       if (error) {
         if (error.code === 'PGRST116') {
-          return null;
+          return null;  // No edition found - normal case
         }
         console.error('❌ Error finding edition:', error);
         throw error;
       }
+      
+      // If edition exists but is empty (no articles), treat as if no edition exists
+      const { data: articles } = await supabase
+        .from('analyzed_articles')
+        .select('id')
+        .eq('edition_id', data.id)
+        .limit(1);
+        
+      if (!articles || articles.length === 0) {
+        console.log('🗑️ Found empty edition, will recreate with articles');
+        // Delete the empty edition
+        await supabase.from('daily_editions').delete().eq('id', data.id);
+        return null;
+      }
+      
       return data;
     } catch (error) {
       console.error('❌ findEdition failed:', error.message);
