@@ -1,4 +1,4 @@
-// api/admin.js - FIXED with proper field mapping
+// api/admin.js - ENHANCED with status update functionality
 import { createClient } from '@supabase/supabase-js';
 import { runAutomatedWorkflow } from './cron/automated-daily-workflow.js';
 
@@ -31,6 +31,8 @@ export default async function handler(req, res) {
         return await getArticles(req, res);
       case 'update-analysis':
         return await updateAnalysis(req, res);
+      case 'update-status':
+        return await updateStatus(req, res);
       case 'remove-article':
         return await removeArticle(req, res);
       case 'regenerate':
@@ -73,25 +75,25 @@ async function getArticles(req, res) {
     .from('analyzed_articles')
     .select('*')
     .eq('edition_id', edition.id)
-    .order('article_order', { ascending: true }); // ✅ Order by correct field
+    .order('article_order', { ascending: true });
 
-  // ✅ FIXED: Proper field mapping from database to frontend
+  // Format for frontend with proper field mapping
   const formatted = articles?.map(a => ({
     id: a.id,
     title: a.title,
     description: a.description,
     url: a.url,
-    urlToImage: a.image_url,  // ✅ Map image_url -> urlToImage
-    source: { name: a.source_name },  // ✅ Map source_name -> source.name
-    publishedAt: a.published_at,  // ✅ Map published_at -> publishedAt
-    preGeneratedAnalysis: a.analysis_text,  // ✅ Map analysis_text -> preGeneratedAnalysis
+    urlToImage: a.image_url,
+    source: { name: a.source_name },
+    publishedAt: a.published_at,
+    preGeneratedAnalysis: a.analysis_text,
     analysisWordCount: a.analysis_word_count,
-    order: a.article_order,  // ✅ Map article_order -> order
-    status: a.article_status || 'queue',  // ✅ Map article_status -> status
-    score: a.article_score || 0  // ✅ Map article_score -> score
+    order: a.article_order,
+    status: a.article_status || 'queue',
+    score: a.article_score || 0
   })) || [];
 
-  // ✅ FIXED: Categorize by actual status field
+  // Categorize by status
   const published = formatted.filter(a => a.status === 'published');
   const drafts = formatted.filter(a => a.status === 'draft');
   const queue = formatted.filter(a => a.status === 'queue');
@@ -132,23 +134,69 @@ async function updateAnalysis(req, res) {
 
   const wordCount = newAnalysis.split(/\s+/).filter(Boolean).length;
   
-  // ✅ FIXED: Update correct database field
-  const { error } = await supabase
-    .from('analyzed_articles')
-    .update({
-      analysis_text: newAnalysis,  // ✅ Correct field name
-      analysis_word_count: wordCount,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', articleId);
+  try {
+    const { error } = await supabase
+      .from('analyzed_articles')
+      .update({
+        analysis_text: newAnalysis,
+        analysis_word_count: wordCount,
+        analysis_generated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', articleId);
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return res.json({ 
-    success: true, 
-    message: 'Analysis updated successfully',
-    wordCount 
-  });
+    console.log(`✅ Updated analysis for article ${articleId}, word count: ${wordCount}`);
+
+    return res.json({ 
+      success: true, 
+      message: 'Analysis updated successfully',
+      wordCount 
+    });
+  } catch (error) {
+    console.error('❌ Failed to update analysis:', error);
+    throw error;
+  }
+}
+
+// NEW: Update article status (promote/demote)
+async function updateStatus(req, res) {
+  const { articleId, status } = req.body;
+  
+  if (!articleId || !status) {
+    return res.status(400).json({ error: 'Missing articleId or status' });
+  }
+
+  // Validate status
+  const validStatuses = ['published', 'draft', 'queue', 'rejected'];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be: ' + validStatuses.join(', ') });
+  }
+
+  try {
+    const { error } = await supabase
+      .from('analyzed_articles')
+      .update({
+        article_status: status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', articleId);
+
+    if (error) throw error;
+
+    console.log(`✅ Updated article ${articleId} status to: ${status}`);
+
+    return res.json({ 
+      success: true, 
+      message: `Article status updated to ${status}`,
+      articleId,
+      status
+    });
+  } catch (error) {
+    console.error('❌ Failed to update status:', error);
+    throw error;
+  }
 }
 
 async function removeArticle(req, res) {
@@ -158,17 +206,24 @@ async function removeArticle(req, res) {
     return res.status(400).json({ error: 'Missing articleId' });
   }
 
-  const { error } = await supabase
-    .from('analyzed_articles')
-    .delete()
-    .eq('id', articleId);
+  try {
+    const { error } = await supabase
+      .from('analyzed_articles')
+      .delete()
+      .eq('id', articleId);
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return res.json({ 
-    success: true, 
-    message: 'Article removed successfully' 
-  });
+    console.log(`✅ Removed article ${articleId}`);
+
+    return res.json({ 
+      success: true, 
+      message: 'Article removed successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Failed to remove article:', error);
+    throw error;
+  }
 }
 
 async function regenerateToday(req, res) {
@@ -177,68 +232,79 @@ async function regenerateToday(req, res) {
   
   console.log('🔄 Admin regenerate started');
 
-  // Delete existing edition to force recreation
-  const { data: existing } = await supabase
-    .from('daily_editions')
-    .select('id')
-    .eq('edition_date', today)
-    .single();
+  try {
+    // Delete existing edition to force recreation
+    const { data: existing } = await supabase
+      .from('daily_editions')
+      .select('id')
+      .eq('edition_date', today)
+      .single();
 
-  if (existing) {
-    await supabase.from('analyzed_articles').delete().eq('edition_id', existing.id);
-    await supabase.from('daily_editions').delete().eq('id', existing.id);
-    console.log('🗑️ Deleted existing edition');
+    if (existing) {
+      await supabase.from('analyzed_articles').delete().eq('edition_id', existing.id);
+      await supabase.from('daily_editions').delete().eq('id', existing.id);
+      console.log('🗑️ Deleted existing edition');
+    }
+
+    // Run workflow
+    const edition = await runAutomatedWorkflow();
+    const duration = Math.floor((Date.now() - startTime) / 1000);
+
+    // Get article count
+    const { data: articles } = await supabase
+      .from('analyzed_articles')
+      .select('id, analysis_text')
+      .eq('edition_id', edition.id);
+
+    const analyzedCount = articles?.filter(a => a.analysis_text && 
+      !a.analysis_text.includes('depends on implementation')).length || 0;
+
+    return res.json({
+      success: true,
+      edition: {
+        id: edition.id,
+        issue_number: edition.issue_number,
+        date: edition.edition_date,
+        status: edition.status
+      },
+      processing: {
+        duration_seconds: duration,
+        articles_processed: articles?.length || 0,
+        articles_analyzed: analyzedCount,
+        success_rate: articles?.length > 0 ? Math.round((analyzedCount / articles.length) * 100) : 0
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Regenerate failed:', error);
+    throw error;
   }
-
-  // Run workflow
-  const edition = await runAutomatedWorkflow();
-  const duration = Math.floor((Date.now() - startTime) / 1000);
-
-  // Get article count
-  const { data: articles } = await supabase
-    .from('analyzed_articles')
-    .select('id, analysis_text')
-    .eq('edition_id', edition.id);
-
-  const analyzedCount = articles?.filter(a => a.analysis_text && 
-    !a.analysis_text.includes('depends on implementation')).length || 0;
-
-  return res.json({
-    success: true,
-    edition: {
-      id: edition.id,
-      issue_number: edition.issue_number,
-      date: edition.edition_date,
-      status: edition.status
-    },
-    processing: {
-      duration_seconds: duration,
-      articles_processed: articles?.length || 0,
-      articles_analyzed: analyzedCount,
-      success_rate: articles?.length > 0 ? Math.round((analyzedCount / articles.length) * 100) : 0
-    },
-    timestamp: new Date().toISOString()
-  });
 }
 
 async function clearToday(req, res) {
   const today = new Date().toISOString().split('T')[0];
   
-  const { data: edition } = await supabase
-    .from('daily_editions')
-    .select('id')
-    .eq('edition_date', today)
-    .single();
+  try {
+    const { data: edition } = await supabase
+      .from('daily_editions')
+      .select('id')
+      .eq('edition_date', today)
+      .single();
 
-  if (edition) {
-    await supabase.from('analyzed_articles').delete().eq('edition_id', edition.id);
-    await supabase.from('daily_editions').delete().eq('id', edition.id);
+    if (edition) {
+      await supabase.from('analyzed_articles').delete().eq('edition_id', edition.id);
+      await supabase.from('daily_editions').delete().eq('id', edition.id);
+      console.log(`✅ Cleared edition ${edition.id}`);
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Today\'s edition cleared successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Failed to clear edition:', error);
+    throw error;
   }
-
-  return res.json({ 
-    success: true, 
-    message: 'Today\'s edition cleared successfully' 
-  });
 }
 
 async function getStats(req, res) {
@@ -246,74 +312,79 @@ async function getStats(req, res) {
   const lastWeek = new Date();
   lastWeek.setDate(lastWeek.getDate() - 7);
   
-  // Get recent editions
-  const { data: editions } = await supabase
-    .from('daily_editions')
-    .select(`
-      *,
-      analyzed_articles (
-        id,
-        analysis_text,
-        analysis_word_count,
-        source_name
-      )
-    `)
-    .gte('edition_date', lastWeek.toISOString().split('T')[0])
-    .order('edition_date', { ascending: false });
+  try {
+    // Get recent editions
+    const { data: editions } = await supabase
+      .from('daily_editions')
+      .select(`
+        *,
+        analyzed_articles (
+          id,
+          analysis_text,
+          analysis_word_count,
+          source_name
+        )
+      `)
+      .gte('edition_date', lastWeek.toISOString().split('T')[0])
+      .order('edition_date', { ascending: false });
 
-  const stats = {
-    total_editions: editions?.length || 0,
-    total_articles: 0,
-    avg_articles_per_edition: 0,
-    avg_word_count: 0,
-    top_sources: {},
-    success_rate: 0,
-    recent_activity: []
-  };
+    const stats = {
+      total_editions: editions?.length || 0,
+      total_articles: 0,
+      avg_articles_per_edition: 0,
+      avg_word_count: 0,
+      top_sources: {},
+      success_rate: 0,
+      recent_activity: []
+    };
 
-  if (editions && editions.length > 0) {
-    const allArticles = editions.flatMap(e => e.analyzed_articles || []);
-    stats.total_articles = allArticles.length;
-    stats.avg_articles_per_edition = Math.round(stats.total_articles / editions.length);
-    
-    const analyzedArticles = allArticles.filter(a => 
-      a.analysis_text && !a.analysis_text.includes('depends on implementation'));
-    
-    if (analyzedArticles.length > 0) {
-      stats.avg_word_count = Math.round(
-        analyzedArticles.reduce((sum, a) => sum + (a.analysis_word_count || 0), 0) / analyzedArticles.length
-      );
-      stats.success_rate = Math.round((analyzedArticles.length / allArticles.length) * 100);
+    if (editions && editions.length > 0) {
+      const allArticles = editions.flatMap(e => e.analyzed_articles || []);
+      stats.total_articles = allArticles.length;
+      stats.avg_articles_per_edition = Math.round(stats.total_articles / editions.length);
+      
+      const analyzedArticles = allArticles.filter(a => 
+        a.analysis_text && !a.analysis_text.includes('depends on implementation'));
+      
+      if (analyzedArticles.length > 0) {
+        stats.avg_word_count = Math.round(
+          analyzedArticles.reduce((sum, a) => sum + (a.analysis_word_count || 0), 0) / analyzedArticles.length
+        );
+        stats.success_rate = Math.round((analyzedArticles.length / allArticles.length) * 100);
+      }
+
+      // Top sources
+      allArticles.forEach(a => {
+        if (a.source_name) {
+          stats.top_sources[a.source_name] = (stats.top_sources[a.source_name] || 0) + 1;
+        }
+      });
+
+      // Recent activity
+      stats.recent_activity = editions.slice(0, 5).map(e => ({
+        date: e.edition_date,
+        issue_number: e.issue_number,
+        status: e.status,
+        article_count: e.analyzed_articles?.length || 0,
+        analyzed_count: e.analyzed_articles?.filter(a => 
+          a.analysis_text && !a.analysis_text.includes('depends on implementation')).length || 0
+      }));
     }
 
-    // Top sources
-    allArticles.forEach(a => {
-      if (a.source_name) {
-        stats.top_sources[a.source_name] = (stats.top_sources[a.source_name] || 0) + 1;
-      }
-    });
-
-    // Recent activity
-    stats.recent_activity = editions.slice(0, 5).map(e => ({
-      date: e.edition_date,
-      issue_number: e.issue_number,
-      status: e.status,
-      article_count: e.analyzed_articles?.length || 0,
-      analyzed_count: e.analyzed_articles?.filter(a => 
-        a.analysis_text && !a.analysis_text.includes('depends on implementation')).length || 0
-    }));
+    return res.json(stats);
+  } catch (error) {
+    console.error('❌ Failed to get stats:', error);
+    throw error;
   }
-
-  return res.json(stats);
 }
 
 async function getLogs(req, res) {
-  // In a real implementation, you'd read from log files or a logging service
+  // Simple mock logs - in production, you'd read from actual log files
   const logs = [
     { timestamp: new Date().toISOString(), level: 'info', message: 'Admin panel accessed' },
     { timestamp: new Date(Date.now() - 300000).toISOString(), level: 'success', message: 'Daily workflow completed' },
-    { timestamp: new Date(Date.now() - 600000).toISOString(), level: 'warning', message: 'Low article count detected' },
-    { timestamp: new Date(Date.now() - 900000).toISOString(), level: 'info', message: 'Fetching articles from GNews' }
+    { timestamp: new Date(Date.now() - 600000).toISOString(), level: 'warning', message: 'Analysis regeneration requested' },
+    { timestamp: new Date(Date.now() - 900000).toISOString(), level: 'info', message: 'Articles fetched from GNews' }
   ];
 
   return res.json({ logs });
