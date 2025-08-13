@@ -545,13 +545,21 @@
             }
 
             updateStats() {
+                // ✅ FIXED: Use actual status field for categorization
+                const published = this.articles.filter(a => a.status === 'published').length;
+                const queue = this.articles.filter(a => a.status === 'queue').length;
+                const drafts = this.articles.filter(a => a.status === 'draft').length;
                 const analyzed = this.articles.filter(a => a.preGeneratedAnalysis).length;
                 const successRate = this.articles.length > 0 ? Math.round((analyzed / this.articles.length) * 100) : 0;
                 
                 document.getElementById('stat-total').textContent = this.articles.length;
                 document.getElementById('stat-analyzed').textContent = analyzed;
                 document.getElementById('stat-success').textContent = `${successRate}%`;
-                document.getElementById('stat-status').textContent = this.articles.length > 0 ? 'Active' : 'Empty';
+                
+                // Show breakdown in status
+                const statusText = this.articles.length > 0 ? 
+                    `${published}P/${queue}Q/${drafts}D` : 'Empty';
+                document.getElementById('stat-status').textContent = statusText;
             }
 
             editAnalysis(index) {
@@ -614,6 +622,40 @@
                     this.updateStats();
                     this.addLog('warning', `Removed article: ${title}...`);
                 }
+            }
+
+            promoteArticle(index) {
+                const article = this.articles[index];
+                const currentStatus = article.status || 'queue';
+                
+                // Promote through the workflow: queue -> draft -> published
+                if (currentStatus === 'queue') {
+                    article.status = 'draft';
+                    this.addLog('info', `Promoted article to draft: ${article.title.substring(0, 30)}...`);
+                } else if (currentStatus === 'draft' || currentStatus === 'rejected') {
+                    article.status = 'published';
+                    this.addLog('success', `Promoted article to published: ${article.title.substring(0, 30)}...`);
+                }
+                
+                this.renderArticles();
+                this.updateStats();
+            }
+
+            demoteArticle(index) {
+                const article = this.articles[index];
+                const currentStatus = article.status || 'published';
+                
+                // Demote through the workflow: published -> draft -> queue
+                if (currentStatus === 'published') {
+                    article.status = 'draft';
+                    this.addLog('warning', `Demoted article to draft: ${article.title.substring(0, 30)}...`);
+                } else if (currentStatus === 'draft') {
+                    article.status = 'queue';
+                    this.addLog('warning', `Demoted article to queue: ${article.title.substring(0, 30)}...`);
+                }
+                
+                this.renderArticles();
+                this.updateStats();
             }
 
             closeModal() {
