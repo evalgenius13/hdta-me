@@ -344,6 +344,7 @@
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('articles')">📰 Articles</button>
+            <button class="tab" onclick="showTab('prompts')">🎯 Prompts</button>
             <button class="tab" onclick="showTab('logs')">📋 Logs</button>
         </div>
 
