@@ -1,4 +1,4 @@
-// admin-init.js - Complete working version with full functionality
+// admin-init.js - Complete working version with full functionality - FIXED
 
 // Global UI functions
 function showTab(tabName) {
@@ -71,7 +71,7 @@ async function triggerUpdate(event) {
     try {
         // First try the admin regenerate endpoint
         console.log('📡 Trying admin regenerate endpoint...');
-        const response = await fetch(`${window.adminPanel?.API_BASE || 'https://hdta-me.vercel.app'}/api/admin?action=regenerate`, {
+        const response = await fetch(`/api/admin?action=regenerate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -112,7 +112,7 @@ async function triggerUpdate(event) {
         // Fallback to manual trigger endpoint
         try {
             console.log('🔄 Trying manual trigger endpoint...');
-            const fallbackResponse = await fetch(`${window.adminPanel?.API_BASE || 'https://hdta-me.vercel.app'}/api/manual-trigger`, {
+            const fallbackResponse = await fetch(`/api/manual-trigger`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ trigger_key: 'force-update-2025' })
@@ -159,6 +159,120 @@ async function triggerUpdate(event) {
     }
 }
 
+async function regenerateAnalysis() {
+    console.log('🔄 Regenerating analysis...');
+    
+    if (window.adminPanel) {
+        adminPanel.addLog('info', 'Regenerating analysis for existing articles...');
+    }
+    
+    try {
+        const response = await fetch(`/api/admin?action=regenerate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${window.adminPanel?.adminKey || 'hdta-admin-2025-temp'}`
+            },
+            body: JSON.stringify({})
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Regenerate response:', data);
+            
+            if (window.adminPanel) {
+                adminPanel.addLog('success', 'Analysis regeneration completed');
+                await adminPanel.loadData();
+                adminPanel.updateStats();
+            }
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error('❌ Failed to regenerate analysis:', error);
+        
+        if (window.adminPanel) {
+            adminPanel.addLog('error', 'Failed to regenerate analysis: ' + error.message);
+        }
+    }
+}
+
+async function forceRefetch() {
+    console.log('🚀 Force refetching news...');
+    
+    if (window.adminPanel) {
+        adminPanel.addLog('info', 'Force refetching news with fresh articles...');
+    }
+    
+    try {
+        const response = await fetch(`/api/manual-trigger`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                trigger_key: 'force-update-2025',
+                force_refetch: true 
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Force refetch response:', data);
+            
+            if (window.adminPanel) {
+                adminPanel.addLog('success', 'Fresh articles fetched and processed');
+                await adminPanel.loadData();
+                adminPanel.updateStats();
+            }
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error('❌ Failed to force refetch:', error);
+        
+        if (window.adminPanel) {
+            adminPanel.addLog('error', 'Failed to force refetch: ' + error.message);
+        }
+    }
+}
+
+async function testWithMock() {
+    console.log('🧪 Testing with mock data...');
+    
+    if (window.adminPanel) {
+        adminPanel.addLog('info', 'Creating mock test data...');
+    }
+    
+    try {
+        const response = await fetch(`/api/manual-trigger`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                trigger_key: 'force-update-2025',
+                mock_data: true 
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Mock test response:', data);
+            
+            if (window.adminPanel) {
+                adminPanel.addLog('success', 'Mock data created successfully');
+                await adminPanel.loadData();
+                adminPanel.updateStats();
+            }
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error('❌ Failed to create mock data:', error);
+        
+        if (window.adminPanel) {
+            adminPanel.addLog('error', 'Failed to create mock data: ' + error.message);
+        }
+    }
+}
+
 async function refreshData() {
     console.log('🔄 Refreshing data...');
     
@@ -184,7 +298,7 @@ async function clearToday() {
     }
     
     try {
-        const response = await fetch(`${window.adminPanel?.API_BASE || 'https://hdta-me.vercel.app'}/api/admin?action=clear-today`, {
+        const response = await fetch(`/api/admin?action=clear-today`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -249,8 +363,7 @@ function togglePreviewMode(mode) {
 function refreshPreview() {
     const frame = document.getElementById('preview-frame');
     if (frame) {
-        const baseUrl = window.adminPanel?.API_BASE || 'https://hdta-me.vercel.app';
-        frame.src = baseUrl + '/?preview=true&t=' + Date.now();
+        frame.src = '/?preview=true&t=' + Date.now();
         console.log('🔄 Preview refreshed');
         
         if (window.adminPanel) {
@@ -305,7 +418,7 @@ function testTrigger() {
 
 function testAdminAPI() {
     console.log('🧪 Testing admin API...');
-    return fetch(`${window.adminPanel?.API_BASE || 'https://hdta-me.vercel.app'}/api/admin?action=get-articles`, {
+    return fetch(`/api/admin?action=get-articles`, {
         headers: { 'Authorization': `Bearer ${window.adminPanel?.adminKey || 'hdta-admin-2025-temp'}` }
     }).then(r => r.json()).then(data => {
         console.log('📊 Admin API response:', data);
@@ -318,7 +431,7 @@ function testAdminAPI() {
 
 function testPublicAPI() {
     console.log('🧪 Testing public API...');
-    return fetch(`${window.adminPanel?.API_BASE || 'https://hdta-me.vercel.app'}/api/fetch-news`)
+    return fetch(`/api/fetch-news`)
         .then(r => r.json()).then(data => {
             console.log('📊 Public API response:', data);
             return data;
@@ -432,6 +545,9 @@ window.addEventListener('unhandledrejection', function(e) {
 
 // Export for debugging - make functions globally available
 window.triggerUpdate = triggerUpdate;
+window.regenerateAnalysis = regenerateAnalysis;
+window.forceRefetch = forceRefetch;
+window.testWithMock = testWithMock;
 window.refreshData = refreshData;
 window.clearToday = clearToday;
 window.testTrigger = testTrigger;
