@@ -218,7 +218,7 @@ Date: "${pubDate}"
 
     try {
       const requestBody = {
-        model: 'gpt-5',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
