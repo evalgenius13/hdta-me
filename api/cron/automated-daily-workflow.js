@@ -204,13 +204,13 @@ class AutomatedPublisher {
 
     // UPDATED PROMPT - No headings, flowing human impact analysis
     const prompt = `
-Write a human impact analysis of this policy news in 150-200 words. Write as flowing paragraphs without any headings or section breaks - just natural prose that covers these elements:
+Write a human impact analysis of this policy news in 150-200 words. Write as flowing paragraphs without any headings or section breaks - just natural prose.
 
-Start with what's really happening to the people most affected - their fears, stress, daily reality, and immediate concerns. Include concrete examples of how this disrupts actual daily life: school pickup routes, work commutes, local services, neighborhood businesses, or healthcare access. Then explain who else gets impacted - families, communities, workers, students - and how this ripples through their lives.
+Explain what this means for real people in their daily lives. Include concrete examples of how this affects actual routines: school pickup, work commutes, local services, neighborhood businesses, or healthcare access. Show who gets impacted - families, communities, workers, students - and how this ripples through their lives.
 
 Cover who benefits and who gets hurt, including the human and financial costs. Reveal what's not being reported - the political motivations, hidden agendas, or overlooked consequences that mainstream coverage misses.
 
-End by connecting this to readers - explain how this precedent, trend, or policy shift could affect them down the line, even if they're not directly impacted now.
+Help readers understand how this could affect them down the line, even if they're not directly impacted now.
 
 Write in plain English like you're explaining to a friend. Focus on real human experiences and consequences, not policy mechanics. No bullet points, no numbered lists, no section headings - just compelling, flowing analysis that reveals the human story behind the headlines.
 
