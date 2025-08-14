@@ -1,4 +1,3 @@
-// api/cron/automated-daily-workflow.js - UPDATED: Human Impact Focus with Fixed OpenAI API
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -6,7 +5,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 class AutomatedPublisher {
   constructor() {
     this.maxArticles = 26;      // 26 total articles
-    this.numAnalyzed = 6;       // Back to 6 articles getting AI analysis
+    this.numAnalyzed = 6;       // First 6 get AI analysis
     this.maxRetries = 3;        
     this.retryDelay = 1500;     
     this.startTime = Date.now();
@@ -45,7 +44,7 @@ class AutomatedPublisher {
     return edition;
   }
 
-  // NEW: Targeted search for human impact stories
+  // IMPROVED: Fetch with partial failure handling
   async fetchCombinedNewsWithFallback() {
     const API_KEY = process.env.GNEWS_API_KEY;
     if (!API_KEY) {
@@ -53,68 +52,71 @@ class AutomatedPublisher {
       return [];
     }
 
-    console.log('📡 Fetching targeted human impact stories...');
+    console.log('📡 Fetching combined news with fallback handling...');
     
-    // Calculate date range (last 5 days)
-    const today = new Date();
-    const fiveDaysAgo = new Date(today);
-    fiveDaysAgo.setDate(today.getDate() - 5);
-    
-    const fromDate = fiveDaysAgo.toISOString().split('T')[0];
-    const toDate = today.toISOString().split('T')[0];
-    
-    console.log(`🗓️ Searching from ${fromDate} to ${toDate}`);
+    let generalArticles = [];
+    let politicsArticles = [];
 
-    // Very simple search query that GNews will accept
-    const searchQuery = encodeURIComponent('policy United States');
-
-    let allArticles = [];
-
+    // TRY 1: Fetch general headlines
     try {
-      console.log('🎯 Searching for human impact stories...');
-      // Log the actual query length for debugging
-      console.log(`📏 Query length: ${searchQuery.length} characters`);
-      
-      const searchUrl = `https://gnews.io/api/v4/search?q=${searchQuery}&lang=en&country=us&max=26&from=${fromDate}&to=${toDate}&token=${API_KEY}`;
-      
-      const response = await fetch(searchUrl);
-      if (response.ok) {
-        const data = await response.json();
-        allArticles = data.articles || [];
-        console.log(`✅ Found ${allArticles.length} human impact stories (${fromDate} to ${toDate})`);
+      console.log('📰 Fetching 20 general headlines...');
+      const generalUrl = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=20&token=${API_KEY}`;
+      const generalResponse = await fetch(generalUrl);
+      if (generalResponse.ok) {
+        const generalData = await generalResponse.json();
+        generalArticles = generalData.articles || [];
+        console.log(`✅ General headlines: ${generalArticles.length} articles`);
       } else {
-        console.warn(`⚠️ Targeted search failed: ${response.status}`);
-        throw new Error(`Search API failed: ${response.status}`);
+        console.warn(`⚠️ General headlines failed: ${generalResponse.status}`);
       }
     } catch (error) {
-      console.warn('⚠️ Targeted search error:', error.message);
-      
-      // FALLBACK: Much simpler query with date range
+      console.warn('⚠️ General headlines error:', error.message);
+    }
+
+    // Small delay between API calls
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // TRY 2: Fetch politics headlines
+    try {
+      console.log('🏛️ Fetching 6 politics headlines...');
+      const politicsUrl = `https://gnews.io/api/v4/top-headlines?category=politics&lang=en&country=us&max=6&token=${API_KEY}`;
+      const politicsResponse = await fetch(politicsUrl);
+      if (politicsResponse.ok) {
+        const politicsData = await politicsResponse.json();
+        politicsArticles = politicsData.articles || [];
+        console.log(`✅ Politics headlines: ${politicsArticles.length} articles`);
+      } else {
+        console.warn(`⚠️ Politics headlines failed: ${politicsResponse.status}`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Politics headlines error:', error.message);
+    }
+
+    // FALLBACK: If both fail, try single top headlines call
+    if (generalArticles.length === 0 && politicsArticles.length === 0) {
+      console.log('🔄 Both calls failed, trying fallback...');
       try {
-        console.log('🔄 Trying fallback search...');
-        const fallbackQuery = encodeURIComponent('law United States');
-        const fallbackUrl = `https://gnews.io/api/v4/search?q=${fallbackQuery}&lang=en&country=us&max=26&from=${fromDate}&to=${toDate}&token=${API_KEY}`;
-        
+        const fallbackUrl = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=20&token=${API_KEY}`;
         const fallbackResponse = await fetch(fallbackUrl);
         if (fallbackResponse.ok) {
           const fallbackData = await fallbackResponse.json();
-          allArticles = fallbackData.articles || [];
-          console.log(`✅ Fallback search: ${allArticles.length} articles (${fromDate} to ${toDate})`);
+          generalArticles = fallbackData.articles || [];
+          console.log(`✅ Fallback headlines: ${generalArticles.length} articles`);
         }
-      } catch (fallbackError) {
-        console.error('❌ All searches failed:', fallbackError.message);
+      } catch (error) {
+        console.error('❌ All API calls failed:', error.message);
       }
     }
 
-    // Filter invalid articles
-    allArticles = allArticles.filter(article => {
-      if (!article?.title || !article?.description) {
-        return false;
-      }
-      return true;
-    });
+    // Combine what we have
+    let allArticles = [...generalArticles, ...politicsArticles];
 
-    console.log(`📊 Valid human impact articles: ${allArticles.length}`);
+    console.log(`📊 Combined: ${allArticles.length} articles (${generalArticles.length} general + ${politicsArticles.length} politics)`);
+
+    // Filter invalid articles
+    allArticles = allArticles.filter(article => article?.title && article?.description);
+
+    console.log(`📊 Valid articles: ${allArticles.length}`);
     return allArticles;
   }
 
@@ -128,41 +130,12 @@ class AutomatedPublisher {
       if (shouldAnalyze) {
         console.log(`🔬 Analyzing article ${i + 1}: ${a.title?.substring(0, 60)}...`);
         for (let attempt = 0; attempt < this.maxRetries && !analysis; attempt++) {
-          try {
-            console.log(`  📝 Generation attempt ${attempt + 1}...`);
-            const raw = await this.generateHumanImpactAnalysis(a);
-            console.log(`  📊 Generated ${raw ? raw.split(/\s+/).length : 0} words`);
-            console.log(`  🔍 RAW AI RESPONSE:`, raw ? raw.substring(0, 200) + '...' : 'NULL');
-            
-            if (raw) {
-              const cleaned = this.sanitize(a, raw);
-              if (cleaned) {
-                analysis = cleaned;
-                console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
-              } else {
-                console.log(`  ❌ Analysis REJECTED by sanitize function`);
-                console.log(`  🔍 Raw response length: ${raw.length} chars, ${raw.split(/\s+/).length} words`);
-              }
-            } else {
-              console.log(`  ⚠️ No analysis generated - OpenAI returned empty`);
-            }
-          } catch (error) {
-            console.log(`  ❌ Generation failed: ${error.message}`);
-            if (error.message.includes('API')) {
-              console.log(`  🔑 Check OPENAI_API_KEY and model availability`);
-            }
-          }
-          
-          if (!analysis && attempt < this.maxRetries - 1) {
-            console.log(`  🔄 Retrying in ${this.retryDelay}ms...`);
-            await this.sleep(this.retryDelay);
-          }
+          const raw = await this.generateNarrative(a).catch(() => null);
+          const cleaned = raw ? this.sanitize(a, raw) : null;
+          if (cleaned) analysis = cleaned;
+          if (!analysis) await this.sleep(this.retryDelay);
         }
-        
-        if (!analysis) {
-          console.log(`  🔄 Using fallback for article ${i + 1}`);
-          analysis = this.fallback();
-        }
+        if (!analysis) analysis = this.fallback();
       }
 
       const finalAnalysis = analysis || this.queueFallback();
@@ -182,52 +155,27 @@ class AutomatedPublisher {
 
   async selectBest(list) {
     console.log('🔍 Starting selection with', list.length, 'articles');
-    
     const deduped = this.dedupe(list);
     console.log('🔍 After deduplication:', deduped.length, 'articles');
-    
-    const scored = deduped.map(a => ({ ...a, score: this.scoreHumanImpact(a) }));
-    
+    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
     const final = scored
       .sort((x, y) => y.score - x.score)
       .slice(0, this.maxArticles);
-      
     console.log('🔍 Final selection:', final.length, 'articles');
     final.forEach((a, i) => {
       console.log(`  ${i + 1}. Score ${a.score}: ${a.title.substring(0, 60)}...`);
     });
-    
     return final;
   }
 
-  // IMPROVED: Better database error handling with safer issue numbering
+  // IMPROVED: Better database error handling
   async createEdition(date, articles, status) {
+    const { data: next } = await supabase.rpc('get_next_issue_number');
+    const issue = next || 1;
+
     if (!articles || articles.length === 0) {
       console.warn('⚠️ No articles to create edition with');
       throw new Error('Cannot create edition without articles');
-    }
-
-    // Get next issue number with better error handling
-    let issue = 1;
-    try {
-      const { data: next, error } = await supabase.rpc('get_next_issue_number');
-      if (error) {
-        console.warn('⚠️ get_next_issue_number failed:', error.message);
-        // Fallback: get max issue number + 1
-        const { data: maxIssue } = await supabase
-          .from('daily_editions')
-          .select('issue_number')
-          .order('issue_number', { ascending: false })
-          .limit(1)
-          .single();
-        issue = (maxIssue?.issue_number || 0) + 1;
-        console.log(`📊 Using fallback issue number: ${issue}`);
-      } else {
-        issue = next || 1;
-      }
-    } catch (error) {
-      console.warn('⚠️ Issue number calculation failed, using timestamp-based number');
-      issue = Math.floor(Date.now() / 86400000); // Days since epoch as fallback
     }
 
     // Create edition with retry logic
@@ -244,7 +192,6 @@ class AutomatedPublisher {
           })
           .select()
           .single();
-          
         if (e1) throw e1;
         edition = editionData;
         break;
@@ -255,14 +202,14 @@ class AutomatedPublisher {
       }
     }
 
-    // Insert articles with retry logic and safer image URLs
+    // Insert articles with retry logic
     const rows = articles.map(a => ({
       edition_id: edition.id,
       article_order: a.order,
       title: a.title,
       description: a.description,
       url: a.url,
-      image_url: a.urlToImage || a.image || null, // Handle missing images safely
+      image_url: a.urlToImage || a.image,
       source_name: a.source?.name || 'Unknown Source',
       published_at: a.publishedAt || new Date().toISOString(),
       analysis_text: a.analysis,
@@ -290,7 +237,6 @@ class AutomatedPublisher {
 
     console.log(`✅ Created edition #${issue} with ${articles.length} articles`);
     console.log(`📊 Breakdown: ${articles.filter(a => a.status === 'published').length} published, ${articles.filter(a => a.status === 'queue').length} queued`);
-
     return edition;
   }
 
@@ -300,7 +246,7 @@ class AutomatedPublisher {
   }
 
   queueFallback() {
-    return 'This story is in the queue for detailed analysis. The human impact assessment will explore how this affects individuals, families, and communities once the full analysis is completed.';
+    return 'This article is in the queue for detailed analysis. The policy impact assessment will consider implementation timelines, affected stakeholders, and practical consequences for individuals and businesses once the full analysis is completed.';
   }
 
   dedupe(list) {
@@ -339,148 +285,57 @@ class AutomatedPublisher {
     return inter.size / uni.size;
   }
 
-  // UPDATED: Human Impact Scoring (beyond just policy)
-  scoreHumanImpact(article) {
+  score(article) {
     let s = 0;
     const t = (article.title + ' ' + (article.description || '')).toLowerCase();
-    
-    // HIGH VALUE: Direct human impact keywords
-    const highImpactKeywords = [
-      'affects families', 'affects workers', 'affects students', 'affects parents', 'affects seniors',
-      'civil rights', 'human rights', 'discrimination', 'workplace protections',
-      'abortion access', 'reproductive rights', 'healthcare access',
-      'immigration status', 'deportation', 'visa requirements',
-      'privacy rights', 'data collection', 'surveillance',
-      'housing costs', 'rent control', 'foreclosure', 'eviction',
-      'student loans', 'school funding', 'education access',
-      'minimum wage', 'unemployment benefits', 'social security'
-    ];
-    highImpactKeywords.forEach(k => {
-      if (t.includes(k)) s += 20;
-    });
-    
-    // HIGH VALUE: Government/Legal action (policy filter)
-    const policyKeywords = [
-      'executive order', 'supreme court', 'congress passes', 'senate votes', 
-      'bill signed', 'federal ruling', 'court decision', 'new law',
-      'regulation', 'policy change', 'government announces'
-    ];
-    policyKeywords.forEach(k => {
-      if (t.includes(k)) s += 15;
-    });
-    
-    // MEDIUM VALUE: Human-centered terms
-    const humanCenteredKeywords = [
-      'families', 'workers', 'students', 'parents', 'seniors', 'children',
-      'communities', 'residents', 'citizens', 'employees', 'tenants',
-      'patients', 'consumers', 'taxpayers', 'voters', 'immigrants'
-    ];
-    humanCenteredKeywords.forEach(k => {
-      if (t.includes(k)) s += 10;
-    });
-    
-    // MEDIUM VALUE: Rights and protections
-    const rightsKeywords = [
-      'rights', 'protections', 'access', 'benefits', 'services',
-      'safety', 'security', 'freedom', 'equality', 'fairness',
-      'justice', 'legal', 'court', 'lawsuit', 'settlement'
-    ];
-    rightsKeywords.forEach(k => {
-      if (t.includes(k)) s += 8;
-    });
-    
-    // MEDIUM VALUE: Financial impact
-    const financialKeywords = [
-      'cost', 'price', 'tax', 'fee', 'fine', 'penalty', 'savings',
-      'income', 'wage', 'salary', 'benefit', 'subsidy', 'funding'
-    ];
-    financialKeywords.forEach(k => {
-      if (t.includes(k)) s += 8;
-    });
-    
-    // LOW VALUE: General policy terms
-    const generalPolicyKeywords = [
-      'congress', 'senate', 'house', 'federal', 'government', 'policy', 
-      'legislation', 'political', 'election', 'campaign'
-    ];
-    generalPolicyKeywords.forEach(k => {
-      if (t.includes(k)) s += 5;
-    });
-    
-    // NEGATIVE: Reduce fluff and opinion content
-    const negativeKeywords = [
-      'celebrity', 'entertainment', 'sports', 'opinion', 'editorial',
-      'analysis:', 'commentary', 'review', 'prediction', 'speculation',
-      'rumors', 'gossip', 'viral', 'trending', 'social media drama'
-    ];
-    negativeKeywords.forEach(k => {
-      if (t.includes(k)) s -= 10;
-    });
-    
-    // Recency bonus
+    const highValue = ['executive order', 'supreme court', 'congress passes', 'senate votes', 'bill signed', 'federal ruling', 'white house', 'biden', 'trump'];
+    highValue.forEach(k => { if (t.includes(k)) s += 15; });
+    const mediumValue = ['congress', 'senate', 'house', 'federal', 'government', 'policy', 'legislation', 'court', 'judge', 'ruling', 'election', 'political'];
+    mediumValue.forEach(k => { if (t.includes(k)) s += 8; });
+    const lowValue = ['mayor', 'governor', 'local', 'state', 'business', 'economy', 'health', 'education'];
+    lowValue.forEach(k => { if (t.includes(k)) s += 3; });
+    const negative = ['celebrity', 'entertainment', 'sports', 'death', 'dies', 'shooting', 'crime'];
+    negative.forEach(k => { if (t.includes(k)) s -= 5; });
     if (article.publishedAt) {
       const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
       if (hrs < 6) s += 8;
       else if (hrs < 12) s += 5;
       else if (hrs < 24) s += 3;
     }
-    
-    // Quality source bonus
-    const qualitySources = [
-      'reuters', 'ap news', 'bloomberg', 'wall street journal', 
-      'washington post', 'new york times', 'politico', 'cnn', 'fox news',
-      'npr', 'pbs', 'usa today', 'abc news', 'cbs news', 'nbc news'
-    ];
-    if (qualitySources.some(src => (article.source?.name || '').toLowerCase().includes(src))) {
-      s += 5;
-    }
-    
+    const qualitySources = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'new york times', 'politico', 'cnn', 'fox news'];
+    if (qualitySources.some(src => (article.source?.name || '').toLowerCase().includes(src))) s += 5;
     return Math.max(0, s);
   }
 
   sanitize(article, text) {
-    if (!text) {
-      this.logFallbackUsage('sanitize_null', 'No text provided to sanitize');
-      return null;
-    }
-    
+    if (!text) return null;
     const normalized = text
       .replace(/\r/g, '')
       .split('\n')
       .map(s => s.trim())
       .filter(Boolean)
       .join('\n\n');
-
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 120 || wc > 400) { // More flexible word count for story format
-      this.logFallbackUsage('word_count', `${wc} words (need 120-400)`);
+    if (wc < 100 || wc > 250) {
+      this.logFallbackUsage('word_count', `${wc} words`);
       return null;
     }
-
-    // Allow markdown headings (# ##) but block bullet points and numbered lists
-    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized) && !/^#+\s/.test(normalized)) {
-      this.logFallbackUsage('formatting', 'bullet points detected (headings OK)');
+    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
+      this.logFallbackUsage('formatting', 'bullet points detected');
       return null;
     }
-
-    // More lenient year validation for story format
-    const inputs = [article.title || '', article.description || '', article.publishedAt || '']
-      .join(' ')
-      .toLowerCase();
+    const inputs = [article.title || '', article.description || '', article.publishedAt || ''].join(' ').toLowerCase();
     const years = normalized.match(/\b(20[0-2]\d)\b/g) || [];
     for (const year of years) {
       const yearNum = parseInt(year);
       const currentYear = new Date().getFullYear();
-      if (yearNum >= currentYear - 10 && yearNum <= currentYear + 2) {
-        // Only check recent years, and be more flexible
-        if (!inputs.includes(year.toLowerCase()) && yearNum > currentYear - 2) {
-          this.logFallbackUsage('invalid_year', `year ${year} not in source (recent years checked strictly)`);
+      if (yearNum >= currentYear - 5 && yearNum <= currentYear + 1) {
+        if (!inputs.includes(year.toLowerCase())) {
+          this.logFallbackUsage('invalid_year', `year ${year} not in source`);
           return null;
         }
       }
     }
-
-    console.log(`  ✅ Sanitize passed: ${wc} words, format OK, years OK`);
     return normalized;
   }
 
@@ -489,112 +344,55 @@ class AutomatedPublisher {
     console.log(`🔄 FALLBACK USED: ${reason} - ${details} at ${timestamp}`);
   }
 
-  // FIXED: Human Impact Analysis Generation with proper GPT-5 parameters
-  async generateHumanImpactAnalysis(article) {
+  async generateNarrative(article) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY environment variable is not set');
     }
-    
     const pubDate = article.publishedAt || 'not stated';
     const source = article.source?.name || 'not stated';
+    const prompt = `
+Write exactly 140-170 words as a compelling insider analysis that reveals what's really happening. Use plain English but show deep policy knowledge.
 
-    // Clean and truncate article content to avoid token limits
-    const cleanTitle = (article.title || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 200);
-    const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
-    const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
+Paragraph 1 - REAL IMPACT (30-40 words): Start with the concrete consequence people will actually feel. Be specific: "Your mortgage rate jumps 0.3%" not "rates may change." Think like someone who's seen this playbook before.
 
-    const prompt = `Write a plain-English analysis that sounds like a smart friend explaining the story. Use clear headings and keep the language conversational and direct.
+Paragraph 2 - THE MECHANICS (40-50 words): Explain HOW this works in practice. Include specific timelines, dollar amounts, eligibility thresholds. What's the implementation reality vs. the press release version?
 
-Start with how this affects the main people involved, then explain ripple effects on families and communities. Be specific about real consequences and emotions, not official statements.
+Paragraph 3 - WINNERS & LOSERS (40-50 words): Name who actually benefits and who gets hurt. Be specific about industries, regions, demographics when the data supports it. Don't be vague - if community banks struggle while big banks thrive, say so directly.
 
-Include who benefits and who gets hurt. Point out important details that aren't being talked about much. Explain the bigger picture and why this matters for everyone.
+Paragraph 4 - INSIDER PERSPECTIVE (25-35 words): What's not being said publicly? Historical precedent? Hidden timelines? Real motivations? End with what to watch for next that signals the true impact.
 
-Keep it conversational - avoid fancy words, jargon, or academic language. Write like you're talking to someone over coffee.
-
-## How this affects the main group
-[Describe everyday effects, feelings, and what people are actually dealing with]
-
-## Ripple effects on others  
-[Explain how this hits families, communities, and other people]
-
-## Winners and losers
-[Who comes out ahead, who gets hurt?]
-
-## What's not being said
-[Important stuff that's missing from the coverage]
-
-## The bigger picture
-[Why this fits into larger trends or political moves]
-
-## Why everyone should care
-[Connect this to all readers - precedent, values, or broader impact]
-
-Story: "${cleanTitle}"
-Details: "${cleanDescription}"
-Source: "${cleanSource}"
-Date: "${pubDate}"`;
+Policy: "${article.title}"
+Details: "${article.description}"
+Source: "${source}"
+Date: "${pubDate}"
+`.trim();
 
     try {
-      console.log('🔑 API Key exists:', !!OPENAI_API_KEY);
-      console.log('🔑 API Key starts with:', OPENAI_API_KEY.substring(0, 7) + '...');
-      console.log('📏 Prompt length:', prompt.length);
-      console.log('📏 Estimated tokens:', Math.ceil(prompt.length / 4));
-      
-      // Validate prompt isn't too long (keep under 3000 chars to be safe)
-      if (prompt.length > 3000) {
-        throw new Error(`Prompt too long: ${prompt.length} characters`);
-      }
-      
-      const requestBody = {
-        model: 'gpt-4o', // Using GPT-4o for faster responses
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee - skip the fancy words and jargon. Focus on how real people are affected and what they are actually going through.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 600, // GPT-4o uses max_tokens (not max_completion_tokens)
-        temperature: 1.0 // More creative responses
-      };
-
-      console.log('📤 Request body size:', JSON.stringify(requestBody).length);
-      
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'You are a seasoned policy insider who explains complex regulations in terms of real human impact. Be specific, credible, and revealing about how policy actually works. Avoid jargon but show deep expertise.' },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 280,
+          temperature: 0.4
+        })
       });
 
-      console.log('📥 Response status:', r.status);
-      console.log('📥 Response headers:', Object.fromEntries(r.headers.entries()));
-
       if (!r.ok) {
-        const errorBody = await r.text();
-        console.error('❌ OpenAI API Error Details:', errorBody);
-        console.error('❌ Request that failed:', JSON.stringify(requestBody, null, 2));
-        throw new Error(`OpenAI API error ${r.status}: ${errorBody}`);
+        throw new Error(`OpenAI API error ${r.status}: ${r.statusText}`);
       }
-
       const data = await r.json();
-      console.log('📊 OpenAI response structure:', Object.keys(data));
-      
-      const content = data.choices?.[0]?.message?.content;
-      
-      if (!content) {
-        console.error('❌ No content in OpenAI response:', JSON.stringify(data, null, 2));
-        throw new Error('OpenAI returned empty content');
-      }
-      
-      console.log('✅ Generated content length:', content.length);
-      return content.trim();
+      return (data.choices?.[0]?.message?.content || '').trim();
     } catch (error) {
-      console.error('❌ OpenAI API call failed:', error.message);
-      console.error('❌ Full error object:', error);
+      console.error('OpenAI API call failed:', error.message);
       throw error;
     }
   }
@@ -605,7 +403,6 @@ Date: "${pubDate}"`;
         .from('daily_editions')
         .update({ status: 'published', updated_at: new Date().toISOString() })
         .eq('id', editionId);
-
       if (error) throw error;
       console.log('✅ Edition published to website');
     } catch (error) {
@@ -637,27 +434,22 @@ Date: "${pubDate}"`;
         .select('*')
         .eq('edition_date', date)
         .single();
-
       if (error) {
         if (error.code === 'PGRST116') {
-          return null;  // No edition found - normal case
+          return null;
         }
         throw error;
       }
-      
-      // Check if edition has articles
       const { data: articles } = await supabase
         .from('analyzed_articles')
         .select('id')
         .eq('edition_id', data.id)
         .limit(1);
-        
       if (!articles || articles.length === 0) {
         console.log('🗑️ Found empty edition, will recreate');
         await supabase.from('daily_editions').delete().eq('id', data.id);
         return null;
       }
-      
       return data;
     } catch (error) {
       console.error('❌ findEdition failed:', error.message);
