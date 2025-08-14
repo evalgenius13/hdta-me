@@ -2,6 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
+const REQUIRED_HEADINGS = [
+  'How this affects the main group',
+  'Ripple effects on others',
+  'Winners and losers',
+  "What's not being said",
+  'The bigger picture',
+  'Why everyone should care'
+];
+
 class AutomatedPublisher {
   constructor() {
     this.maxArticles = 26;
@@ -202,17 +211,29 @@ class AutomatedPublisher {
     const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
     const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-    // UPDATED PROMPT - No headings, flowing human impact analysis
+    // STRICT PROMPT
     const prompt = `
-Write a human impact analysis of this policy news in 150-200 words. Write as flowing paragraphs without any headings or section breaks - just natural prose that covers these elements:
+Write a plain-English analysis in six sections, always in this order, using the following exact headings (start each section with the heading as a Markdown H2, e.g. ## How this affects the main group):
 
-Start with what's really happening to the people most affected - their fears, stress, daily reality, and immediate concerns. Include concrete examples of how this disrupts actual daily life: school pickup routes, work commutes, local services, neighborhood businesses, or healthcare access. Then explain who else gets impacted - families, communities, workers, students - and how this ripples through their lives.
+## How this affects the main group
+[Describe everyday effects, feelings, and what people are actually dealing with]
 
-Cover who benefits and who gets hurt, including the human and financial costs. Reveal what's not being reported - the political motivations, hidden agendas, or overlooked consequences that mainstream coverage misses.
+## Ripple effects on others
+[Explain how this hits families, communities, and other people]
 
-End by connecting this to readers - explain how this precedent, trend, or policy shift could affect them down the line, even if they're not directly impacted now.
+## Winners and losers
+[Who comes out ahead, who gets hurt?]
 
-Write in plain English like you're explaining to a friend. Focus on real human experiences and consequences, not policy mechanics. No bullet points, no numbered lists, no section headings - just compelling, flowing analysis that reveals the human story behind the headlines.
+## What's not being said
+[Important stuff that's missing from the coverage]
+
+## The bigger picture
+[Why this fits into larger trends or political moves]
+
+## Why everyone should care
+[Connect this to all readers - precedent, values, or broader impact]
+
+Each section should be 2-4 sentences. Do not use bullet points or numbered lists. Do not skip any section. Do not shuffle or change the headings. Do not add extra sections.
 
 Story: "${cleanTitle}"
 Details: "${cleanDescription}"
@@ -226,11 +247,11 @@ Date: "${pubDate}"
         messages: [
           {
             role: 'system',
-            content: 'You are an investigative journalist who reveals the human impact behind policy news. You write compelling analysis that uncovers what people are really experiencing and why it matters to everyone. Write like you are talking to a friend over coffee - conversational but insightful.'
+            content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee.'
           },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 350,
+        max_tokens: 600,
         temperature: 0.4
       };
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -279,17 +300,62 @@ Date: "${pubDate}"
       return null;
     }
 
-    console.log(`  ✅ Sanitize passed: ${wc} words, flowing prose format`);
+    // Enforce headings and order
+    const headingRegex = /^## (.+)$/gm;
+    const foundHeadings = [];
+    let match;
+    while ((match = headingRegex.exec(normalized)) !== null) {
+      foundHeadings.push(match[1].trim());
+    }
+    if (foundHeadings.length !== REQUIRED_HEADINGS.length ||
+      !REQUIRED_HEADINGS.every((h, i) => foundHeadings[i] === h)) {
+      this.logFallbackUsage('headings', `Headings missing or out of order: found=[${foundHeadings.join(', ')}]`);
+      return null;
+    }
+
+    console.log(`  ✅ Sanitize passed: ${wc} words, headings OK, format OK`);
     return normalized;
   }
 
   fallback() {
     this.logFallbackUsage('generation_failed', 'AI generation or sanitization failed');
-    return 'The concrete impact of this policy remains unclear due to ongoing negotiations, leaving people affected facing new paperwork, eligibility changes, and delays in accessing benefits that create uncertainty for families already dealing with financial stress. The ripple effect reaches schools, healthcare providers, and social service agencies as they scramble to understand new requirements, while local organizations brace for increased demand with reduced resources. Individuals with strong legal or financial resources are likely to navigate these changes more easily, while those lacking access to professional help may struggle with compliance as hidden costs like administrative delays and unexpected exclusions emerge months after implementation, hitting the most vulnerable hardest. Even those not directly impacted should pay attention since these regulatory shifts often signal broader policy directions that could affect housing, employment, or healthcare access down the line, especially as further guidance emerges that could expand these requirements to other areas.';
+    return [
+      '## How this affects the main group',
+      'The concrete impact of this policy remains unclear due to ongoing negotiations. People affected may face new paperwork, eligibility changes, and delays in accessing benefits.',
+      '',
+      '## Ripple effects on others',
+      'Families and communities could experience uncertainty as local organizations and support systems adjust to new requirements. The ripple effect may reach schools, healthcare providers, and social service agencies.',
+      '',
+      '## Winners and losers',
+      'Individuals with strong legal or financial resources are likely to benefit, while those lacking access may struggle. Established organizations are often favored over newcomers.',
+      '',
+      "## What's not being said",
+      'Hidden costs such as administrative delays or unexpected exclusions may not be fully covered in public discussions.',
+      '',
+      '## The bigger picture',
+      'This policy fits into a broader trend of regulatory changes that can shift market dynamics over the next year.',
+      '',
+      '## Why everyone should care',
+      'Even those not directly impacted may be affected by precedent and shifting community norms. Watch for further guidance in the coming months.'
+    ].join('\n');
   }
 
   queueFallback() {
-    return 'This story is in the queue for detailed human impact analysis that will explore how this affects individuals, families, and communities once the full assessment is completed. Check back for updates on who this impacts, the broader ripple effects, and why it matters for your community.';
+    return [
+      '## How this affects the main group',
+      'This story is in the queue for detailed analysis. The human impact assessment will explore how this affects individuals, families, and communities once the full analysis is completed.',
+      '',
+      '## Ripple effects on others',
+      '',
+      '## Winners and losers',
+      '',
+      "## What's not being said",
+      '',
+      '## The bigger picture',
+      '',
+      '## Why everyone should care',
+      ''
+    ].join('\n');
   }
 
   dedupe(list) {
@@ -398,7 +464,7 @@ Date: "${pubDate}"
         edition = editionData;
         break;
       } catch (error) {
-        console.warn(`⚠️ Edition creation attempt ${attempt} failed for date ${date}, issue #${issue}:`, error.message);
+        console.warn(`⚠️ Edition creation attempt ${attempt} failed:`, error.message);
         if (attempt === 3) throw error;
         await this.sleep(2000);
       }
@@ -426,7 +492,7 @@ Date: "${pubDate}"
         if (e2) throw e2;
         break;
       } catch (error) {
-        console.warn(`⚠️ Articles insert attempt ${attempt} failed for edition ${edition.id} with ${rows.length} articles:`, error.message);
+        console.warn(`⚠️ Articles insert attempt ${attempt} failed:`, error.message);
         if (attempt === 3) {
           await supabase.from('daily_editions').delete().eq('id', edition.id);
           throw error;
