@@ -594,6 +594,7 @@ Date: "${pubDate}"`;
       throw error;
     }
   }
+  }
 
   async publishToWebsite(editionId) {
     try {
