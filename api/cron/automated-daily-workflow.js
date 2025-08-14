@@ -440,13 +440,7 @@ class AutomatedPublisher {
     return Math.max(0, s);
   }
 
-  sanitize(article, text) {
-    if (!text) {
-      this.logFallbackUsage('sanitize_null', 'No text provided to sanitize');
-      return null;
-    }
-    
-    const normalized = text
+
       .replace(/\r/g, '')
       .split('\n')
       .map(s => s.trim())
@@ -557,7 +551,7 @@ Date: "${pubDate}"`;
           },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 600, // GPT-5 uses max_completion_tokens instead of max_tokens
+        max_completion_tokens: 1500, // Increased for GPT-5 reasoning tokens + actual content
         temperature: 1.0 // More creative responses
       };
 
