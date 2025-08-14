@@ -491,22 +491,21 @@ class AutomatedPublisher {
     console.log(`🔄 FALLBACK USED: ${reason} - ${details} at ${timestamp}`);
   }
 
-  // FIXED: Human Impact Analysis Generation with proper error handling and GPT-5
-  async generateHumanImpactAnalysis(article) {
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is not set');
-    }
-    
-    const pubDate = article.publishedAt || 'not stated';
-    const source = article.source?.name || 'not stated';
+async generateHumanImpactAnalysis(article) {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY environment variable is not set');
+  }
+  
+  const pubDate = article.publishedAt || 'not stated';
+  const source = article.source?.name || 'not stated';
 
-    // Clean and truncate article content to avoid token limits
-    const cleanTitle = (article.title || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 200);
-    const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
-    const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
+  // Clean and truncate article content to avoid token limits
+  const cleanTitle = (article.title || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 200);
+  const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
+  const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-    const prompt = `Write a plain-English analysis that sounds like a smart friend explaining the story. Use clear headings and keep the language conversational and direct.
+  const prompt = `Write a plain-English analysis that sounds like a smart friend explaining the story. Use clear headings and keep the language conversational and direct.
 
 Start with how this affects the main people involved, then explain ripple effects on families and communities. Be specific about real consequences and emotions, not official statements.
 
@@ -537,53 +536,51 @@ Details: "${cleanDescription}"
 Source: "${cleanSource}"
 Date: "${pubDate}"`;
 
-    try {
-      console.log('🔑 API Key exists:', !!OPENAI_API_KEY);
-      console.log('🔑 API Key starts with:', OPENAI_API_KEY.substring(0, 7) + '...');
-      console.log('📏 Prompt length:', prompt.length);
-      console.log('📏 Estimated tokens:', Math.ceil(prompt.length / 4));
-      
-      // Validate prompt isn't too long (keep under 3000 chars to be safe)
-      if (prompt.length > 3000) {
-        throw new Error(`Prompt too long: ${prompt.length} characters`);
-      }
-      
-      const requestBody = {
-  model: 'gpt-5',
-  messages: [
-    {
-      role: 'system',
-      content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee - skip the fancy words and jargon. Focus on how real people are affected and what they are actually going through.'
-    },
-    {
-      role: 'user',
-      content: prompt
-    }
-  ],
-  max_tokens: 600
-  // temperature: 1 // REMOVE this line, or set to 1 only if you want to be explicit
-};
-
-      console.log('📤 Request body size:', JSON.stringify(requestBody).length);
-      
-      const r = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
+  try {
+    const requestBody = {
+      model: 'gpt-4o', // safest for custom temperature, or 'gpt-4o-mini', or 'gpt-3.5-turbo'
+      messages: [
+        {
+          role: 'system',
+          content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee - skip the fancy words and jargon. Focus on how real people are affected and what they are actually going through.'
         },
-        body: JSON.stringify(requestBody)
-      });
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      max_tokens: 600,
+      temperature: 0.4 // Remove or set to 1 if using a model that only supports default
+    };
 
-      console.log('📥 Response status:', r.status);
-      console.log('📥 Response headers:', Object.fromEntries(r.headers.entries()));
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
 
-      if (!r.ok) {
-        const errorBody = await r.text();
-        console.error('❌ OpenAI API Error Details:', errorBody);
-        console.error('❌ Request that failed:', JSON.stringify(requestBody, null, 2));
-        throw new Error(`OpenAI API error ${r.status}: ${errorBody}`);
-      }
+    if (!r.ok) {
+      const errorBody = await r.text();
+      console.error('❌ OpenAI API Error Details:', errorBody);
+      throw new Error(`OpenAI API error ${r.status}: ${errorBody}`);
+    }
+
+    const data = await r.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      console.error('❌ No content in OpenAI response:', JSON.stringify(data, null, 2));
+      throw new Error('OpenAI returned empty content');
+    }
+
+    return content.trim();
+  } catch (error) {
+    console.error('❌ OpenAI API call failed:', error.message);
+    throw error;
+  }
+}
 
       const data = await r.json();
       console.log('📊 OpenAI response structure:', Object.keys(data));
