@@ -253,8 +253,10 @@ Date: "${pubDate}"
       }
       return content.trim();
     } catch (error) {
+    } catch (error) {
       console.error('❌ OpenAI API call failed:', error.message);
       throw error;
+    }
     }
   }
 
@@ -285,23 +287,11 @@ Date: "${pubDate}"
 
   fallback() {
     this.logFallbackUsage('generation_failed', 'AI generation or sanitization failed');
-    return [
-      'The concrete impact of this policy remains unclear due to ongoing negotiations. People affected may face new paperwork, eligibility changes, and delays in accessing benefits, creating uncertainty for families already dealing with financial stress.',
-      '',
-      'The ripple effect reaches schools, healthcare providers, and social service agencies as they scramble to understand new requirements. Local organizations that serve these communities are bracing for increased demand while navigating reduced resources.',
-      '',
-      'Individuals with strong legal or financial resources are likely to navigate these changes more easily, while those lacking access to professional help may struggle with compliance. Hidden costs like administrative delays and unexpected exclusions often emerge months after implementation, hitting the most vulnerable hardest.',
-      '',
-      'Even those not directly impacted should pay attention - these regulatory shifts often signal broader policy directions that could affect housing, employment, or healthcare access down the line. Watch for further guidance that could expand these requirements to other areas.'
-    ].join('\n');
+    return 'The concrete impact of this policy remains unclear due to ongoing negotiations, leaving people affected facing new paperwork, eligibility changes, and delays in accessing benefits that create uncertainty for families already dealing with financial stress. The ripple effect reaches schools, healthcare providers, and social service agencies as they scramble to understand new requirements, while local organizations brace for increased demand with reduced resources. Individuals with strong legal or financial resources are likely to navigate these changes more easily, while those lacking access to professional help may struggle with compliance as hidden costs like administrative delays and unexpected exclusions emerge months after implementation, hitting the most vulnerable hardest. Even those not directly impacted should pay attention since these regulatory shifts often signal broader policy directions that could affect housing, employment, or healthcare access down the line, especially as further guidance emerges that could expand these requirements to other areas.';
   }
 
   queueFallback() {
-    return [
-      'This story is in the queue for detailed human impact analysis. The assessment will explore how this affects individuals, families, and communities once the full analysis is completed.',
-      '',
-      'Check back for updates on who this impacts, the broader ripple effects, and why it matters for your community.'
-    ].join('\n');
+    return 'This story is in the queue for detailed human impact analysis that will explore how this affects individuals, families, and communities once the full assessment is completed. Check back for updates on who this impacts, the broader ripple effects, and why it matters for your community.';
   }
 
   dedupe(list) {
@@ -410,7 +400,7 @@ Date: "${pubDate}"
         edition = editionData;
         break;
       } catch (error) {
-        console.warn(`⚠️ Edition creation attempt ${attempt} failed:`, error.message);
+        console.warn(`⚠️ Edition creation attempt ${attempt} failed for date ${date}, issue #${issue}:`, error.message);
         if (attempt === 3) throw error;
         await this.sleep(2000);
       }
@@ -438,7 +428,7 @@ Date: "${pubDate}"
         if (e2) throw e2;
         break;
       } catch (error) {
-        console.warn(`⚠️ Articles insert attempt ${attempt} failed:`, error.message);
+        console.warn(`⚠️ Articles insert attempt ${attempt} failed for edition ${edition.id} with ${rows.length} articles:`, error.message);
         if (attempt === 3) {
           await supabase.from('daily_editions').delete().eq('id', edition.id);
           throw error;
