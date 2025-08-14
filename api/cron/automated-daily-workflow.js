@@ -549,17 +549,20 @@ Date: "${pubDate}"`;
       }
       
       const requestBody = {
-        model: 'gpt-5', // Using GPT-5 as confirmed available
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee - skip the fancy words and jargon. Focus on how real people are affected and what they are actually going through.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        max_completion_tokens: 600, // GPT-5 uses max_completion_tokens instead of max_tokens
-        temperature: 0.4
-      };
+  model: 'gpt-5',
+  messages: [
+    {
+      role: 'system',
+      content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee - skip the fancy words and jargon. Focus on how real people are affected and what they are actually going through.'
+    },
+    {
+      role: 'user',
+      content: prompt
+    }
+  ],
+  max_tokens: 600
+  // temperature: 1 // REMOVE this line, or set to 1 only if you want to be explicit
+};
 
       console.log('📤 Request body size:', JSON.stringify(requestBody).length);
       
