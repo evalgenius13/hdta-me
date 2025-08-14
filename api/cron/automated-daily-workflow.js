@@ -557,7 +557,7 @@ Date: "${pubDate}"`;
           },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 600,
+        max_completion_tokens: 600, // GPT-5 uses max_completion_tokens instead of max_tokens
         temperature: 0.4
       };
 
