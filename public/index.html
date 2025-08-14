@@ -37,6 +37,7 @@ class AutomatedPublisher {
       return existing;
     }
 
+    // Fetch articles with improved error handling
     const articles = await this.fetchCombinedNewsWithFallback();
     console.log('🔵 fetchCombinedNews returned:', articles.length, 'articles');
 
@@ -52,6 +53,7 @@ class AutomatedPublisher {
     return edition;
   }
 
+  // IMPROVED: Fetch with partial failure handling
   async fetchCombinedNewsWithFallback() {
     const API_KEY = process.env.GNEWS_API_KEY;
     if (!API_KEY) {
@@ -64,6 +66,7 @@ class AutomatedPublisher {
     let generalArticles = [];
     let politicsArticles = [];
 
+    // TRY 1: Fetch general headlines
     try {
       console.log('📰 Fetching 20 general headlines...');
       const generalUrl = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=20&token=${API_KEY}`;
@@ -79,8 +82,10 @@ class AutomatedPublisher {
       console.warn('⚠️ General headlines error:', error.message);
     }
 
+    // Small delay between API calls
     await new Promise(resolve => setTimeout(resolve, 1000));
 
+    // TRY 2: Fetch politics headlines
     try {
       console.log('🏛️ Fetching 6 politics headlines...');
       const politicsUrl = `https://gnews.io/api/v4/top-headlines?category=politics&lang=en&country=us&max=6&token=${API_KEY}`;
@@ -96,6 +101,7 @@ class AutomatedPublisher {
       console.warn('⚠️ Politics headlines error:', error.message);
     }
 
+    // FALLBACK: If both fail, try single top headlines call
     if (generalArticles.length === 0 && politicsArticles.length === 0) {
       console.log('🔄 Both calls failed, trying fallback...');
       try {
@@ -111,10 +117,14 @@ class AutomatedPublisher {
       }
     }
 
+    // Combine what we have
     let allArticles = [...generalArticles, ...politicsArticles];
+
     console.log(`📊 Combined: ${allArticles.length} articles (${generalArticles.length} general + ${politicsArticles.length} politics)`);
 
+    // Filter invalid articles
     allArticles = allArticles.filter(article => article?.title && article?.description);
+
     console.log(`📊 Valid articles: ${allArticles.length}`);
     return allArticles;
   }
@@ -201,6 +211,7 @@ class AutomatedPublisher {
     const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
     const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
+    // STRICT PROMPT
     const prompt = `
 Write a plain-English analysis in six sections, always in this order, using the following exact headings (start each section with the heading as a Markdown H2, e.g. ## How this affects the main group):
 
@@ -269,6 +280,7 @@ Date: "${pubDate}"
   }
 
   sanitize(article, text) {
+    // Normalize and strip carriage returns
     const normalized = text
       .replace(/\r/g, '')
       .split('\n')
@@ -282,11 +294,13 @@ Date: "${pubDate}"
       return null;
     }
 
+    // Check for bullet points or numbered lists
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
       this.logFallbackUsage('formatting', 'bullet points/numbered lists detected');
       return null;
     }
 
+    // Enforce headings and order
     const headingRegex = /^## (.+)$/gm;
     const foundHeadings = [];
     let match;
