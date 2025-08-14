@@ -1,4 +1,4 @@
-// admin-ui.js - UI rendering and article management
+// admin-ui.js - UI rendering and article management (SIMPLIFIED - No regenerate functions)
 AdminPanel.prototype.renderArticles = function(filter = 'all') {
     const grid = document.getElementById('articles-grid');
     if (!grid) return;
@@ -84,7 +84,6 @@ AdminPanel.prototype.renderArticles = function(filter = 'all') {
                 
                 <div class="article-actions">
                     <button class="btn btn-small" onclick="adminPanel.editAnalysis(${safeIndex})">✏️ Edit</button>
-                    <button class="btn btn-small btn-secondary" onclick="adminPanel.regenerateAnalysis(${safeIndex})">🔄 Regenerate</button>
                     ${statusActions}
                     <button class="btn btn-small btn-secondary" onclick="window.open('${this.escapeHtml(article.url || '')}', '_blank')">🔗 View Original</button>
                     <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${safeIndex})">🗑️ Remove</button>
@@ -130,7 +129,16 @@ AdminPanel.prototype.updateStats = function() {
     const statFallback = document.getElementById('stat-fallback');
     const statWords = document.getElementById('stat-words');
     const statSource = document.getElementById('stat-source');
+    const statTotal = document.getElementById('stat-total');
+    const statPublished = document.getElementById('stat-published');
+    const statQueued = document.getElementById('stat-queued');
     
+    // Core stats that exist in most layouts
+    if (statTotal) statTotal.textContent = this.articles.length;
+    if (statPublished) statPublished.textContent = this.articles.filter(a => a.status === 'published').length;
+    if (statQueued) statQueued.textContent = this.articles.filter(a => a.status === 'queue').length;
+    
+    // Extended stats if elements exist
     if (statFetched) statFetched.textContent = this.articles.length;
     if (statAnalyzed) statAnalyzed.textContent = analyzed;
     if (statSuccess) statSuccess.textContent = `${successRate}%`;
@@ -191,3 +199,6 @@ AdminPanel.prototype.removeArticle = function(index) {
         this.updateStats();
     }
 };
+
+// REMOVED: regenerateAnalysis() function - no longer calls /api/personalize
+// Note: For fresh analysis, use Force Refetch to run the daily workflow
