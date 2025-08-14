@@ -55,9 +55,9 @@ class AutomatedPublisher {
 
     console.log('📡 Fetching targeted human impact stories...');
     
-    // Targeted search query for human impact stories
+    // Targeted search query for human impact stories with expanded synonyms
     const searchQuery = encodeURIComponent(
-      '("government policy" OR "state policy" OR "federal funding" OR "law change" OR "regulation" OR "policy shift") AND ("privacy rights" OR "AI regulation" OR "social media privacy" OR "housing costs" OR "immigration reform" OR "abortion access" OR "civil rights" OR "humanitarian rights") AND ("United States" OR "US" OR "America") AND (impact OR effect OR consequences OR "affects people" OR "community response" OR "human story")'
+      '("government policy" OR "state policy" OR "federal policy" OR "federal funding" OR "state funding" OR "law change" OR "new law" OR "legislation" OR "regulation" OR "policy shift" OR "policy update" OR "executive order" OR "court ruling") AND ("privacy rights" OR "data privacy" OR "AI regulation" OR "artificial intelligence regulation" OR "social media privacy" OR "data protection" OR "surveillance" OR "housing costs" OR "rental prices" OR "rent control" OR "eviction" OR "foreclosure" OR "affordable housing" OR "immigration reform" OR "deportation" OR "visa requirements" OR "border policy" OR "asylum" OR "immigration status" OR "abortion access" OR "reproductive rights" OR "abortion ban" OR "abortion law" OR "civil rights" OR "discrimination" OR "workplace rights" OR "voting rights" OR "human rights" OR "humanitarian rights" OR "student loans" OR "tuition costs" OR "education funding" OR "school funding" OR "minimum wage" OR "worker pay" OR "labor rights" OR "unemployment benefits" OR "healthcare access" OR "medical costs") AND ("United States" OR "US" OR "USA" OR "America" OR "American") AND (impact OR effect OR consequences OR affects OR "affects people" OR "affects families" OR "affects workers" OR "affects students" OR "community response" OR "human story" OR "real impact" OR "personal impact")'
     );
 
     let allArticles = [];
