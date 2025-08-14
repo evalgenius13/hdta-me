@@ -55,7 +55,7 @@
     .facts{margin:0 0 12px 18px}
     .facts li{margin:2px 0}
     .impact-footer{margin-top:10px;font-size:14px;color:#374151}
-    .impact-footer span+span::before{content:" · ";padding:0 6px}
+    .no-analysis{color:#64748b;font-style:italic;padding:12px;background:#f8f9fa;border-radius:6px}
   </style>
 </head>
 <body>
@@ -118,13 +118,13 @@
         if(this.articles.length===0){ loading.innerHTML='No policy stories today.'; return; }
         loading.style.display='none'; container.style.display='block';
         container.innerHTML=this.articles.map((a,i)=>this.createArticleHTML(a,i)).join('');
+        
+        // SIMPLIFIED: Only show pre-generated analysis, no API calls
         for(let i=0;i<this.articles.length;i++){
-          if(this.articles[i].preGeneratedAnalysis){ this.showPreGeneratedAnalysis(i); }
-          else if(this.articles[i].isAnalyzed===false){
-            const el=document.getElementById(`analysis-content-${i}`);
-            if(el){ el.innerHTML=`<div style="color:#64748b;font-style:italic">Analyzing…</div>`; }
-            setTimeout(()=>this.loadAnalysisForArticle(i),800*(i+1));
+          if(this.articles[i].preGeneratedAnalysis){ 
+            this.showPreGeneratedAnalysis(i); 
           }
+          // No else needed - all published articles have analysis
         }
       }
 
@@ -174,18 +174,13 @@
         }
       }
 
-      async loadAnalysisForArticle(i){
-        const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`); if(!a||!el) return;
-        el.innerHTML=`<div style="color:#64748b;font-style:italic">Analyzing…</div>`;
-        try{
-          const res=await fetch(`${this.API_BASE}/api/personalize`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({article:a})});
-          if(!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data=await res.json();
-          el.innerHTML=this.renderAnalysisBlock(data);
-          this.sharingData[i]={article:a,analysis:this.extractKeyInsight(data.impact,data),url:`${window.location.origin}#story-${i}`};
-        }catch(e){
-          console.error('Analysis error:',e);
-          el.innerHTML='<p style="color:#64748b;font-style:italic">Analysis temporarily unavailable</p>';
+      // NEW: Show message for articles without analysis instead of calling API
+      showNoAnalysisMessage(i){
+        const el=document.getElementById(`analysis-content-${i}`);
+        if(el){
+          el.innerHTML='<div class="no-analysis">Analysis coming soon - check back for updates to this story.</div>';
+          // Still set up sharing data with basic info
+          this.sharingData[i]={article:this.articles[i],analysis:'Analysis coming soon',url:`${window.location.origin}#story-${i}`};
         }
       }
 
