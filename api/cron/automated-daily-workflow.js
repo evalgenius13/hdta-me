@@ -65,10 +65,8 @@ class AutomatedPublisher {
     
     console.log(`🗓️ Searching from ${fromDate} to ${toDate}`);
 
-    // Simplified search query that won't overwhelm GNews API
-    const searchQuery = encodeURIComponent(
-      'policy OR law OR regulation OR "executive order" OR "court ruling" OR "federal funding" AND ("United States" OR "US" OR "America") AND (immigration OR healthcare OR education OR housing OR privacy OR "civil rights")'
-    );
+    // Very simple search query that GNews will accept
+    const searchQuery = encodeURIComponent('policy United States');
 
     let allArticles = [];
 
@@ -94,7 +92,7 @@ class AutomatedPublisher {
       // FALLBACK: Much simpler query with date range
       try {
         console.log('🔄 Trying fallback search...');
-        const fallbackQuery = encodeURIComponent('("policy" OR "law" OR "regulation" OR "funding") AND ("United States" OR "US") AND ("housing" OR "privacy" OR "immigration" OR "education" OR "healthcare" OR "civil rights")');
+        const fallbackQuery = encodeURIComponent('law United States');
         const fallbackUrl = `https://gnews.io/api/v4/search?q=${fallbackQuery}&lang=en&country=us&max=26&from=${fromDate}&to=${toDate}&token=${API_KEY}`;
         
         const fallbackResponse = await fetch(fallbackUrl);
