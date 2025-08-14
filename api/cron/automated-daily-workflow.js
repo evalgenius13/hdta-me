@@ -1,4 +1,4 @@
-// api/cron/automated-daily-workflow.js - FINAL VERSION with privacy keywords added
+// api/cron/automated-daily-workflow.js - UPDATED: Human Impact Focus (not just policy)
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -140,7 +140,7 @@ class AutomatedPublisher {
       if (shouldAnalyze) {
         console.log(`🔬 Analyzing article ${i + 1}: ${a.title?.substring(0, 60)}...`);
         for (let attempt = 0; attempt < this.maxRetries && !analysis; attempt++) {
-          const raw = await this.generateNarrative(a).catch(() => null);
+          const raw = await this.generateHumanImpactAnalysis(a).catch(() => null);
           const cleaned = raw ? this.sanitize(a, raw) : null;
           if (cleaned) analysis = cleaned;
           if (!analysis) await this.sleep(this.retryDelay);
@@ -169,7 +169,7 @@ class AutomatedPublisher {
     const deduped = this.dedupe(list);
     console.log('🔍 After deduplication:', deduped.length, 'articles');
     
-    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
+    const scored = deduped.map(a => ({ ...a, score: this.scoreHumanImpact(a) }));
     
     const final = scored
       .sort((x, y) => y.score - x.score)
@@ -263,7 +263,7 @@ class AutomatedPublisher {
   }
 
   queueFallback() {
-    return 'This article is in the queue for detailed analysis. The policy impact assessment will consider implementation timelines, affected stakeholders, and practical consequences for individuals and businesses once the full analysis is completed.';
+    return 'This story is in the queue for detailed analysis. The human impact assessment will explore how this affects individuals, families, and communities once the full analysis is completed.';
   }
 
   dedupe(list) {
@@ -302,38 +302,82 @@ class AutomatedPublisher {
     return inter.size / uni.size;
   }
 
-  // UPDATED: Score function with privacy keywords added
-  score(article) {
+  // UPDATED: Human Impact Scoring (beyond just policy)
+  scoreHumanImpact(article) {
     let s = 0;
     const t = (article.title + ' ' + (article.description || '')).toLowerCase();
     
-    // High value keywords
-    const highValue = ['executive order', 'supreme court', 'congress passes', 'senate votes', 'bill signed', 'federal ruling', 'white house', 'biden', 'trump'];
-    highValue.forEach(k => {
+    // HIGH VALUE: Direct human impact keywords
+    const highImpactKeywords = [
+      'affects families', 'affects workers', 'affects students', 'affects parents', 'affects seniors',
+      'civil rights', 'human rights', 'discrimination', 'workplace protections',
+      'abortion access', 'reproductive rights', 'healthcare access',
+      'immigration status', 'deportation', 'visa requirements',
+      'privacy rights', 'data collection', 'surveillance',
+      'housing costs', 'rent control', 'foreclosure', 'eviction',
+      'student loans', 'school funding', 'education access',
+      'minimum wage', 'unemployment benefits', 'social security'
+    ];
+    highImpactKeywords.forEach(k => {
+      if (t.includes(k)) s += 20;
+    });
+    
+    // HIGH VALUE: Government/Legal action (policy filter)
+    const policyKeywords = [
+      'executive order', 'supreme court', 'congress passes', 'senate votes', 
+      'bill signed', 'federal ruling', 'court decision', 'new law',
+      'regulation', 'policy change', 'government announces'
+    ];
+    policyKeywords.forEach(k => {
       if (t.includes(k)) s += 15;
     });
     
-    // Medium value keywords - PRIVACY KEYWORDS ADDED
-    const mediumValue = [
-      'congress', 'senate', 'house', 'federal', 'government', 'policy', 
-      'legislation', 'court', 'judge', 'ruling', 'election', 'political',
-      // Privacy-related keywords added:
-      'privacy', 'data collection', 'user data', 'social media privacy'
+    // MEDIUM VALUE: Human-centered terms
+    const humanCenteredKeywords = [
+      'families', 'workers', 'students', 'parents', 'seniors', 'children',
+      'communities', 'residents', 'citizens', 'employees', 'tenants',
+      'patients', 'consumers', 'taxpayers', 'voters', 'immigrants'
     ];
-    mediumValue.forEach(k => {
+    humanCenteredKeywords.forEach(k => {
+      if (t.includes(k)) s += 10;
+    });
+    
+    // MEDIUM VALUE: Rights and protections
+    const rightsKeywords = [
+      'rights', 'protections', 'access', 'benefits', 'services',
+      'safety', 'security', 'freedom', 'equality', 'fairness',
+      'justice', 'legal', 'court', 'lawsuit', 'settlement'
+    ];
+    rightsKeywords.forEach(k => {
       if (t.includes(k)) s += 8;
     });
     
-    // Low value keywords
-    const lowValue = ['mayor', 'governor', 'local', 'state', 'business', 'economy', 'health', 'education'];
-    lowValue.forEach(k => {
-      if (t.includes(k)) s += 3;
+    // MEDIUM VALUE: Financial impact
+    const financialKeywords = [
+      'cost', 'price', 'tax', 'fee', 'fine', 'penalty', 'savings',
+      'income', 'wage', 'salary', 'benefit', 'subsidy', 'funding'
+    ];
+    financialKeywords.forEach(k => {
+      if (t.includes(k)) s += 8;
     });
     
-    // Negative keywords
-    const negative = ['celebrity', 'entertainment', 'sports', 'death', 'dies', 'shooting', 'crime'];
-    negative.forEach(k => {
-      if (t.includes(k)) s -= 5;
+    // LOW VALUE: General policy terms
+    const generalPolicyKeywords = [
+      'congress', 'senate', 'house', 'federal', 'government', 'policy', 
+      'legislation', 'political', 'election', 'campaign'
+    ];
+    generalPolicyKeywords.forEach(k => {
+      if (t.includes(k)) s += 5;
+    });
+    
+    // NEGATIVE: Reduce fluff and opinion content
+    const negativeKeywords = [
+      'celebrity', 'entertainment', 'sports', 'opinion', 'editorial',
+      'analysis:', 'commentary', 'review', 'prediction', 'speculation',
+      'rumors', 'gossip', 'viral', 'trending', 'social media drama'
+    ];
+    negativeKeywords.forEach(k => {
+      if (t.includes(k)) s -= 10;
     });
     
     // Recency bonus
@@ -345,7 +389,11 @@ class AutomatedPublisher {
     }
     
     // Quality source bonus
-    const qualitySources = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'new york times', 'politico', 'cnn', 'fox news'];
+    const qualitySources = [
+      'reuters', 'ap news', 'bloomberg', 'wall street journal', 
+      'washington post', 'new york times', 'politico', 'cnn', 'fox news',
+      'npr', 'pbs', 'usa today', 'abc news', 'cbs news', 'nbc news'
+    ];
     if (qualitySources.some(src => (article.source?.name || '').toLowerCase().includes(src))) {
       s += 5;
     }
@@ -363,7 +411,7 @@ class AutomatedPublisher {
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 100 || wc > 250) {
+    if (wc < 150 || wc > 300) { // Increased word count for story format
       this.logFallbackUsage('word_count', `${wc} words`);
       return null;
     }
@@ -396,7 +444,8 @@ class AutomatedPublisher {
     console.log(`🔄 FALLBACK USED: ${reason} - ${details} at ${timestamp}`);
   }
 
-  async generateNarrative(article) {
+  // NEW: Human Impact Analysis Generation
+  async generateHumanImpactAnalysis(article) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY environment variable is not set');
@@ -406,17 +455,39 @@ class AutomatedPublisher {
     const source = article.source?.name || 'not stated';
 
     const prompt = `
-Write exactly 140-170 words as a compelling insider analysis that reveals what's really happening. Use plain English but show deep policy knowledge.
+Write a plain-English analysis in story format, using clear headings and bold for structure.  
+Start by describing how the issue directly affects the main group involved ("how does this affect me?"), then expand to show ripple effects on families, communities, and other stakeholders.  
+Be specific about real-world consequences and emotions, not just official statements.  
+Include a section on who benefits and who loses out.  
+Point out any hidden or missing impacts that aren't mentioned in the article.  
+Explain how this fits into the larger political or policy landscape—mention any motivations, trends, or strategies behind the issue.
+**In your final section, always connect the issue to all readers—even those not directly affected.**  
+Explain why this story matters for everyone, such as setting a precedent, affecting community values, or having broader implications for rights, safety, or fairness.
+Keep paragraphs short and language easy to read.
 
-Paragraph 1 - REAL IMPACT (30-40 words): Start with the concrete consequence people will actually feel. Be specific: "Your mortgage rate jumps 0.3%" not "rates may change." Think like someone who's seen this playbook before.
+**Format:**
+# [Title: What's happening?]
+**[Short summary or key impact]**
 
-Paragraph 2 - THE MECHANICS (40-50 words): Explain HOW this works in practice. Include specific timelines, dollar amounts, eligibility thresholds. What's the implementation reality vs. the press release version?
+## How this affects the main group
+[Describe everyday effects, feelings, risks, and behavior.]
 
-Paragraph 3 - WINNERS & LOSERS (40-50 words): Name who actually benefits and who gets hurt. Be specific about industries, regions, demographics when the data supports it. Don't be vague - if community banks struggle while big banks thrive, say so directly.
+## Ripple effects on others
+[Explain impacts on families, teachers, local communities, etc.]
 
-Paragraph 4 - INSIDER PERSPECTIVE (25-35 words): What's not being said publicly? Historical precedent? Hidden timelines? Real motivations? End with what to watch for next that signals the true impact.
+## Winners and losers
+[Who benefits, who faces new risks or losses?]
 
-Policy: "${article.title}"
+## What's not being said
+[Highlight important consequences or details missing from the article.]
+
+## Political and policy context
+[Explain the bigger picture—political motivation, trends, or strategies.]
+
+## Why this matters for everyone
+[Connect the story to all readers—explain broader relevance, precedent, values, or risks.]
+
+Story: "${article.title}"
 Details: "${article.description}"
 Source: "${source}"
 Date: "${pubDate}"
@@ -432,10 +503,13 @@ Date: "${pubDate}"
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: 'You are a seasoned policy insider who explains complex regulations in terms of real human impact. Be specific, credible, and revealing about how policy actually works. Avoid jargon but show deep expertise.' },
+            { 
+              role: 'system', 
+              content: 'You are an expert at explaining how news stories affect real people\'s lives. Focus on human impact, emotions, and practical consequences. Write in clear, accessible language that helps readers understand why the story matters to them personally and their community.' 
+            },
             { role: 'user', content: prompt }
           ],
-          max_tokens: 280,
+          max_tokens: 400, // Increased for story format
           temperature: 0.4
         })
       });
