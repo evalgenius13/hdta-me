@@ -6,7 +6,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 class AutomatedPublisher {
   constructor() {
     this.maxArticles = 26;      // 26 total articles
-    this.numAnalyzed = 6;       // First 6 get AI analysis
+    this.numAnalyzed = 6;       // Back to 6 articles getting AI analysis
     this.maxRetries = 3;        
     this.retryDelay = 1500;     
     this.startTime = Date.now();
@@ -65,9 +65,9 @@ class AutomatedPublisher {
     
     console.log(`🗓️ Searching from ${fromDate} to ${toDate}`);
 
-    // Simplified search query with fewer ANDs, more ORs
+    // Simplified search query that won't overwhelm GNews API
     const searchQuery = encodeURIComponent(
-      '("government policy" OR "state policy" OR "federal policy" OR "federal funding" OR "state funding" OR "new law" OR "legislation" OR "regulation" OR "policy update" OR "executive order" OR "court ruling" OR "law change") AND ("United States" OR "US" OR "USA" OR "America" OR "American") AND ("privacy rights" OR "data privacy" OR "AI regulation" OR "artificial intelligence" OR "social media privacy" OR "data protection" OR "surveillance" OR "housing costs" OR "rental prices" OR "rent control" OR "eviction" OR "foreclosure" OR "affordable housing" OR "immigration reform" OR "deportation" OR "visa requirements" OR "border policy" OR "asylum" OR "immigration status" OR "abortion access" OR "reproductive rights" OR "abortion ban" OR "abortion law" OR "civil rights" OR "discrimination" OR "workplace rights" OR "voting rights" OR "human rights" OR "student loans" OR "tuition costs" OR "education funding" OR "school funding" OR "minimum wage" OR "worker pay" OR "labor rights" OR "unemployment benefits" OR "healthcare access" OR "medical costs" OR impact OR effect OR consequences OR affects OR "affects people" OR "affects families" OR "affects workers" OR "affects students" OR "community response" OR "human story" OR "real impact" OR "personal impact")'
+      'policy OR law OR regulation OR "executive order" OR "court ruling" OR "federal funding" AND ("United States" OR "US" OR "America") AND (immigration OR healthcare OR education OR housing OR privacy OR "civil rights")'
     );
 
     let allArticles = [];
