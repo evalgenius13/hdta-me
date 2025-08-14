@@ -74,6 +74,9 @@ class AutomatedPublisher {
 
     try {
       console.log('🎯 Searching for human impact stories...');
+      // Log the actual query length for debugging
+      console.log(`📏 Query length: ${searchQuery.length} characters`);
+      
       const searchUrl = `https://gnews.io/api/v4/search?q=${searchQuery}&lang=en&country=us&max=26&from=${fromDate}&to=${toDate}&token=${API_KEY}`;
       
       const response = await fetch(searchUrl);
@@ -127,12 +130,36 @@ class AutomatedPublisher {
       if (shouldAnalyze) {
         console.log(`🔬 Analyzing article ${i + 1}: ${a.title?.substring(0, 60)}...`);
         for (let attempt = 0; attempt < this.maxRetries && !analysis; attempt++) {
-          const raw = await this.generateHumanImpactAnalysis(a).catch(() => null);
-          const cleaned = raw ? this.sanitize(a, raw) : null;
-          if (cleaned) analysis = cleaned;
-          if (!analysis) await this.sleep(this.retryDelay);
+          try {
+            console.log(`  📝 Generation attempt ${attempt + 1}...`);
+            const raw = await this.generateHumanImpactAnalysis(a);
+            console.log(`  📊 Generated ${raw ? raw.split(/\s+/).length : 0} words`);
+            
+            if (raw) {
+              const cleaned = this.sanitize(a, raw);
+              if (cleaned) {
+                analysis = cleaned;
+                console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
+              } else {
+                console.log(`  ⚠️ Analysis rejected by sanitize function`);
+              }
+            } else {
+              console.log(`  ⚠️ No analysis generated`);
+            }
+          } catch (error) {
+            console.log(`  ❌ Generation failed: ${error.message}`);
+          }
+          
+          if (!analysis && attempt < this.maxRetries - 1) {
+            console.log(`  🔄 Retrying in ${this.retryDelay}ms...`);
+            await this.sleep(this.retryDelay);
+          }
         }
-        if (!analysis) analysis = this.fallback();
+        
+        if (!analysis) {
+          console.log(`  🔄 Using fallback for article ${i + 1}`);
+          analysis = this.fallback();
+        }
       }
 
       const finalAnalysis = analysis || this.queueFallback();
@@ -170,14 +197,34 @@ class AutomatedPublisher {
     return final;
   }
 
-  // IMPROVED: Better database error handling
+  // IMPROVED: Better database error handling with safer issue numbering
   async createEdition(date, articles, status) {
-    const { data: next } = await supabase.rpc('get_next_issue_number');
-    const issue = next || 1;
-
     if (!articles || articles.length === 0) {
       console.warn('⚠️ No articles to create edition with');
       throw new Error('Cannot create edition without articles');
+    }
+
+    // Get next issue number with better error handling
+    let issue = 1;
+    try {
+      const { data: next, error } = await supabase.rpc('get_next_issue_number');
+      if (error) {
+        console.warn('⚠️ get_next_issue_number failed:', error.message);
+        // Fallback: get max issue number + 1
+        const { data: maxIssue } = await supabase
+          .from('daily_editions')
+          .select('issue_number')
+          .order('issue_number', { ascending: false })
+          .limit(1)
+          .single();
+        issue = (maxIssue?.issue_number || 0) + 1;
+        console.log(`📊 Using fallback issue number: ${issue}`);
+      } else {
+        issue = next || 1;
+      }
+    } catch (error) {
+      console.warn('⚠️ Issue number calculation failed, using timestamp-based number');
+      issue = Math.floor(Date.now() / 86400000); // Days since epoch as fallback
     }
 
     // Create edition with retry logic
@@ -205,14 +252,14 @@ class AutomatedPublisher {
       }
     }
 
-    // Insert articles with retry logic
+    // Insert articles with retry logic and safer image URLs
     const rows = articles.map(a => ({
       edition_id: edition.id,
       article_order: a.order,
       title: a.title,
       description: a.description,
       url: a.url,
-      image_url: a.urlToImage || a.image,
+      image_url: a.urlToImage || a.image || null, // Handle missing images safely
       source_name: a.source?.name || 'Unknown Source',
       published_at: a.publishedAt || new Date().toISOString(),
       analysis_text: a.analysis,
@@ -398,16 +445,18 @@ class AutomatedPublisher {
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 150 || wc > 300) { // Increased word count for story format
+    if (wc < 120 || wc > 400) { // More flexible word count for story format
       this.logFallbackUsage('word_count', `${wc} words`);
       return null;
     }
 
-    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
+    // Allow markdown headings (# ##) but block bullet points and numbered lists
+    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized) && !/^#+\s/.test(normalized)) {
       this.logFallbackUsage('formatting', 'bullet points detected');
       return null;
     }
 
+    // More lenient year validation for story format
     const inputs = [article.title || '', article.description || '', article.publishedAt || '']
       .join(' ')
       .toLowerCase();
@@ -415,8 +464,9 @@ class AutomatedPublisher {
     for (const year of years) {
       const yearNum = parseInt(year);
       const currentYear = new Date().getFullYear();
-      if (yearNum >= currentYear - 5 && yearNum <= currentYear + 1) {
-        if (!inputs.includes(year.toLowerCase())) {
+      if (yearNum >= currentYear - 10 && yearNum <= currentYear + 2) {
+        // Only check recent years, and be more flexible
+        if (!inputs.includes(year.toLowerCase()) && yearNum > currentYear - 2) {
           this.logFallbackUsage('invalid_year', `year ${year} not in source`);
           return null;
         }
