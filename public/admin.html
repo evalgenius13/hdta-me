@@ -344,7 +344,6 @@
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('articles')">📰 Articles</button>
-            <button class="tab" onclick="showTab('prompts')">🎯 Prompts</button>
             <button class="tab" onclick="showTab('logs')">📋 Logs</button>
         </div>
 
@@ -362,63 +361,6 @@
                 Loading articles...
             </div>
             <div class="article-grid" id="articles-grid" style="display: none;"></div>
-        </div>
-
-        <div id="prompts-panel" class="panel">
-            <h3 style="margin-bottom: 16px;">System Prompt Management</h3>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 8px;">System Prompt:</label>
-                <textarea id="system-prompt-editor" style="height: 120px;" placeholder="Enter system prompt that defines the AI's role and behavior...">You are a seasoned policy insider who explains complex regulations in terms of real human impact. Be specific, credible, and revealing about how policy actually works in practice. Avoid euphemisms and jargon while maintaining credibility.</textarea>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 8px;">User Prompt Template:</label>
-                <textarea id="user-prompt-editor" style="height: 200px;" placeholder="Enter user prompt template with {title}, {description}, {source}, {date} placeholders...">Write 130 to 170 words as a compelling insider analysis that reveals what's really happening. Plain English but deep policy knowledge.
-
-1) IMMEDIATE IMPACT: Lead with the concrete consequence people will feel. Be specific - "Your student loan payment drops $150/month" not "payments may change." Think like someone who's seen this before.
-
-2) THE REAL MECHANICS: How does this actually work? Include specific timelines, dollar amounts, eligibility details. What's the implementation reality vs. the press release spin?
-
-3) WINNERS & LOSERS: Who actually benefits and who gets hurt? Be direct about specific industries, regions, or groups when the evidence supports it.
-
-4) INSIDER PERSPECTIVE: What's not being emphasized publicly? Historical context? Hidden timelines? Watch for details that signal the true long-term impact.
-
-Policy: "{title}"
-Details: "{description}"
-Source: "{source}"
-Date: "{date}"</textarea>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Content Filters:</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div>
-                        <label style="font-size: 14px;">Keywords to Boost:</label>
-                        <textarea id="boost-keywords" style="height: 80px;" placeholder="congress, senate, federal, policy, legislation">congress, senate, federal, policy, legislation, supreme court, executive order, regulation, biden, trump</textarea>
-                    </div>
-                    <div>
-                        <label style="font-size: 14px;">Keywords to Avoid:</label>
-                        <textarea id="avoid-keywords" style="height: 80px;" placeholder="celebrity, entertainment, sports">celebrity, entertainment, sports, death, shooting, crime, gossip</textarea>
-                    </div>
-                </div>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Quality Sources (higher priority):</label>
-                <textarea id="quality-sources" style="height: 60px;" placeholder="reuters, ap news, bloomberg">reuters, ap news, bloomberg, wall street journal, washington post, new york times, politico, cnn, fox news</textarea>
-            </div>
-            
-            <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-                <button class="btn" onclick="savePromptSettings()">💾 Save Prompt Settings</button>
-                <button class="btn btn-secondary" onclick="resetPromptSettings()">🔄 Reset to Defaults</button>
-                <button class="btn btn-warning" onclick="testCurrentPrompt()">🧪 Test with Sample Article</button>
-            </div>
-            
-            <div id="prompt-test-result" style="display: none; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb;">
-                <strong>Test Result:</strong>
-                <div id="test-output"></div>
-            </div>
         </div>
 
         <div id="logs-panel" class="panel">
@@ -458,7 +400,6 @@ Date: "{date}"</textarea>
                 this.adminKey = 'hdta-admin-2025-temp';
                 this.currentFilter = 'all';
                 this.currentEditIndex = null;
-                this.loadPromptSettings();
             }
 
             async init() {
@@ -499,53 +440,7 @@ Date: "{date}"</textarea>
                 } catch (error) {
                     console.error('Failed to load articles:', error);
                     this.addLog('error', 'Failed to load articles: ' + error.message);
-                    
-                    // FALLBACK: Try public API if admin fails
-                    this.addLog('warning', 'Trying public API fallback...');
-                    await this.loadPublicData();
-                }
-            }
-
-            async loadPublicData() {
-                try {
-                    const response = await fetch(`${this.API_BASE}/api/fetch-news`);
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    // Convert public API format to admin format
-                    this.articles = (data.articles || []).map((article, index) => ({
-                        id: `public-${index}`, // Fake ID for public articles
-                        title: article.title,
-                        description: article.description,
-                        url: article.url,
-                        urlToImage: article.urlToImage,
-                        source: article.source,
-                        publishedAt: article.publishedAt,
-                        preGeneratedAnalysis: article.preGeneratedAnalysis,
-                        status: article.preGeneratedAnalysis ? 'published' : 'queue',
-                        score: 0,
-                        order: index + 1
-                    }));
-                    
-                    if (data.edition_info) {
-                        const info = data.edition_info;
-                        document.getElementById('edition-info').textContent = 
-                            `Issue #${info.issue_number} • ${info.date} (Public View)`;
-                    }
-                    
-                    this.renderArticles();
-                    document.getElementById('articles-loading').style.display = 'none';
-                    document.getElementById('articles-grid').style.display = 'grid';
-                    
-                    this.addLog('success', `Loaded ${this.articles.length} articles from public API`);
-                    
-                } catch (error) {
-                    console.error('Failed to load public data:', error);
-                    this.addLog('error', 'Failed to load public data: ' + error.message);
-                    this.showErrorState('Both admin and public APIs failed: ' + error.message);
+                    this.showErrorState(error.message);
                 }
             }
 
@@ -734,13 +629,8 @@ Date: "{date}"</textarea>
                     return;
                 }
 
-                // Check if this is a public API article (no real database ID)
-                if (!article.id || article.id.startsWith('public-')) {
-                    // Local update only for public articles
-                    this.articles[this.currentEditIndex].preGeneratedAnalysis = newAnalysis;
-                    this.renderArticles(this.currentFilter);
-                    this.closeModal();
-                    this.addLog('warning', 'Updated locally only (public API mode - no database save)');
+                if (!article.id) {
+                    this.addLog('error', 'Article ID missing - cannot save to database');
                     return;
                 }
 
@@ -833,13 +723,8 @@ Date: "{date}"</textarea>
             async promoteArticle(index) {
                 const article = this.articles[index];
                 
-                // Check if this is a public API article
-                if (!article.id || article.id.startsWith('public-')) {
-                    // Local update only for public articles
-                    this.articles[index].status = 'published';
-                    this.renderArticles(this.currentFilter);
-                    this.updateStats();
-                    this.addLog('warning', `Published locally: ${article.title.substring(0, 30)}... (no database save)`);
+                if (!article.id) {
+                    this.addLog('error', 'Article ID missing - cannot update status');
                     return;
                 }
 
@@ -1037,93 +922,6 @@ Date: "{date}"</textarea>
                 document.getElementById('edit-modal').style.display = 'none';
                 this.currentEditIndex = null;
             }
-
-            // Prompt Management Functions
-            loadPromptSettings() {
-                const savedSystem = localStorage.getItem('hdta-system-prompt');
-                const savedUser = localStorage.getItem('hdta-user-prompt');
-                const savedBoost = localStorage.getItem('hdta-boost-keywords');
-                const savedAvoid = localStorage.getItem('hdta-avoid-keywords');
-                const savedSources = localStorage.getItem('hdta-quality-sources');
-
-                setTimeout(() => {
-                    const systemEditor = document.getElementById('system-prompt-editor');
-                    const userEditor = document.getElementById('user-prompt-editor');
-                    const boostEditor = document.getElementById('boost-keywords');
-                    const avoidEditor = document.getElementById('avoid-keywords');
-                    const sourcesEditor = document.getElementById('quality-sources');
-
-                    if (savedSystem && systemEditor) systemEditor.value = savedSystem;
-                    if (savedUser && userEditor) userEditor.value = savedUser;
-                    if (savedBoost && boostEditor) boostEditor.value = savedBoost;
-                    if (savedAvoid && avoidEditor) avoidEditor.value = savedAvoid;
-                    if (savedSources && sourcesEditor) sourcesEditor.value = savedSources;
-                }, 100);
-            }
-
-            savePromptSettings() {
-                const systemPrompt = document.getElementById('system-prompt-editor')?.value || '';
-                const userPrompt = document.getElementById('user-prompt-editor')?.value || '';
-                const boostKeywords = document.getElementById('boost-keywords')?.value || '';
-                const avoidKeywords = document.getElementById('avoid-keywords')?.value || '';
-                const qualitySources = document.getElementById('quality-sources')?.value || '';
-
-                localStorage.setItem('hdta-system-prompt', systemPrompt);
-                localStorage.setItem('hdta-user-prompt', userPrompt);
-                localStorage.setItem('hdta-boost-keywords', boostKeywords);
-                localStorage.setItem('hdta-avoid-keywords', avoidKeywords);
-                localStorage.setItem('hdta-quality-sources', qualitySources);
-
-                this.addLog('success', 'Prompt settings saved successfully');
-            }
-
-            resetPromptSettings() {
-                localStorage.removeItem('hdta-system-prompt');
-                localStorage.removeItem('hdta-user-prompt');
-                localStorage.removeItem('hdta-boost-keywords');
-                localStorage.removeItem('hdta-avoid-keywords');
-                localStorage.removeItem('hdta-quality-sources');
-
-                this.loadPromptSettings();
-                this.addLog('info', 'Prompt settings reset to defaults');
-            }
-
-            async testCurrentPrompt() {
-                if (this.articles.length === 0) {
-                    this.addLog('error', 'No articles available for testing');
-                    return;
-                }
-
-                const testArticle = this.articles[0];
-                const systemPrompt = document.getElementById('system-prompt-editor')?.value || '';
-                const userPrompt = document.getElementById('user-prompt-editor')?.value || '';
-
-                this.addLog('info', `Testing prompt with: ${testArticle.title.substring(0, 50)}...`);
-
-                // Show test result area
-                const resultDiv = document.getElementById('prompt-test-result');
-                const outputDiv = document.getElementById('test-output');
-                
-                if (resultDiv && outputDiv) {
-                    resultDiv.style.display = 'block';
-                    outputDiv.innerHTML = `
-                        <div style="margin-bottom: 12px;">
-                            <strong>Test Article:</strong> ${this.escapeHtml(testArticle.title)}
-                        </div>
-                        <div style="margin-bottom: 12px;">
-                            <strong>System Prompt:</strong> ${this.escapeHtml(systemPrompt.substring(0, 100))}...
-                        </div>
-                        <div style="margin-bottom: 12px;">
-                            <strong>User Prompt:</strong> ${this.escapeHtml(userPrompt.substring(0, 100))}...
-                        </div>
-                        <div style="color: #f59e0b; font-style: italic;">
-                            Note: Live prompt testing requires backend integration. This shows the current prompt configuration.
-                        </div>
-                    `;
-                }
-
-                this.addLog('warning', 'Prompt test preview shown - live testing requires backend integration');
-            }
         }
 
         // Global functions for UI with proper error handling
@@ -1136,19 +934,10 @@ Date: "{date}"</textarea>
             
             const tabButtons = document.querySelectorAll('.tab');
             tabButtons.forEach(tab => {
-                if (tab.textContent.includes(getTabIcon(tabName))) {
+                if (tab.textContent.includes(tabName === 'articles' ? '📰' : '📋')) {
                     tab.classList.add('active');
                 }
             });
-        }
-
-        function getTabIcon(tabName) {
-            const icons = {
-                'articles': '📰',
-                'prompts': '🎯', 
-                'logs': '📋'
-            };
-            return icons[tabName] || tabName;
         }
 
         function filterArticles(filter) {
@@ -1157,12 +946,12 @@ Date: "{date}"</textarea>
             }
         }
 
-        // ENHANCED: Fetch fresh articles with proper error handling
+        // Fetch fresh articles - calls GNews via manual trigger
         async function fetchFreshArticles() {
             if (!window.adminPanel) return;
             
             try {
-                adminPanel.addLog('info', 'Fetching fresh articles (preserves existing if today\'s edition exists)...');
+                adminPanel.addLog('info', 'Triggering fresh article fetch from GNews...');
                 
                 const response = await fetch('/api/manual-trigger', {
                     method: 'POST',
@@ -1176,11 +965,11 @@ Date: "{date}"</textarea>
                 
                 const data = await response.json();
                 if (data.success) {
-                    adminPanel.addLog('success', `${data.processing.action} - ${data.processing.articles_total} articles`);
+                    adminPanel.addLog('success', `${data.processing?.action || 'Completed'} - ${data.processing?.articles_total || 0} articles`);
                     await adminPanel.loadData();
                     adminPanel.updateStats();
                 } else {
-                    adminPanel.addLog('error', 'Failed: ' + data.error);
+                    adminPanel.addLog('error', 'Failed: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Fetch fresh articles failed:', error);
@@ -1188,14 +977,14 @@ Date: "{date}"</textarea>
             }
         }
 
-        // ENHANCED: Force refetch with confirmation and error handling
+        // Force refetch - deletes existing and gets fresh from GNews
         async function forceRefetch() {
-            if (!confirm('Force refetch will DELETE all of today\'s articles and fetch completely fresh ones. Continue?')) return;
+            if (!confirm('Force refetch will DELETE all of today\'s articles and fetch completely fresh ones from GNews. Continue?')) return;
             
             if (!window.adminPanel) return;
             
             try {
-                adminPanel.addLog('warning', 'Force refetching - replacing all articles...');
+                adminPanel.addLog('warning', 'Force refetching from GNews - replacing all articles...');
                 
                 const response = await fetch('/api/manual-trigger', {
                     method: 'POST',
@@ -1212,11 +1001,11 @@ Date: "{date}"</textarea>
                 
                 const data = await response.json();
                 if (data.success) {
-                    adminPanel.addLog('success', `Refetched - ${data.processing.articles_total} fresh articles`);
+                    adminPanel.addLog('success', `Refetched from GNews - ${data.processing?.articles_total || 0} fresh articles`);
                     await adminPanel.loadData();
                     adminPanel.updateStats();
                 } else {
-                    adminPanel.addLog('error', 'Failed: ' + data.error);
+                    adminPanel.addLog('error', 'Failed: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Force refetch failed:', error);
@@ -1292,25 +1081,6 @@ Date: "{date}"</textarea>
         function saveAnalysis() {
             if (window.adminPanel) {
                 adminPanel.saveAnalysis();
-            }
-        }
-
-        // Prompt management functions
-        function savePromptSettings() {
-            if (window.adminPanel) {
-                adminPanel.savePromptSettings();
-            }
-        }
-
-        function resetPromptSettings() {
-            if (window.adminPanel) {
-                adminPanel.resetPromptSettings();
-            }
-        }
-
-        function testCurrentPrompt() {
-            if (window.adminPanel) {
-                adminPanel.testCurrentPrompt();
             }
         }
 
