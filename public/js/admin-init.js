@@ -1,4 +1,4 @@
-// admin-init.js - Complete working version with full functionality - FIXED
+// admin-init.js - Complete working version with full functionality - FIXED (No personalize API)
 
 // Global UI functions
 function showTab(tabName) {
@@ -52,7 +52,7 @@ function filterArticles(filter) {
     }
 }
 
-// Main action functions
+// Main action functions - REMOVED regenerateAnalysis() function
 async function triggerUpdate(event) {
     // Handle both button clicks and direct calls
     const btn = event?.target || document.querySelector('button[onclick*="triggerUpdate"]');
@@ -159,43 +159,7 @@ async function triggerUpdate(event) {
     }
 }
 
-async function regenerateAnalysis() {
-    console.log('🔄 Regenerating analysis...');
-    
-    if (window.adminPanel) {
-        adminPanel.addLog('info', 'Regenerating analysis for existing articles...');
-    }
-    
-    try {
-        const response = await fetch(`/api/admin?action=regenerate`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${window.adminPanel?.adminKey || 'hdta-admin-2025-temp'}`
-            },
-            body: JSON.stringify({})
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('✅ Regenerate response:', data);
-            
-            if (window.adminPanel) {
-                adminPanel.addLog('success', 'Analysis regeneration completed');
-                await adminPanel.loadData();
-                adminPanel.updateStats();
-            }
-        } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-    } catch (error) {
-        console.error('❌ Failed to regenerate analysis:', error);
-        
-        if (window.adminPanel) {
-            adminPanel.addLog('error', 'Failed to regenerate analysis: ' + error.message);
-        }
-    }
-}
+// REMOVED: regenerateAnalysis() function - no longer needed
 
 async function forceRefetch() {
     console.log('🚀 Force refetching news...');
@@ -482,7 +446,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log('📝 Loaded saved user prompt');
             }
             
-            adminPanel.addLog('success', 'Admin panel initialized successfully');
+            adminPanel.addLog('success', 'Admin panel initialized - simplified workflow mode');
             console.log('✅ Admin panel initialization completed');
             
         } else {
@@ -545,7 +509,7 @@ window.addEventListener('unhandledrejection', function(e) {
 
 // Export for debugging - make functions globally available
 window.triggerUpdate = triggerUpdate;
-window.regenerateAnalysis = regenerateAnalysis;
+// REMOVED: window.regenerateAnalysis = regenerateAnalysis; (no longer exists)
 window.forceRefetch = forceRefetch;
 window.testWithMock = testWithMock;
 window.refreshData = refreshData;
@@ -554,4 +518,4 @@ window.testTrigger = testTrigger;
 window.testAdminAPI = testAdminAPI;
 window.testPublicAPI = testPublicAPI;
 
-console.log('📋 Admin init script loaded - functions available globally');
+console.log('📋 Admin init script loaded - simplified workflow (no regenerate functions)');
