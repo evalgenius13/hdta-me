@@ -134,6 +134,7 @@ class AutomatedPublisher {
             console.log(`  📝 Generation attempt ${attempt + 1}...`);
             const raw = await this.generateHumanImpactAnalysis(a);
             console.log(`  📊 Generated ${raw ? raw.split(/\s+/).length : 0} words`);
+            console.log(`  🔍 RAW AI RESPONSE:`, raw ? raw.substring(0, 200) + '...' : 'NULL');
             
             if (raw) {
               const cleaned = this.sanitize(a, raw);
@@ -141,13 +142,17 @@ class AutomatedPublisher {
                 analysis = cleaned;
                 console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
               } else {
-                console.log(`  ⚠️ Analysis rejected by sanitize function`);
+                console.log(`  ❌ Analysis REJECTED by sanitize function`);
+                console.log(`  🔍 Raw response length: ${raw.length} chars, ${raw.split(/\s+/).length} words`);
               }
             } else {
-              console.log(`  ⚠️ No analysis generated`);
+              console.log(`  ⚠️ No analysis generated - OpenAI returned empty`);
             }
           } catch (error) {
             console.log(`  ❌ Generation failed: ${error.message}`);
+            if (error.message.includes('API')) {
+              console.log(`  🔑 Check OPENAI_API_KEY and model availability`);
+            }
           }
           
           if (!analysis && attempt < this.maxRetries - 1) {
@@ -436,7 +441,11 @@ class AutomatedPublisher {
   }
 
   sanitize(article, text) {
-    if (!text) return null;
+    if (!text) {
+      this.logFallbackUsage('sanitize_null', 'No text provided to sanitize');
+      return null;
+    }
+    
     const normalized = text
       .replace(/\r/g, '')
       .split('\n')
@@ -446,13 +455,13 @@ class AutomatedPublisher {
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
     if (wc < 120 || wc > 400) { // More flexible word count for story format
-      this.logFallbackUsage('word_count', `${wc} words`);
+      this.logFallbackUsage('word_count', `${wc} words (need 120-400)`);
       return null;
     }
 
     // Allow markdown headings (# ##) but block bullet points and numbered lists
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized) && !/^#+\s/.test(normalized)) {
-      this.logFallbackUsage('formatting', 'bullet points detected');
+      this.logFallbackUsage('formatting', 'bullet points detected (headings OK)');
       return null;
     }
 
@@ -467,12 +476,13 @@ class AutomatedPublisher {
       if (yearNum >= currentYear - 10 && yearNum <= currentYear + 2) {
         // Only check recent years, and be more flexible
         if (!inputs.includes(year.toLowerCase()) && yearNum > currentYear - 2) {
-          this.logFallbackUsage('invalid_year', `year ${year} not in source`);
+          this.logFallbackUsage('invalid_year', `year ${year} not in source (recent years checked strictly)`);
           return null;
         }
       }
     }
 
+    console.log(`  ✅ Sanitize passed: ${wc} words, format OK, years OK`);
     return normalized;
   }
 
@@ -532,7 +542,7 @@ Date: "${pubDate}"
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'gpt-5', // Premium model for best quality
           messages: [
             { 
               role: 'system', 
@@ -540,7 +550,7 @@ Date: "${pubDate}"
             },
             { role: 'user', content: prompt }
           ],
-          max_tokens: 500, // Increased to prevent cutoff
+          max_tokens: 600, // Increased to prevent cutoff
           temperature: 0.4
         })
       });
