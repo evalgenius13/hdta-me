@@ -491,21 +491,21 @@ class AutomatedPublisher {
     console.log(`🔄 FALLBACK USED: ${reason} - ${details} at ${timestamp}`);
   }
 
-async generateHumanImpactAnalysis(article) {
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  if (!OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY environment variable is not set');
-  }
-  
-  const pubDate = article.publishedAt || 'not stated';
-  const source = article.source?.name || 'not stated';
+  async generateHumanImpactAnalysis(article) {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY environment variable is not set');
+    }
+    
+    const pubDate = article.publishedAt || 'not stated';
+    const source = article.source?.name || 'not stated';
 
-  // Clean and truncate article content to avoid token limits
-  const cleanTitle = (article.title || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 200);
-  const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
-  const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
+    // Clean and truncate article content to avoid token limits
+    const cleanTitle = (article.title || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 200);
+    const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
+    const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-  const prompt = `Write a plain-English analysis that sounds like a smart friend explaining the story. Use clear headings and keep the language conversational and direct.
+    const prompt = `Write a plain-English analysis that sounds like a smart friend explaining the story. Use clear headings and keep the language conversational and direct.
 
 Start with how this affects the main people involved, then explain ripple effects on families and communities. Be specific about real consequences and emotions, not official statements.
 
@@ -536,67 +536,48 @@ Details: "${cleanDescription}"
 Source: "${cleanSource}"
 Date: "${pubDate}"`;
 
-  try {
-    const requestBody = {
-      model: 'gpt-4o', // safest for custom temperature, or 'gpt-4o-mini', or 'gpt-3.5-turbo'
-      messages: [
-        {
-          role: 'system',
-          content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee - skip the fancy words and jargon. Focus on how real people are affected and what they are actually going through.'
+    try {
+      const requestBody = {
+        model: 'gpt-4o', // safest for custom temperature, or 'gpt-4o-mini', or 'gpt-3.5-turbo'
+        messages: [
+          {
+            role: 'system',
+            content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee - skip the fancy words and jargon. Focus on how real people are affected and what they are actually going through.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 600,
+        temperature: 0.4 // Remove or set to 1 if using a model that only supports default
+      };
+
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
         },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 600,
-      temperature: 0.4 // Remove or set to 1 if using a model that only supports default
-    };
+        body: JSON.stringify(requestBody)
+      });
 
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!r.ok) {
-      const errorBody = await r.text();
-      console.error('❌ OpenAI API Error Details:', errorBody);
-      throw new Error(`OpenAI API error ${r.status}: ${errorBody}`);
-    }
-
-    const data = await r.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      console.error('❌ No content in OpenAI response:', JSON.stringify(data, null, 2));
-      throw new Error('OpenAI returned empty content');
-    }
-
-    return content.trim();
-  } catch (error) {
-    console.error('❌ OpenAI API call failed:', error.message);
-    throw error;
-  }
-}
+      if (!r.ok) {
+        const errorBody = await r.text();
+        console.error('❌ OpenAI API Error Details:', errorBody);
+        throw new Error(`OpenAI API error ${r.status}: ${errorBody}`);
+      }
 
       const data = await r.json();
-      console.log('📊 OpenAI response structure:', Object.keys(data));
-      
       const content = data.choices?.[0]?.message?.content;
-      
       if (!content) {
         console.error('❌ No content in OpenAI response:', JSON.stringify(data, null, 2));
         throw new Error('OpenAI returned empty content');
       }
-      
-      console.log('✅ Generated content length:', content.length);
+
       return content.trim();
     } catch (error) {
       console.error('❌ OpenAI API call failed:', error.message);
-      console.error('❌ Full error object:', error);
       throw error;
     }
   }
