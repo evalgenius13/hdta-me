@@ -275,13 +275,13 @@ Date: "${pubDate}"
       return null;
     }
 
-    // Check for bullet points, numbered lists, or headings
+    // Check for bullet points or numbered lists
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
       this.logFallbackUsage('formatting', 'bullet points/numbered lists detected');
       return null;
     }
 
-    console.log(`  ✅ Sanitize passed: ${wc} words, no headings, flowing prose`);
+    console.log(`  ✅ Sanitize passed: ${wc} words, flowing prose format`);
     return normalized;
   }
 
