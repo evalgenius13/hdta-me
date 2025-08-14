@@ -491,6 +491,7 @@ class AutomatedPublisher {
     console.log(`🔄 FALLBACK USED: ${reason} - ${details} at ${timestamp}`);
   }
 
+  // FIXED: Human Impact Analysis Generation with proper GPT-5 parameters
   async generateHumanImpactAnalysis(article) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
@@ -537,22 +538,31 @@ Source: "${cleanSource}"
 Date: "${pubDate}"`;
 
     try {
+      console.log('🔑 API Key exists:', !!OPENAI_API_KEY);
+      console.log('🔑 API Key starts with:', OPENAI_API_KEY.substring(0, 7) + '...');
+      console.log('📏 Prompt length:', prompt.length);
+      console.log('📏 Estimated tokens:', Math.ceil(prompt.length / 4));
+      
+      // Validate prompt isn't too long (keep under 3000 chars to be safe)
+      if (prompt.length > 3000) {
+        throw new Error(`Prompt too long: ${prompt.length} characters`);
+      }
+      
       const requestBody = {
-        model: 'gpt-4o', // safest for custom temperature, or 'gpt-4o-mini', or 'gpt-3.5-turbo'
+        model: 'gpt-5', // Using GPT-5 as confirmed available
         messages: [
-          {
-            role: 'system',
-            content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee - skip the fancy words and jargon. Focus on how real people are affected and what they are actually going through.'
+          { 
+            role: 'system', 
+            content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee - skip the fancy words and jargon. Focus on how real people are affected and what they are actually going through.' 
           },
-          {
-            role: 'user',
-            content: prompt
-          }
+          { role: 'user', content: prompt }
         ],
-        max_tokens: 600,
-        temperature: 0.4 // Remove or set to 1 if using a model that only supports default
+        max_completion_tokens: 600, // GPT-5 uses max_completion_tokens instead of max_tokens
+        temperature: 1.0 // More creative responses
       };
 
+      console.log('📤 Request body size:', JSON.stringify(requestBody).length);
+      
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -562,22 +572,31 @@ Date: "${pubDate}"`;
         body: JSON.stringify(requestBody)
       });
 
+      console.log('📥 Response status:', r.status);
+      console.log('📥 Response headers:', Object.fromEntries(r.headers.entries()));
+
       if (!r.ok) {
         const errorBody = await r.text();
         console.error('❌ OpenAI API Error Details:', errorBody);
+        console.error('❌ Request that failed:', JSON.stringify(requestBody, null, 2));
         throw new Error(`OpenAI API error ${r.status}: ${errorBody}`);
       }
 
       const data = await r.json();
+      console.log('📊 OpenAI response structure:', Object.keys(data));
+      
       const content = data.choices?.[0]?.message?.content;
+      
       if (!content) {
         console.error('❌ No content in OpenAI response:', JSON.stringify(data, null, 2));
         throw new Error('OpenAI returned empty content');
       }
-
+      
+      console.log('✅ Generated content length:', content.length);
       return content.trim();
     } catch (error) {
       console.error('❌ OpenAI API call failed:', error.message);
+      console.error('❌ Full error object:', error);
       throw error;
     }
   }
