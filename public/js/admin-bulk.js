@@ -1,4 +1,4 @@
-// admin-bulk.js - Bulk operations and manual article management
+// admin-bulk.js - Bulk operations and manual article management (SIMPLIFIED - No personalize API)
 
 // Manual Article Management
 async function extractArticle() {
@@ -11,7 +11,7 @@ async function extractArticle() {
     adminPanel.addLog('info', 'Extracting article content...');
     
     try {
-        // This would call the content extraction API
+        // This would call the content extraction API (if implemented)
         const response = await fetch(`${adminPanel.API_BASE}/api/extract-content`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -60,12 +60,8 @@ function addManualArticle() {
     adminPanel.updateStats();
     adminPanel.addLog('success', 'Manual article added');
     
-    // Auto-analyze if status is draft or published
-    if (status === 'draft' || status === 'published') {
-        setTimeout(() => {
-            adminPanel.regenerateAnalysis(0);
-        }, 500);
-    }
+    // Note: Analysis would need to be added manually via edit function
+    // No automatic generation via personalize API
 }
 
 function clearManualForm() {
@@ -76,141 +72,12 @@ function clearManualForm() {
     document.getElementById('manual-status').value = 'queue';
 }
 
-// Bulk Operations
-async function bulkRegenerateAll() {
-    const published = adminPanel.articles.filter(a => a.status === 'published' || a.order <= 6);
-    if (published.length === 0) {
-        adminPanel.addLog('error', 'No published articles to regenerate');
-        return;
-    }
-    
-    if (!confirm(`Regenerate analysis for ${published.length} published articles?`)) return;
-    
-    showBulkProgress();
-    adminPanel.addLog('info', `Starting bulk regeneration of ${published.length} articles`);
-    
-    for (let i = 0; i < published.length; i++) {
-        const article = published[i];
-        const progress = ((i + 1) / published.length) * 100;
-        updateBulkProgress(progress, `Regenerating ${i + 1}/${published.length}: ${article.title.substring(0, 40)}...`);
-        
-        try {
-            const response = await fetch(`${adminPanel.API_BASE}/api/personalize`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ article })
-            });
-            
-            const data = await response.json();
-            if (data.impact) {
-                const index = adminPanel.articles.findIndex(a => a.id === article.id || a.title === article.title);
-                if (index !== -1) {
-                    adminPanel.articles[index].preGeneratedAnalysis = data.impact;
-                }
-            }
-            
-            // Small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-            adminPanel.addLog('error', `Failed to regenerate: ${article.title.substring(0, 30)}`);
-        }
-    }
-    
-    hideBulkProgress();
-    adminPanel.renderArticles(adminPanel.currentFilter);
-    adminPanel.updateStats();
-    adminPanel.addLog('success', 'Bulk regeneration completed');
-}
+// REMOVED FUNCTIONS (No longer call /api/personalize):
+// - bulkRegenerateAll()
+// - bulkRegenerateDrafts() 
+// - bulkAnalyzeQueue()
 
-async function bulkRegenerateDrafts() {
-    const drafts = adminPanel.articles.filter(a => a.status === 'draft');
-    if (drafts.length === 0) {
-        adminPanel.addLog('error', 'No draft articles to regenerate');
-        return;
-    }
-    
-    if (!confirm(`Regenerate analysis for ${drafts.length} draft articles?`)) return;
-    
-    showBulkProgress();
-    adminPanel.addLog('info', `Starting bulk regeneration of ${drafts.length} draft articles`);
-    
-    for (let i = 0; i < drafts.length; i++) {
-        const article = drafts[i];
-        const progress = ((i + 1) / drafts.length) * 100;
-        updateBulkProgress(progress, `Regenerating draft ${i + 1}/${drafts.length}: ${article.title.substring(0, 40)}...`);
-        
-        try {
-            const response = await fetch(`${adminPanel.API_BASE}/api/personalize`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ article })
-            });
-            
-            const data = await response.json();
-            if (data.impact) {
-                const index = adminPanel.articles.findIndex(a => a.id === article.id || a.title === article.title);
-                if (index !== -1) {
-                    adminPanel.articles[index].preGeneratedAnalysis = data.impact;
-                }
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-            adminPanel.addLog('error', `Failed to regenerate draft: ${article.title.substring(0, 30)}`);
-        }
-    }
-    
-    hideBulkProgress();
-    adminPanel.renderArticles(adminPanel.currentFilter);
-    adminPanel.updateStats();
-    adminPanel.addLog('success', 'Draft regeneration completed');
-}
-
-async function bulkAnalyzeQueue() {
-    const queue = adminPanel.articles.filter(a => a.status === 'queue' || (!a.preGeneratedAnalysis && !a.order));
-    if (queue.length === 0) {
-        adminPanel.addLog('error', 'No queued articles to analyze');
-        return;
-    }
-    
-    if (!confirm(`Analyze ${queue.length} queued articles?`)) return;
-    
-    showBulkProgress();
-    adminPanel.addLog('info', `Analyzing ${queue.length} queued articles`);
-    
-    for (let i = 0; i < queue.length; i++) {
-        const article = queue[i];
-        const progress = ((i + 1) / queue.length) * 100;
-        updateBulkProgress(progress, `Analyzing ${i + 1}/${queue.length}: ${article.title.substring(0, 40)}...`);
-        
-        try {
-            const response = await fetch(`${adminPanel.API_BASE}/api/personalize`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ article })
-            });
-            
-            const data = await response.json();
-            if (data.impact) {
-                const index = adminPanel.articles.findIndex(a => a.id === article.id || a.title === article.title);
-                if (index !== -1) {
-                    adminPanel.articles[index].preGeneratedAnalysis = data.impact;
-                    adminPanel.articles[index].status = 'draft'; // Move to draft after analysis
-                }
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-            adminPanel.addLog('error', `Failed to analyze: ${article.title.substring(0, 30)}`);
-        }
-    }
-    
-    hideBulkProgress();
-    adminPanel.renderArticles(adminPanel.currentFilter);
-    adminPanel.updateStats();
-    adminPanel.addLog('success', 'Queue analysis completed');
-}
-
+// Simplified bulk operations that don't require API calls
 function bulkFindReplace() {
     const findText = document.getElementById('find-text').value;
     const replaceText = document.getElementById('replace-text').value;
@@ -306,7 +173,28 @@ function resetToday() {
     adminPanel.addLog('warning', 'Today\'s edition reset - all articles cleared');
 }
 
-// Bulk Progress UI Helpers
+// Workflow helper functions
+function showWorkflowNotice() {
+    if (adminPanel && typeof adminPanel.addLog === 'function') {
+        adminPanel.addLog('info', 'For fresh analysis, use "Force Refetch" to run the daily workflow');
+    }
+}
+
+function bulkEditAnalysis() {
+    const selected = adminPanel.articles.filter(a => a.status === 'published').slice(0, 5);
+    if (selected.length === 0) {
+        adminPanel.addLog('error', 'No published articles to edit');
+        return;
+    }
+    
+    adminPanel.addLog('info', `Opening first of ${selected.length} articles for editing`);
+    const firstIndex = adminPanel.articles.findIndex(a => a.id === selected[0].id);
+    if (firstIndex !== -1) {
+        adminPanel.editAnalysis(firstIndex);
+    }
+}
+
+// Bulk Progress UI Helpers (kept for potential future use)
 function showBulkProgress() {
     const progressDiv = document.getElementById('bulk-progress');
     if (progressDiv) {
