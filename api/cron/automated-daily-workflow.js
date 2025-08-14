@@ -13,10 +13,10 @@ const REQUIRED_HEADINGS = [
 
 class AutomatedPublisher {
   constructor() {
-    this.maxArticles = 26;      // 26 total articles
-    this.numAnalyzed = 6;       // First 6 get AI analysis
-    this.maxRetries = 3;        
-    this.retryDelay = 1500;     
+    this.maxArticles = 26;
+    this.numAnalyzed = 6;
+    this.maxRetries = 3;
+    this.retryDelay = 1500;
     this.startTime = Date.now();
   }
 
@@ -45,7 +45,7 @@ class AutomatedPublisher {
       throw new Error('No articles could be fetched from any source');
     }
 
-    const selected = await this.selectBest(articles);
+    const selected = this.selectBest(articles);
     console.log('🟡 selectBest after filtering:', selected.length, 'articles');
 
     const analyzed = await this.analyzeAll(selected);
@@ -183,6 +183,21 @@ class AutomatedPublisher {
       });
     }
     return out;
+  }
+
+  selectBest(list) {
+    console.log('🔍 Starting selection with', list.length, 'articles');
+    const deduped = this.dedupe(list);
+    console.log('🔍 After deduplication:', deduped.length, 'articles');
+    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
+    const final = scored
+      .sort((x, y) => y.score - x.score)
+      .slice(0, this.maxArticles);
+    console.log('🔍 Final selection:', final.length, 'articles');
+    final.forEach((a, i) => {
+      console.log(`  ${i + 1}. Score ${a.score}: ${a.title.substring(0, 60)}...`);
+    });
+    return final;
   }
 
   async generateHumanImpactAnalysis(article) {
@@ -404,6 +419,91 @@ Date: "${pubDate}"
   logFallbackUsage(reason, details) {
     const timestamp = new Date().toISOString();
     console.log(`🔄 FALLBACK USED: ${reason} - ${details} at ${timestamp}`);
+  }
+
+  async createEdition(date, articles, status) {
+    if (!articles || articles.length === 0) {
+      console.warn('⚠️ No articles to create edition with');
+      throw new Error('Cannot create edition without articles');
+    }
+    let issue = 1;
+    try {
+      const { data: next, error } = await supabase.rpc('get_next_issue_number');
+      if (error) {
+        console.warn('⚠️ get_next_issue_number failed:', error.message);
+        const { data: maxIssue } = await supabase
+          .from('daily_editions')
+          .select('issue_number')
+          .order('issue_number', { ascending: false })
+          .limit(1)
+          .single();
+        issue = (maxIssue?.issue_number || 0) + 1;
+        console.log(`📊 Using fallback issue number: ${issue}`);
+      } else {
+        issue = next || 1;
+      }
+    } catch (error) {
+      console.warn('⚠️ Issue number calculation failed, using timestamp-based number');
+      issue = Math.floor(Date.now() / 86400000);
+    }
+
+    let edition;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { data: editionData, error: e1 } = await supabase
+          .from('daily_editions')
+          .insert({
+            edition_date: date,
+            issue_number: issue,
+            status,
+            featured_headline: articles[0]?.title || 'Daily Headlines'
+          })
+          .select()
+          .single();
+        if (e1) throw e1;
+        edition = editionData;
+        break;
+      } catch (error) {
+        console.warn(`⚠️ Edition creation attempt ${attempt} failed:`, error.message);
+        if (attempt === 3) throw error;
+        await this.sleep(2000);
+      }
+    }
+
+    const rows = articles.map(a => ({
+      edition_id: edition.id,
+      article_order: a.order,
+      title: a.title,
+      description: a.description,
+      url: a.url,
+      image_url: a.urlToImage || a.image,
+      source_name: a.source?.name || 'Unknown Source',
+      published_at: a.publishedAt || new Date().toISOString(),
+      analysis_text: a.analysis,
+      analysis_generated_at: a.analysis_generated_at,
+      analysis_word_count: a.analysis_word_count,
+      article_status: a.status,
+      article_score: a.score
+    }));
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { error: e2 } = await supabase.from('analyzed_articles').insert(rows);
+        if (e2) throw e2;
+        break;
+      } catch (error) {
+        console.warn(`⚠️ Articles insert attempt ${attempt} failed:`, error.message);
+        if (attempt === 3) {
+          await supabase.from('daily_editions').delete().eq('id', edition.id);
+          throw error;
+        }
+        await this.sleep(2000);
+      }
+    }
+
+    console.log(`✅ Created edition #${issue} with ${articles.length} articles`);
+    console.log(`📊 Breakdown: ${articles.filter(a => a.status === 'published').length} published, ${articles.filter(a => a.status === 'queue').length} queued`);
+    return edition;
   }
 
   async publishToWebsite(editionId) {
