@@ -204,15 +204,15 @@ class AutomatedPublisher {
 
     // UPDATED PROMPT - No headings, flowing human impact analysis
     const prompt = `
-Write a human impact analysis of this policy news in 150-200 words. Write as flowing paragraphs without any headings or section breaks - just natural prose.
+Write a 150-200 word human impact analysis of this policy news as flowing paragraphs without headings.
 
-Explain what this means for real people in their daily lives. Include concrete examples of how this affects actual routines: school pickup, work commutes, local services, neighborhood businesses, or healthcare access. Show who gets impacted - families, communities, workers, students - and how this ripples through their lives.
+This policy affects real people in their daily lives. Show how it changes routines—like school pickup, work commutes, local services, neighborhood businesses, or healthcare access. Who feels the ripple effects—families, communities, workers, students—and what does this mean for their daily experiences?
 
-Cover who benefits and who gets hurt, including the human and financial costs. Reveal what's not being reported - the political motivations, hidden agendas, or overlooked consequences that mainstream coverage misses.
+Who benefits and who gets hurt? What are the human and financial costs? Reveal what's often left out of mainstream coverage: political motivations, hidden agendas, or overlooked consequences.
 
-Help readers understand how this could affect them down the line, even if they're not directly impacted now.
+Consider how these changes could reach readers down the line, even if they're not directly affected today. Write in plain, conversational English as 3-4 natural paragraphs that flow together. Focus on real human experiences—not policy mechanics or official statements. Avoid bullet points, numbered lists, or section headings—just let the analysis flow as compelling, insightful storytelling.
 
-Write in plain English like you're explaining to a friend. Focus on real human experiences and consequences, not policy mechanics. No bullet points, no numbered lists, no section headings - just compelling, flowing analysis that reveals the human story behind the headlines.
+Finish by connecting the story to everyone: show how the choices we make for some ultimately shape the values, opportunities, and future for all.
 
 Story: "${cleanTitle}"
 Details: "${cleanDescription}"
