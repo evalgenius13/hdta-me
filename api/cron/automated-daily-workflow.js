@@ -1,4 +1,4 @@
-// api/cron/automated-daily-workflow.js - FINAL VERSION with improved error handling
+// api/cron/automated-daily-workflow.js - FINAL VERSION with privacy keywords added
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -302,6 +302,7 @@ class AutomatedPublisher {
     return inter.size / uni.size;
   }
 
+  // UPDATED: Score function with privacy keywords added
   score(article) {
     let s = 0;
     const t = (article.title + ' ' + (article.description || '')).toLowerCase();
@@ -312,8 +313,13 @@ class AutomatedPublisher {
       if (t.includes(k)) s += 15;
     });
     
-    // Medium value keywords
-    const mediumValue = ['congress', 'senate', 'house', 'federal', 'government', 'policy', 'legislation', 'court', 'judge', 'ruling', 'election', 'political'];
+    // Medium value keywords - PRIVACY KEYWORDS ADDED
+    const mediumValue = [
+      'congress', 'senate', 'house', 'federal', 'government', 'policy', 
+      'legislation', 'court', 'judge', 'ruling', 'election', 'political',
+      // Privacy-related keywords added:
+      'privacy', 'data collection', 'user data', 'social media privacy'
+    ];
     mediumValue.forEach(k => {
       if (t.includes(k)) s += 8;
     });
