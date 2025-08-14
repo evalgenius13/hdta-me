@@ -1,7 +1,7 @@
-// admin-core.js - Core AdminPanel functionality - FIXED
+// admin-core.js - Core AdminPanel functionality - SIMPLIFIED (No personalize API calls)
 class AdminPanel {
     constructor() {
-        this.API_BASE = ''; // FIXED: Use relative URLs instead of hardcoded domain
+        this.API_BASE = ''; // Use relative URLs instead of hardcoded domain
         this.articles = [];
         this.settings = this.loadSettings();
         this.adminKey = 'hdta-admin-2025-temp'; // Change this in production
@@ -296,7 +296,6 @@ class AdminPanel {
                     
                     <div class="article-actions">
                         <button class="btn btn-small" onclick="adminPanel.editAnalysis(${safeIndex})">✏️ Edit</button>
-                        <button class="btn btn-small btn-secondary" onclick="adminPanel.regenerateAnalysis(${safeIndex})">🔄 Regenerate</button>
                         ${statusActions}
                         <button class="btn btn-small btn-secondary" onclick="window.open('${this.escapeHtml(article.url || '')}', '_blank')">🔗 View Original</button>
                         <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${safeIndex})">🗑️ Remove</button>
@@ -361,36 +360,7 @@ class AdminPanel {
         }
     }
 
-    async regenerateAnalysis(index) {
-        const article = this.articles[index];
-        this.addLog('info', `Regenerating analysis for: ${article.title.substring(0, 50)}...`);
-        
-        try {
-            const response = await fetch(`${this.API_BASE}/api/personalize`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ article })
-            });
-            
-            const data = await response.json();
-            if (data.impact) {
-                this.articles[index].preGeneratedAnalysis = data.impact;
-                this.addLog('success', 'Analysis regenerated successfully');
-                
-                this.renderArticles(this.currentFilter);
-                this.updateStats();
-                
-                // Try to save to database if we have an article ID
-                if (article.id) {
-                    this.saveAnalysisToDatabase(article.id, data.impact);
-                }
-            } else {
-                this.addLog('error', 'No analysis returned from API');
-            }
-        } catch (error) {
-            this.addLog('error', 'Failed to regenerate analysis: ' + error.message);
-        }
-    }
+    // REMOVED: regenerateAnalysis() function - no longer calls /api/personalize
 
     async saveAnalysisToDatabase(articleId, analysis) {
         try {
