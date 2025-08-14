@@ -55,22 +55,32 @@ class AutomatedPublisher {
 
     console.log('📡 Fetching targeted human impact stories...');
     
-    // Targeted search query for human impact stories with expanded synonyms
+    // Calculate date range (last 5 days)
+    const today = new Date();
+    const fiveDaysAgo = new Date(today);
+    fiveDaysAgo.setDate(today.getDate() - 5);
+    
+    const fromDate = fiveDaysAgo.toISOString().split('T')[0];
+    const toDate = today.toISOString().split('T')[0];
+    
+    console.log(`🗓️ Searching from ${fromDate} to ${toDate}`);
+
+    // Simplified search query with fewer ANDs, more ORs
     const searchQuery = encodeURIComponent(
-      '("government policy" OR "state policy" OR "federal policy" OR "federal funding" OR "state funding" OR "law change" OR "new law" OR "legislation" OR "regulation" OR "policy shift" OR "policy update" OR "executive order" OR "court ruling") AND ("privacy rights" OR "data privacy" OR "AI regulation" OR "artificial intelligence regulation" OR "social media privacy" OR "data protection" OR "surveillance" OR "housing costs" OR "rental prices" OR "rent control" OR "eviction" OR "foreclosure" OR "affordable housing" OR "immigration reform" OR "deportation" OR "visa requirements" OR "border policy" OR "asylum" OR "immigration status" OR "abortion access" OR "reproductive rights" OR "abortion ban" OR "abortion law" OR "civil rights" OR "discrimination" OR "workplace rights" OR "voting rights" OR "human rights" OR "humanitarian rights" OR "student loans" OR "tuition costs" OR "education funding" OR "school funding" OR "minimum wage" OR "worker pay" OR "labor rights" OR "unemployment benefits" OR "healthcare access" OR "medical costs") AND ("United States" OR "US" OR "USA" OR "America" OR "American") AND (impact OR effect OR consequences OR affects OR "affects people" OR "affects families" OR "affects workers" OR "affects students" OR "community response" OR "human story" OR "real impact" OR "personal impact")'
+      '("government policy" OR "state policy" OR "federal policy" OR "federal funding" OR "state funding" OR "new law" OR "legislation" OR "regulation" OR "policy update" OR "executive order" OR "court ruling" OR "law change") AND ("United States" OR "US" OR "USA" OR "America" OR "American") AND ("privacy rights" OR "data privacy" OR "AI regulation" OR "artificial intelligence" OR "social media privacy" OR "data protection" OR "surveillance" OR "housing costs" OR "rental prices" OR "rent control" OR "eviction" OR "foreclosure" OR "affordable housing" OR "immigration reform" OR "deportation" OR "visa requirements" OR "border policy" OR "asylum" OR "immigration status" OR "abortion access" OR "reproductive rights" OR "abortion ban" OR "abortion law" OR "civil rights" OR "discrimination" OR "workplace rights" OR "voting rights" OR "human rights" OR "student loans" OR "tuition costs" OR "education funding" OR "school funding" OR "minimum wage" OR "worker pay" OR "labor rights" OR "unemployment benefits" OR "healthcare access" OR "medical costs" OR impact OR effect OR consequences OR affects OR "affects people" OR "affects families" OR "affects workers" OR "affects students" OR "community response" OR "human story" OR "real impact" OR "personal impact")'
     );
 
     let allArticles = [];
 
     try {
       console.log('🎯 Searching for human impact stories...');
-      const searchUrl = `https://gnews.io/api/v4/search?q=${searchQuery}&lang=en&country=us&max=26&token=${API_KEY}`;
+      const searchUrl = `https://gnews.io/api/v4/search?q=${searchQuery}&lang=en&country=us&max=26&from=${fromDate}&to=${toDate}&token=${API_KEY}`;
       
       const response = await fetch(searchUrl);
       if (response.ok) {
         const data = await response.json();
         allArticles = data.articles || [];
-        console.log(`✅ Found ${allArticles.length} human impact stories`);
+        console.log(`✅ Found ${allArticles.length} human impact stories (${fromDate} to ${toDate})`);
       } else {
         console.warn(`⚠️ Targeted search failed: ${response.status}`);
         throw new Error(`Search API failed: ${response.status}`);
@@ -78,17 +88,17 @@ class AutomatedPublisher {
     } catch (error) {
       console.warn('⚠️ Targeted search error:', error.message);
       
-      // FALLBACK: If targeted search fails, try simpler query
+      // FALLBACK: Much simpler query with date range
       try {
         console.log('🔄 Trying fallback search...');
-        const fallbackQuery = encodeURIComponent('("government policy" OR "federal funding") AND ("United States" OR "US") AND (impact OR effect)');
-        const fallbackUrl = `https://gnews.io/api/v4/search?q=${fallbackQuery}&lang=en&country=us&max=26&token=${API_KEY}`;
+        const fallbackQuery = encodeURIComponent('("policy" OR "law" OR "regulation" OR "funding") AND ("United States" OR "US") AND ("housing" OR "privacy" OR "immigration" OR "education" OR "healthcare" OR "civil rights")');
+        const fallbackUrl = `https://gnews.io/api/v4/search?q=${fallbackQuery}&lang=en&country=us&max=26&from=${fromDate}&to=${toDate}&token=${API_KEY}`;
         
         const fallbackResponse = await fetch(fallbackUrl);
         if (fallbackResponse.ok) {
           const fallbackData = await fallbackResponse.json();
           allArticles = fallbackData.articles || [];
-          console.log(`✅ Fallback search: ${allArticles.length} articles`);
+          console.log(`✅ Fallback search: ${allArticles.length} articles (${fromDate} to ${toDate})`);
         }
       } catch (fallbackError) {
         console.error('❌ All searches failed:', fallbackError.message);
