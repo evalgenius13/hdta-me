@@ -9,6 +9,7 @@ class AutomatedPublisher {
     this.maxRetries = 3;
     this.retryDelay = 1500;
     this.startTime = Date.now();
+    this.previousOpenings = [];
   }
 
   async runFullWorkflow() {
@@ -27,8 +28,6 @@ class AutomatedPublisher {
       console.log(`📰 Edition already exists for ${today}, returning existing`);
       return existing;
     }
-
-    // Fetch articles with improved error handling
     const articles = await this.fetchCombinedNewsWithFallback();
     console.log('🔵 fetchCombinedNews returned:', articles.length, 'articles');
 
@@ -44,20 +43,15 @@ class AutomatedPublisher {
     return edition;
   }
 
-  // IMPROVED: Fetch with partial failure handling
   async fetchCombinedNewsWithFallback() {
     const API_KEY = process.env.GNEWS_API_KEY;
     if (!API_KEY) {
       console.error('❌ GNEWS_API_KEY not found');
       return [];
     }
-
     console.log('📡 Fetching combined news with fallback handling...');
-    
     let generalArticles = [];
     let politicsArticles = [];
-
-    // TRY 1: Fetch general headlines
     try {
       console.log('📰 Fetching 20 general headlines...');
       const generalUrl = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=20&token=${API_KEY}`;
@@ -72,11 +66,7 @@ class AutomatedPublisher {
     } catch (error) {
       console.warn('⚠️ General headlines error:', error.message);
     }
-
-    // Small delay between API calls
     await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // TRY 2: Fetch politics headlines
     try {
       console.log('🏛️ Fetching 6 politics headlines...');
       const politicsUrl = `https://gnews.io/api/v4/top-headlines?category=politics&lang=en&country=us&max=6&token=${API_KEY}`;
@@ -91,8 +81,6 @@ class AutomatedPublisher {
     } catch (error) {
       console.warn('⚠️ Politics headlines error:', error.message);
     }
-
-    // FALLBACK: If both fail, try single top headlines call
     if (generalArticles.length === 0 && politicsArticles.length === 0) {
       console.log('🔄 Both calls failed, trying fallback...');
       try {
@@ -107,15 +95,9 @@ class AutomatedPublisher {
         console.error('❌ All API calls failed:', error.message);
       }
     }
-
-    // Combine what we have
     let allArticles = [...generalArticles, ...politicsArticles];
-
-    console.log(`📊 Combined: ${allArticles.length} articles (${generalArticles.length} general + ${politicsArticles.length} politics)`);
-
-    // Filter invalid articles
     allArticles = allArticles.filter(article => article?.title && article?.description);
-
+    console.log(`📊 Combined: ${allArticles.length} articles (${generalArticles.length} general + ${politicsArticles.length} politics)`);
     console.log(`📊 Valid articles: ${allArticles.length}`);
     return allArticles;
   }
@@ -126,20 +108,20 @@ class AutomatedPublisher {
       const a = articles[i];
       let analysis = null;
       const shouldAnalyze = i < this.numAnalyzed;
-
       if (shouldAnalyze) {
         console.log(`🔬 Analyzing article ${i + 1}: ${a.title?.substring(0, 60)}...`);
         for (let attempt = 0; attempt < this.maxRetries && !analysis; attempt++) {
           try {
             console.log(`  📝 Generation attempt ${attempt + 1}...`);
-            const raw = await this.generateHumanImpactAnalysis(a);
+            const raw = await this.generateHumanImpactAnalysis(a, this.previousOpenings.slice(-5));
             console.log(`  📊 Generated ${raw ? raw.split(/\s+/).length : 0} words`);
             console.log(`  🔍 RAW AI RESPONSE:`, raw ? raw.substring(0, 200) + '...' : 'NULL');
-
             if (raw) {
               const cleaned = this.sanitize(a, raw);
               if (cleaned) {
                 analysis = cleaned;
+                // Track the opening sentence for future anti-repetition
+                this.previousOpenings.push(cleaned.split('\n')[0]);
                 console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
               } else {
                 console.log(`  ❌ Analysis REJECTED by sanitize function`);
@@ -160,9 +142,7 @@ class AutomatedPublisher {
           analysis = this.fallback();
         }
       }
-
       const finalAnalysis = analysis || this.queueFallback();
-
       out.push({
         ...a,
         order: i + 1,
@@ -191,7 +171,7 @@ class AutomatedPublisher {
     return final;
   }
 
-  async generateHumanImpactAnalysis(article) {
+  async generateHumanImpactAnalysis(article, previousOpenings = []) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY environment variable is not set');
@@ -202,14 +182,19 @@ class AutomatedPublisher {
     const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
     const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-    // UPDATED PROMPT - Story-first journalism style
+    // Add previous openings to discourage repetition
+    const prevOpeningsText = previousOpenings.length
+      ? `Recent opening sentences used: ${previousOpenings.map((o, idx) => `(${idx + 1}) "${o}"`).join(' ')}. Do NOT repeat these or use similar patterns (e.g. "Imagine...", "For families...", "The ripple effect...").`
+      : '';
+
+    // Strong journalism-style prompt
     const prompt = `
-Tell the real human story behind this policy decision. Reveal what people are actually experiencing—the changes, the consequences, and the way life feels now. Focus on vivid details, daily realities, and unexpected ripple effects. 
-
-Write in plain, conversational English as 3-4 natural paragraphs. No lists or section headings. Be direct, concrete, and compelling—like a journalist uncovering what's really happening in homes, neighborhoods, and communities. Don't repeat the same opening for multiple stories. Let the story lead.
-
-Keep it to 150-200 words.
-
+Write a 150-200 word analysis of this policy news, focusing on the human impact as reported in homes, workplaces, and neighborhoods.
+Let the story guide your approach: sometimes begin with a quote, a surprising fact, or a direct observation. Avoid using the same opening or phrasing for multiple stories—especially the word "Imagine" or generic empathy formulas.
+${prevOpeningsText}
+Write in natural, conversational English as 3-4 flowing paragraphs. No lists, headings, or repeated empathy templates.
+Be concrete, vivid, and specific—like a journalist uncovering what’s truly happening. Show, don’t tell. If the story lends itself to a personal lens, use it; if not, start with a direct consequence or statistic.
+End with a sentence that connects this story to broader values or future implications.
 Story: "${cleanTitle}"
 Details: "${cleanDescription}"
 Source: "${cleanSource}"
@@ -222,7 +207,7 @@ Date: "${pubDate}"
         messages: [
           {
             role: 'system',
-            content: 'You are an investigative journalist who reveals the human impact behind policy news. You write compelling analysis that uncovers what people are really experiencing and why it matters to everyone. Write like you are talking to a friend over coffee - conversational but insightful.'
+            content: `You are a journalist writing for a general audience. Every story should feel fresh and specific. Avoid repeating opening sentences or empathy templates such as "Imagine...", "The ripple effect...", or "For families...". Use facts, quotes, or observations when appropriate. Prioritize variety, specificity, and real reporting.`
           },
           { role: 'user', content: prompt }
         ],
@@ -255,26 +240,21 @@ Date: "${pubDate}"
   }
 
   sanitize(article, text) {
-    // Normalize and strip carriage returns
     const normalized = text
       .replace(/\r/g, '')
       .split('\n')
       .map(s => s.trim())
       .filter(Boolean)
       .join('\n\n');
-
     const wc = normalized.split(/\s+/).filter(Boolean).length;
     if (wc < 120 || wc > 400) {
       this.logFallbackUsage('word_count', `${wc} words (need 120-400)`);
       return null;
     }
-
-    // Check for bullet points or numbered lists
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
       this.logFallbackUsage('formatting', 'bullet points/numbered lists detected');
       return null;
     }
-
     console.log(`  ✅ Sanitize passed: ${wc} words, flowing prose format`);
     return normalized;
   }
@@ -399,7 +379,6 @@ Date: "${pubDate}"
         await this.sleep(2000);
       }
     }
-
     const rows = articles.map(a => ({
       edition_id: edition.id,
       article_order: a.order,
@@ -430,7 +409,6 @@ Date: "${pubDate}"
         await this.sleep(2000);
       }
     }
-
     console.log(`✅ Created edition #${issue} with ${articles.length} articles`);
     console.log(`📊 Breakdown: ${articles.filter(a => a.status === 'published').length} published, ${articles.filter(a => a.status === 'queue').length} queued`);
     return edition;
