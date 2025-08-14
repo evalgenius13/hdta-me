@@ -2,15 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-const REQUIRED_HEADINGS = [
-  'How this affects the main group',
-  'Ripple effects on others',
-  'Winners and losers',
-  "What's not being said",
-  'The bigger picture',
-  'Why everyone should care'
-];
-
 class AutomatedPublisher {
   constructor() {
     this.maxArticles = 26;
@@ -211,29 +202,17 @@ class AutomatedPublisher {
     const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
     const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-    // STRICT PROMPT
+    // UPDATED PROMPT - No headings, flowing human impact analysis
     const prompt = `
-Write a plain-English analysis in six sections, always in this order, using the following exact headings (start each section with the heading as a Markdown H2, e.g. ## How this affects the main group):
+Write a human impact analysis of this policy news in 150-200 words. Write as flowing paragraphs without any headings or section breaks - just natural prose that covers these elements:
 
-## How this affects the main group
-[Describe everyday effects, feelings, and what people are actually dealing with]
+Start with what's really happening to the people most affected - their fears, stress, daily reality, and immediate concerns. Then explain who else gets impacted - families, communities, workers, students - and how this ripples through their lives.
 
-## Ripple effects on others
-[Explain how this hits families, communities, and other people]
+Cover who benefits and who gets hurt, including the human and financial costs. Reveal what's not being reported - the political motivations, hidden agendas, or overlooked consequences that mainstream coverage misses.
 
-## Winners and losers
-[Who comes out ahead, who gets hurt?]
+End by connecting this to readers - explain how this precedent, trend, or policy shift could affect them down the line, even if they're not directly impacted now.
 
-## What's not being said
-[Important stuff that's missing from the coverage]
-
-## The bigger picture
-[Why this fits into larger trends or political moves]
-
-## Why everyone should care
-[Connect this to all readers - precedent, values, or broader impact]
-
-Each section should be 2-4 sentences. Do not use bullet points or numbered lists. Do not skip any section. Do not shuffle or change the headings. Do not add extra sections.
+Write in plain English like you're explaining to a friend. Focus on real human experiences and consequences, not policy mechanics. No bullet points, no numbered lists, no section headings - just compelling, flowing analysis that reveals the human story behind the headlines.
 
 Story: "${cleanTitle}"
 Details: "${cleanDescription}"
@@ -247,11 +226,11 @@ Date: "${pubDate}"
         messages: [
           {
             role: 'system',
-            content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee.'
+            content: 'You are an investigative journalist who reveals the human impact behind policy news. You write compelling analysis that uncovers what people are really experiencing and why it matters to everyone. Write like you are talking to a friend over coffee - conversational but insightful.'
           },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 600,
+        max_tokens: 350,
         temperature: 0.4
       };
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -294,67 +273,34 @@ Date: "${pubDate}"
       return null;
     }
 
-    // Check for bullet points or numbered lists
+    // Check for bullet points, numbered lists, or headings
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
       this.logFallbackUsage('formatting', 'bullet points/numbered lists detected');
       return null;
     }
 
-    // Enforce headings and order
-    const headingRegex = /^## (.+)$/gm;
-    const foundHeadings = [];
-    let match;
-    while ((match = headingRegex.exec(normalized)) !== null) {
-      foundHeadings.push(match[1].trim());
-    }
-    if (foundHeadings.length !== REQUIRED_HEADINGS.length ||
-      !REQUIRED_HEADINGS.every((h, i) => foundHeadings[i] === h)) {
-      this.logFallbackUsage('headings', `Headings missing or out of order: found=[${foundHeadings.join(', ')}]`);
-      return null;
-    }
-
-    console.log(`  ✅ Sanitize passed: ${wc} words, headings OK, format OK`);
+    console.log(`  ✅ Sanitize passed: ${wc} words, no headings, flowing prose`);
     return normalized;
   }
 
   fallback() {
     this.logFallbackUsage('generation_failed', 'AI generation or sanitization failed');
     return [
-      '## How this affects the main group',
-      'The concrete impact of this policy remains unclear due to ongoing negotiations. People affected may face new paperwork, eligibility changes, and delays in accessing benefits.',
+      'The concrete impact of this policy remains unclear due to ongoing negotiations. People affected may face new paperwork, eligibility changes, and delays in accessing benefits, creating uncertainty for families already dealing with financial stress.',
       '',
-      '## Ripple effects on others',
-      'Families and communities could experience uncertainty as local organizations and support systems adjust to new requirements. The ripple effect may reach schools, healthcare providers, and social service agencies.',
+      'The ripple effect reaches schools, healthcare providers, and social service agencies as they scramble to understand new requirements. Local organizations that serve these communities are bracing for increased demand while navigating reduced resources.',
       '',
-      '## Winners and losers',
-      'Individuals with strong legal or financial resources are likely to benefit, while those lacking access may struggle. Established organizations are often favored over newcomers.',
+      'Individuals with strong legal or financial resources are likely to navigate these changes more easily, while those lacking access to professional help may struggle with compliance. Hidden costs like administrative delays and unexpected exclusions often emerge months after implementation, hitting the most vulnerable hardest.',
       '',
-      "## What's not being said",
-      'Hidden costs such as administrative delays or unexpected exclusions may not be fully covered in public discussions.',
-      '',
-      '## The bigger picture',
-      'This policy fits into a broader trend of regulatory changes that can shift market dynamics over the next year.',
-      '',
-      '## Why everyone should care',
-      'Even those not directly impacted may be affected by precedent and shifting community norms. Watch for further guidance in the coming months.'
+      'Even those not directly impacted should pay attention - these regulatory shifts often signal broader policy directions that could affect housing, employment, or healthcare access down the line. Watch for further guidance that could expand these requirements to other areas.'
     ].join('\n');
   }
 
   queueFallback() {
     return [
-      '## How this affects the main group',
-      'This story is in the queue for detailed analysis. The human impact assessment will explore how this affects individuals, families, and communities once the full analysis is completed.',
+      'This story is in the queue for detailed human impact analysis. The assessment will explore how this affects individuals, families, and communities once the full analysis is completed.',
       '',
-      '## Ripple effects on others',
-      '',
-      '## Winners and losers',
-      '',
-      "## What's not being said",
-      '',
-      '## The bigger picture',
-      '',
-      '## Why everyone should care',
-      ''
+      'Check back for updates on who this impacts, the broader ripple effects, and why it matters for your community.'
     ].join('\n');
   }
 
