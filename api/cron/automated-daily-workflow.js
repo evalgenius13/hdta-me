@@ -202,17 +202,13 @@ class AutomatedPublisher {
     const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
     const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-    // UPDATED PROMPT - No headings, flowing human impact analysis
+    // UPDATED PROMPT - Story-first journalism style
     const prompt = `
-Write a 150-200 word human impact analysis of this policy news as flowing paragraphs without headings.
+Tell the real human story behind this policy decision. Reveal what people are actually experiencing—the changes, the consequences, and the way life feels now. Focus on vivid details, daily realities, and unexpected ripple effects. 
 
-This policy affects real people in their daily lives. Show how it changes routines—like school pickup, work commutes, local services, neighborhood businesses, or healthcare access. Who feels the ripple effects—families, communities, workers, students—and what does this mean for their daily experiences?
+Write in plain, conversational English as 3-4 natural paragraphs. No lists or section headings. Be direct, concrete, and compelling—like a journalist uncovering what's really happening in homes, neighborhoods, and communities. Don't repeat the same opening for multiple stories. Let the story lead.
 
-Who benefits and who gets hurt? What are the human and financial costs? Reveal what's often left out of mainstream coverage: political motivations, hidden agendas, or overlooked consequences.
-
-Consider how these changes could reach readers down the line, even if they're not directly affected today. Write in plain, conversational English as 3-4 natural paragraphs that flow together. Focus on real human experiences—not policy mechanics or official statements. Avoid bullet points, numbered lists, or section headings—just let the analysis flow as compelling, insightful storytelling.
-
-Finish by connecting the story to everyone: show how the choices we make for some ultimately shape the values, opportunities, and future for all.
+Keep it to 150-200 words.
 
 Story: "${cleanTitle}"
 Details: "${cleanDescription}"
@@ -222,7 +218,7 @@ Date: "${pubDate}"
 
     try {
       const requestBody = {
-        model: 'gpt-4o',
+        model: 'gpt-5',
         messages: [
           {
             role: 'system',
