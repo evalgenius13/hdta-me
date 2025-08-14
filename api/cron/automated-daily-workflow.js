@@ -492,37 +492,31 @@ class AutomatedPublisher {
     const source = article.source?.name || 'not stated';
 
     const prompt = `
-Write a plain-English analysis in story format, using clear headings and bold for structure.  
-Start by describing how the issue directly affects the main group involved ("how does this affect me?"), then expand to show ripple effects on families, communities, and other stakeholders.  
-Be specific about real-world consequences and emotions, not just official statements.  
-Include a section on who benefits and who loses out.  
-Point out any hidden or missing impacts that aren't mentioned in the article.  
-Explain how this fits into the larger political or policy landscape—mention any motivations, trends, or strategies behind the issue.
-**In your final section, always connect the issue to all readers—even those not directly affected.**  
-Explain why this story matters for everyone, such as setting a precedent, affecting community values, or having broader implications for rights, safety, or fairness.
-Keep paragraphs short and language easy to read.
+Write a plain-English analysis that sounds like a smart friend explaining the story. Use clear headings and keep the language conversational and direct.
 
-**Format:**
-# [Title: What's happening?]
-**[Short summary or key impact]**
+Start with how this affects the main people involved, then explain ripple effects on families and communities. Be specific about real consequences and emotions, not official statements.
+
+Include who benefits and who gets hurt. Point out important details that aren't being talked about much. Explain the bigger picture and why this matters for everyone.
+
+Keep it conversational - avoid fancy words, jargon, or academic language. Write like you're talking to someone over coffee.
 
 ## How this affects the main group
-[Describe everyday effects, feelings, risks, and behavior.]
+[Describe everyday effects, feelings, and what people are actually dealing with]
 
-## Ripple effects on others
-[Explain impacts on families, teachers, local communities, etc.]
+## Ripple effects on others  
+[Explain how this hits families, communities, and other people]
 
 ## Winners and losers
-[Who benefits, who faces new risks or losses?]
+[Who comes out ahead, who gets hurt?]
 
 ## What's not being said
-[Highlight important consequences or details missing from the article.]
+[Important stuff that's missing from the coverage]
 
-## Political and policy context
-[Explain the bigger picture—political motivation, trends, or strategies.]
+## The bigger picture
+[Why this fits into larger trends or political moves]
 
-## Why this matters for everyone
-[Connect the story to all readers—explain broader relevance, precedent, values, or risks.]
+## Why everyone should care
+[Connect this to all readers - precedent, values, or broader impact]
 
 Story: "${article.title}"
 Details: "${article.description}"
@@ -542,11 +536,11 @@ Date: "${pubDate}"
           messages: [
             { 
               role: 'system', 
-              content: 'You are an expert at explaining how news stories affect real people\'s lives. Focus on human impact, emotions, and practical consequences. Write in clear, accessible language that helps readers understand why the story matters to them personally and their community.' 
+              content: 'You are great at explaining news in simple, conversational language. Write like you\'re talking to a friend over coffee - skip the fancy words and jargon. Focus on how real people are affected and what they\'re actually going through.' 
             },
             { role: 'user', content: prompt }
           ],
-          max_tokens: 400, // Increased for story format
+          max_tokens: 500, // Increased to prevent cutoff
           temperature: 0.4
         })
       });
