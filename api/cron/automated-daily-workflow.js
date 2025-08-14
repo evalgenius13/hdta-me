@@ -2,6 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
+const REQUIRED_HEADINGS = [
+  'How this affects the main group',
+  'Ripple effects on others',
+  'Winners and losers',
+  "What's not being said",
+  'The bigger picture',
+  'Why everyone should care'
+];
+
 class AutomatedPublisher {
   constructor() {
     this.maxArticles = 26;      // 26 total articles
@@ -130,12 +139,35 @@ class AutomatedPublisher {
       if (shouldAnalyze) {
         console.log(`🔬 Analyzing article ${i + 1}: ${a.title?.substring(0, 60)}...`);
         for (let attempt = 0; attempt < this.maxRetries && !analysis; attempt++) {
-          const raw = await this.generateNarrative(a).catch(() => null);
-          const cleaned = raw ? this.sanitize(a, raw) : null;
-          if (cleaned) analysis = cleaned;
-          if (!analysis) await this.sleep(this.retryDelay);
+          try {
+            console.log(`  📝 Generation attempt ${attempt + 1}...`);
+            const raw = await this.generateHumanImpactAnalysis(a);
+            console.log(`  📊 Generated ${raw ? raw.split(/\s+/).length : 0} words`);
+            console.log(`  🔍 RAW AI RESPONSE:`, raw ? raw.substring(0, 200) + '...' : 'NULL');
+
+            if (raw) {
+              const cleaned = this.sanitize(a, raw);
+              if (cleaned) {
+                analysis = cleaned;
+                console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
+              } else {
+                console.log(`  ❌ Analysis REJECTED by sanitize function`);
+              }
+            } else {
+              console.log(`  ⚠️ No analysis generated - OpenAI returned empty`);
+            }
+          } catch (error) {
+            console.log(`  ❌ Generation failed: ${error.message}`);
+          }
+          if (!analysis && attempt < this.maxRetries - 1) {
+            console.log(`  🔄 Retrying in ${this.retryDelay}ms...`);
+            await this.sleep(this.retryDelay);
+          }
         }
-        if (!analysis) analysis = this.fallback();
+        if (!analysis) {
+          console.log(`  🔄 Using fallback for article ${i + 1}`);
+          analysis = this.fallback();
+        }
       }
 
       const finalAnalysis = analysis || this.queueFallback();
@@ -153,100 +185,162 @@ class AutomatedPublisher {
     return out;
   }
 
-  async selectBest(list) {
-    console.log('🔍 Starting selection with', list.length, 'articles');
-    const deduped = this.dedupe(list);
-    console.log('🔍 After deduplication:', deduped.length, 'articles');
-    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
-    const final = scored
-      .sort((x, y) => y.score - x.score)
-      .slice(0, this.maxArticles);
-    console.log('🔍 Final selection:', final.length, 'articles');
-    final.forEach((a, i) => {
-      console.log(`  ${i + 1}. Score ${a.score}: ${a.title.substring(0, 60)}...`);
-    });
-    return final;
+  async generateHumanImpactAnalysis(article) {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY environment variable is not set');
+    }
+    const pubDate = article.publishedAt || 'not stated';
+    const source = article.source?.name || 'not stated';
+    const cleanTitle = (article.title || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 200);
+    const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
+    const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
+
+    // STRICT PROMPT
+    const prompt = `
+Write a plain-English analysis in six sections, always in this order, using the following exact headings (start each section with the heading as a Markdown H2, e.g. ## How this affects the main group):
+
+## How this affects the main group
+[Describe everyday effects, feelings, and what people are actually dealing with]
+
+## Ripple effects on others
+[Explain how this hits families, communities, and other people]
+
+## Winners and losers
+[Who comes out ahead, who gets hurt?]
+
+## What's not being said
+[Important stuff that's missing from the coverage]
+
+## The bigger picture
+[Why this fits into larger trends or political moves]
+
+## Why everyone should care
+[Connect this to all readers - precedent, values, or broader impact]
+
+Each section should be 2-4 sentences. Do not use bullet points or numbered lists. Do not skip any section. Do not shuffle or change the headings. Do not add extra sections.
+
+Story: "${cleanTitle}"
+Details: "${cleanDescription}"
+Source: "${cleanSource}"
+Date: "${pubDate}"
+`.trim();
+
+    try {
+      const requestBody = {
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are great at explaining news in simple, conversational language. Write like you are talking to a friend over coffee.'
+          },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 600,
+        temperature: 0.4
+      };
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!r.ok) {
+        const errorBody = await r.text();
+        throw new Error(`OpenAI API error ${r.status}: ${errorBody}`);
+      }
+      const data = await r.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('OpenAI returned empty content');
+      }
+      return content.trim();
+    } catch (error) {
+      console.error('❌ OpenAI API call failed:', error.message);
+      throw error;
+    }
   }
 
-  // IMPROVED: Better database error handling
-  async createEdition(date, articles, status) {
-    const { data: next } = await supabase.rpc('get_next_issue_number');
-    const issue = next || 1;
+  sanitize(article, text) {
+    // Normalize and strip carriage returns
+    const normalized = text
+      .replace(/\r/g, '')
+      .split('\n')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .join('\n\n');
 
-    if (!articles || articles.length === 0) {
-      console.warn('⚠️ No articles to create edition with');
-      throw new Error('Cannot create edition without articles');
+    const wc = normalized.split(/\s+/).filter(Boolean).length;
+    if (wc < 120 || wc > 400) {
+      this.logFallbackUsage('word_count', `${wc} words (need 120-400)`);
+      return null;
     }
 
-    // Create edition with retry logic
-    let edition;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const { data: editionData, error: e1 } = await supabase
-          .from('daily_editions')
-          .insert({
-            edition_date: date,
-            issue_number: issue,
-            status,
-            featured_headline: articles[0]?.title || 'Daily Headlines'
-          })
-          .select()
-          .single();
-        if (e1) throw e1;
-        edition = editionData;
-        break;
-      } catch (error) {
-        console.warn(`⚠️ Edition creation attempt ${attempt} failed:`, error.message);
-        if (attempt === 3) throw error;
-        await this.sleep(2000); // Wait before retry
-      }
+    // Check for bullet points or numbered lists
+    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
+      this.logFallbackUsage('formatting', 'bullet points/numbered lists detected');
+      return null;
     }
 
-    // Insert articles with retry logic
-    const rows = articles.map(a => ({
-      edition_id: edition.id,
-      article_order: a.order,
-      title: a.title,
-      description: a.description,
-      url: a.url,
-      image_url: a.urlToImage || a.image,
-      source_name: a.source?.name || 'Unknown Source',
-      published_at: a.publishedAt || new Date().toISOString(),
-      analysis_text: a.analysis,
-      analysis_generated_at: a.analysis_generated_at,
-      analysis_word_count: a.analysis_word_count,
-      article_status: a.status,
-      article_score: a.score
-    }));
-
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const { error: e2 } = await supabase.from('analyzed_articles').insert(rows);
-        if (e2) throw e2;
-        break;
-      } catch (error) {
-        console.warn(`⚠️ Articles insert attempt ${attempt} failed:`, error.message);
-        if (attempt === 3) {
-          // Clean up edition if articles can't be inserted
-          await supabase.from('daily_editions').delete().eq('id', edition.id);
-          throw error;
-        }
-        await this.sleep(2000);
-      }
+    // Enforce headings and order
+    const headingRegex = /^## (.+)$/gm;
+    const foundHeadings = [];
+    let match;
+    while ((match = headingRegex.exec(normalized)) !== null) {
+      foundHeadings.push(match[1].trim());
+    }
+    if (foundHeadings.length !== REQUIRED_HEADINGS.length ||
+      !REQUIRED_HEADINGS.every((h, i) => foundHeadings[i] === h)) {
+      this.logFallbackUsage('headings', `Headings missing or out of order: found=[${foundHeadings.join(', ')}]`);
+      return null;
     }
 
-    console.log(`✅ Created edition #${issue} with ${articles.length} articles`);
-    console.log(`📊 Breakdown: ${articles.filter(a => a.status === 'published').length} published, ${articles.filter(a => a.status === 'queue').length} queued`);
-    return edition;
+    console.log(`  ✅ Sanitize passed: ${wc} words, headings OK, format OK`);
+    return normalized;
   }
 
   fallback() {
     this.logFallbackUsage('generation_failed', 'AI generation or sanitization failed');
-    return 'The real impact depends on implementation details still being negotiated behind closed doors. Early movers with good legal counsel typically fare better, while those who wait face higher compliance costs and fewer options.\n\nSimilar policies have shifted market dynamics within 12-18 months. Watch for the regulatory guidance in Q3 - that\'s where the actual rules get written, often favoring established players over newcomers.\n\nHidden costs like processing delays, new paperwork requirements, and changed eligibility criteria usually surface 6 months after implementation.';
+    return [
+      '## How this affects the main group',
+      'The concrete impact of this policy remains unclear due to ongoing negotiations. People affected may face new paperwork, eligibility changes, and delays in accessing benefits.',
+      '',
+      '## Ripple effects on others',
+      'Families and communities could experience uncertainty as local organizations and support systems adjust to new requirements. The ripple effect may reach schools, healthcare providers, and social service agencies.',
+      '',
+      '## Winners and losers',
+      'Individuals with strong legal or financial resources are likely to benefit, while those lacking access may struggle. Established organizations are often favored over newcomers.',
+      '',
+      "## What's not being said",
+      'Hidden costs such as administrative delays or unexpected exclusions may not be fully covered in public discussions.',
+      '',
+      '## The bigger picture',
+      'This policy fits into a broader trend of regulatory changes that can shift market dynamics over the next year.',
+      '',
+      '## Why everyone should care',
+      'Even those not directly impacted may be affected by precedent and shifting community norms. Watch for further guidance in the coming months.'
+    ].join('\n');
   }
 
   queueFallback() {
-    return 'This article is in the queue for detailed analysis. The policy impact assessment will consider implementation timelines, affected stakeholders, and practical consequences for individuals and businesses once the full analysis is completed.';
+    return [
+      '## How this affects the main group',
+      'This story is in the queue for detailed analysis. The human impact assessment will explore how this affects individuals, families, and communities once the full analysis is completed.',
+      '',
+      '## Ripple effects on others',
+      '',
+      '## Winners and losers',
+      '',
+      "## What's not being said",
+      '',
+      '## The bigger picture',
+      '',
+      '## Why everyone should care',
+      ''
+    ].join('\n');
   }
 
   dedupe(list) {
@@ -307,94 +401,9 @@ class AutomatedPublisher {
     return Math.max(0, s);
   }
 
-  sanitize(article, text) {
-    if (!text) return null;
-    const normalized = text
-      .replace(/\r/g, '')
-      .split('\n')
-      .map(s => s.trim())
-      .filter(Boolean)
-      .join('\n\n');
-    const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 100 || wc > 250) {
-      this.logFallbackUsage('word_count', `${wc} words`);
-      return null;
-    }
-    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
-      this.logFallbackUsage('formatting', 'bullet points detected');
-      return null;
-    }
-    const inputs = [article.title || '', article.description || '', article.publishedAt || ''].join(' ').toLowerCase();
-    const years = normalized.match(/\b(20[0-2]\d)\b/g) || [];
-    for (const year of years) {
-      const yearNum = parseInt(year);
-      const currentYear = new Date().getFullYear();
-      if (yearNum >= currentYear - 5 && yearNum <= currentYear + 1) {
-        if (!inputs.includes(year.toLowerCase())) {
-          this.logFallbackUsage('invalid_year', `year ${year} not in source`);
-          return null;
-        }
-      }
-    }
-    return normalized;
-  }
-
   logFallbackUsage(reason, details) {
     const timestamp = new Date().toISOString();
     console.log(`🔄 FALLBACK USED: ${reason} - ${details} at ${timestamp}`);
-  }
-
-  async generateNarrative(article) {
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is not set');
-    }
-    const pubDate = article.publishedAt || 'not stated';
-    const source = article.source?.name || 'not stated';
-    const prompt = `
-Write exactly 140-170 words as a compelling insider analysis that reveals what's really happening. Use plain English but show deep policy knowledge.
-
-Paragraph 1 - REAL IMPACT (30-40 words): Start with the concrete consequence people will actually feel. Be specific: "Your mortgage rate jumps 0.3%" not "rates may change." Think like someone who's seen this playbook before.
-
-Paragraph 2 - THE MECHANICS (40-50 words): Explain HOW this works in practice. Include specific timelines, dollar amounts, eligibility thresholds. What's the implementation reality vs. the press release version?
-
-Paragraph 3 - WINNERS & LOSERS (40-50 words): Name who actually benefits and who gets hurt. Be specific about industries, regions, demographics when the data supports it. Don't be vague - if community banks struggle while big banks thrive, say so directly.
-
-Paragraph 4 - INSIDER PERSPECTIVE (25-35 words): What's not being said publicly? Historical precedent? Hidden timelines? Real motivations? End with what to watch for next that signals the true impact.
-
-Policy: "${article.title}"
-Details: "${article.description}"
-Source: "${source}"
-Date: "${pubDate}"
-`.trim();
-
-    try {
-      const r = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: 'You are a seasoned policy insider who explains complex regulations in terms of real human impact. Be specific, credible, and revealing about how policy actually works. Avoid jargon but show deep expertise.' },
-            { role: 'user', content: prompt }
-          ],
-          max_tokens: 280,
-          temperature: 0.4
-        })
-      });
-
-      if (!r.ok) {
-        throw new Error(`OpenAI API error ${r.status}: ${r.statusText}`);
-      }
-      const data = await r.json();
-      return (data.choices?.[0]?.message?.content || '').trim();
-    } catch (error) {
-      console.error('OpenAI API call failed:', error.message);
-      throw error;
-    }
   }
 
   async publishToWebsite(editionId) {
