@@ -1,4 +1,4 @@
-// admin-prompts.js - Prompt management functionality
+// admin-prompts.js - Prompt management functionality (SIMPLIFIED - No personalize API calls)
 
 // Analysis methods
 AdminPanel.prototype.saveAnalysis = async function() {
@@ -40,37 +40,8 @@ AdminPanel.prototype.saveAnalysis = async function() {
     this.closeModal();
 };
 
-AdminPanel.prototype.regenerateAnalysis = async function(index) {
-    const article = this.articles[index];
-    this.addLog('info', `Regenerating analysis for: ${article.title.substring(0, 50)}...`);
-    
-    try {
-        const response = await fetch(`${this.API_BASE}/api/personalize`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ article })
-        });
-        
-        const data = await response.json();
-        if (data.impact) {
-            this.articles[index].preGeneratedAnalysis = data.impact;
-            this.addLog('success', 'Analysis regenerated successfully');
-            
-            // Force full re-render instead of just updating one element
-            this.renderArticles(this.currentFilter);
-            this.updateStats();
-            
-            // Try to save to database if we have an article ID
-            if (article.id) {
-                this.saveAnalysisToDatabase(article.id, data.impact);
-            }
-        } else {
-            this.addLog('error', 'No analysis returned from API');
-        }
-    } catch (error) {
-        this.addLog('error', 'Failed to regenerate analysis: ' + error.message);
-    }
-};
+// REMOVED: regenerateAnalysis() function - no longer calls /api/personalize
+// Analysis is now only generated during daily workflow
 
 AdminPanel.prototype.saveAnalysisToDatabase = async function(articleId, analysis) {
     try {
@@ -87,7 +58,7 @@ AdminPanel.prototype.saveAnalysisToDatabase = async function(articleId, analysis
     }
 };
 
-// Prompt template management
+// Prompt template management (kept for reference/future use)
 const PromptTemplates = {
     insider: {
         system: "You are a seasoned policy insider who explains complex regulations in terms of real human impact. Be specific, credible, and revealing about how policy actually works in practice.",
@@ -163,10 +134,10 @@ function testPrompt() {
     const systemPrompt = document.getElementById('prompt-editor').value;
     const userPrompt = document.getElementById('user-prompt-editor').value;
     
-    adminPanel.addLog('info', 'Testing prompt with first article...');
-    adminPanel.addLog('warning', 'Prompt testing requires backend implementation');
+    adminPanel.addLog('info', 'Prompt templates saved for daily workflow usage');
+    adminPanel.addLog('warning', 'Note: Prompts are used during daily workflow, not for individual regeneration');
     
-    // Show test result area
+    // Show test result area with workflow notice
     const resultDiv = document.getElementById('prompt-test-result');
     if (resultDiv) {
         resultDiv.style.display = 'block';
@@ -174,7 +145,10 @@ function testPrompt() {
             <strong>Test Article:</strong> ${adminPanel.escapeHtml(testArticle.title)}<br>
             <strong>System Prompt:</strong> ${systemPrompt.substring(0, 100)}...<br>
             <strong>User Prompt:</strong> ${userPrompt.substring(0, 100)}...<br>
-            <em>Backend implementation needed to generate actual test result.</em>
+            <div style="background: #eff6ff; padding: 12px; border-radius: 6px; margin-top: 12px; border: 1px solid #dbeafe;">
+                <strong>💡 Note:</strong> Prompts will be used during the next daily workflow run. 
+                Use "Force Refetch" to test with fresh articles and your saved prompts.
+            </div>
         `;
     }
 }
@@ -200,4 +174,11 @@ Details: "{description}"
 Source: "{source}"
 Date: "{date}"`;
     adminPanel.addLog('info', 'Prompts reset to default');
+}
+
+// Workflow-focused prompt management
+function showPromptWorkflowNotice() {
+    if (adminPanel && typeof adminPanel.addLog === 'function') {
+        adminPanel.addLog('info', 'Prompts are applied during daily workflow - use Force Refetch to test changes');
+    }
 }
