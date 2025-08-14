@@ -45,7 +45,7 @@ class AutomatedPublisher {
     return edition;
   }
 
-  // IMPROVED: Fetch with partial failure handling
+  // NEW: Targeted search for human impact stories
   async fetchCombinedNewsWithFallback() {
     const API_KEY = process.env.GNEWS_API_KEY;
     if (!API_KEY) {
@@ -53,70 +53,47 @@ class AutomatedPublisher {
       return [];
     }
 
-    console.log('📡 Fetching combined news with fallback handling...');
+    console.log('📡 Fetching targeted human impact stories...');
     
-    let generalArticles = [];
-    let politicsArticles = [];
+    // Targeted search query for human impact stories
+    const searchQuery = encodeURIComponent(
+      '("government policy" OR "state policy" OR "federal funding" OR "law change" OR "regulation" OR "policy shift") AND ("privacy rights" OR "AI regulation" OR "social media privacy" OR "housing costs" OR "immigration reform" OR "abortion access" OR "civil rights" OR "humanitarian rights") AND ("United States" OR "US" OR "America") AND (impact OR effect OR consequences OR "affects people" OR "community response" OR "human story")'
+    );
 
-    // TRY 1: Fetch general headlines
+    let allArticles = [];
+
     try {
-      console.log('📰 Fetching 20 general headlines...');
-      const generalUrl = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=20&token=${API_KEY}`;
+      console.log('🎯 Searching for human impact stories...');
+      const searchUrl = `https://gnews.io/api/v4/search?q=${searchQuery}&lang=en&country=us&max=26&token=${API_KEY}`;
       
-      const generalResponse = await fetch(generalUrl);
-      if (generalResponse.ok) {
-        const generalData = await generalResponse.json();
-        generalArticles = generalData.articles || [];
-        console.log(`✅ General headlines: ${generalArticles.length} articles`);
+      const response = await fetch(searchUrl);
+      if (response.ok) {
+        const data = await response.json();
+        allArticles = data.articles || [];
+        console.log(`✅ Found ${allArticles.length} human impact stories`);
       } else {
-        console.warn(`⚠️ General headlines failed: ${generalResponse.status}`);
+        console.warn(`⚠️ Targeted search failed: ${response.status}`);
+        throw new Error(`Search API failed: ${response.status}`);
       }
     } catch (error) {
-      console.warn('⚠️ General headlines error:', error.message);
-    }
-
-    // Small delay between API calls
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // TRY 2: Fetch politics headlines
-    try {
-      console.log('🏛️ Fetching 6 politics headlines...');
-      const politicsUrl = `https://gnews.io/api/v4/top-headlines?category=politics&lang=en&country=us&max=6&token=${API_KEY}`;
+      console.warn('⚠️ Targeted search error:', error.message);
       
-      const politicsResponse = await fetch(politicsUrl);
-      if (politicsResponse.ok) {
-        const politicsData = await politicsResponse.json();
-        politicsArticles = politicsData.articles || [];
-        console.log(`✅ Politics headlines: ${politicsArticles.length} articles`);
-      } else {
-        console.warn(`⚠️ Politics headlines failed: ${politicsResponse.status}`);
-      }
-    } catch (error) {
-      console.warn('⚠️ Politics headlines error:', error.message);
-    }
-
-    // FALLBACK: If both fail, try single top headlines call
-    if (generalArticles.length === 0 && politicsArticles.length === 0) {
-      console.log('🔄 Both calls failed, trying fallback...');
-      
+      // FALLBACK: If targeted search fails, try simpler query
       try {
-        const fallbackUrl = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=20&token=${API_KEY}`;
-        const fallbackResponse = await fetch(fallbackUrl);
+        console.log('🔄 Trying fallback search...');
+        const fallbackQuery = encodeURIComponent('("government policy" OR "federal funding") AND ("United States" OR "US") AND (impact OR effect)');
+        const fallbackUrl = `https://gnews.io/api/v4/search?q=${fallbackQuery}&lang=en&country=us&max=26&token=${API_KEY}`;
         
+        const fallbackResponse = await fetch(fallbackUrl);
         if (fallbackResponse.ok) {
           const fallbackData = await fallbackResponse.json();
-          generalArticles = fallbackData.articles || [];
-          console.log(`✅ Fallback headlines: ${generalArticles.length} articles`);
+          allArticles = fallbackData.articles || [];
+          console.log(`✅ Fallback search: ${allArticles.length} articles`);
         }
-      } catch (error) {
-        console.error('❌ All API calls failed:', error.message);
+      } catch (fallbackError) {
+        console.error('❌ All searches failed:', fallbackError.message);
       }
     }
-
-    // Combine what we have
-    let allArticles = [...generalArticles, ...politicsArticles];
-
-    console.log(`📊 Combined: ${allArticles.length} articles (${generalArticles.length} general + ${politicsArticles.length} politics)`);
 
     // Filter invalid articles
     allArticles = allArticles.filter(article => {
@@ -126,7 +103,7 @@ class AutomatedPublisher {
       return true;
     });
 
-    console.log(`📊 Valid articles: ${allArticles.length}`);
+    console.log(`📊 Valid human impact articles: ${allArticles.length}`);
     return allArticles;
   }
 
