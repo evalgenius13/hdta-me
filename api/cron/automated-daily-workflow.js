@@ -204,7 +204,9 @@ class AutomatedPublisher {
 
     // UPDATED PROMPT - Story-first journalism style
     const prompt = `
-Tell the real human story behind this policy decision. Reveal what people are actually experiencing—the changes, the consequences, and the way life feels now. Focus on vivid details, daily realities, and unexpected ripple effects. 
+Write an easy-to-read explainer for a general audience about the following policy/news topic. Use informal subheadings that answer direct questions, such as "What is it, and why does it matter?", "How does this affect me?", and "What do I need to know?". Keep paragraphs short, use plain English, and highlight practical facts and context. Include important numbers, decision details, and key impacts.
+
+Do NOT invent names, quotes, or testimonials. Only summarize what's in the provided description and title.
 
 Write in plain, conversational English as 3-4 natural paragraphs. No lists or section headings. Be direct, concrete, and compelling—like a journalist uncovering what's really happening in homes, neighborhoods, and communities. Don't repeat the same opening for multiple stories. Let the story lead.
 
