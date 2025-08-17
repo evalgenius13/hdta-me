@@ -300,7 +300,7 @@ Date: "{date}"`;
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 120 || wc > 220) {
+    if (wc < 120 || wc > 280) {
       console.log(`  ❌ Word count rejected: ${wc} words (need 120-220)`);
       return null;
     }
