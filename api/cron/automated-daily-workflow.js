@@ -143,6 +143,7 @@ class AutomatedPublisher {
                 console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
               } else {
                 console.log(`  ❌ Analysis REJECTED by sanitize function`);
+                console.log(`  📝 Full rejected text:`, raw.substring(0, 500) + '...');
               }
             } else {
               console.log(`  ⚠️ No analysis generated - OpenAI returned empty`);
@@ -241,7 +242,7 @@ Date: "${pubDate}"
           },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 380,
+        max_tokens: 500,
         temperature: 0.4
       };
 
@@ -279,8 +280,8 @@ Date: "${pubDate}"
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 180 || wc > 280) {
-      console.log(`  ❌ Word count rejected: ${wc} words (need 180-280)`);
+    if (wc < 150 || wc > 300) {
+      console.log(`  ❌ Word count rejected: ${wc} words (need 150-300)`);
       return null;
     }
 
