@@ -196,25 +196,39 @@ class AutomatedPublisher {
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY environment variable is not set');
     }
+
     const pubDate = article.publishedAt || 'not stated';
     const source = article.source?.name || 'not stated';
-    const cleanTitle = (article.title || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 200);
-    const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
-    const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-    const prompt = `Write 200-250 words explaining this news story in plain English. Never use asterisks, bold text, hashtags, or any special formatting characters. Write only in plain text paragraphs. Structure as:
+    // keep the inputs clean and bounded
+    const cleanTitle = (article.title || '')
+      .replace(/[^\w\s\-.,!?']/g, '')
+      .substring(0, 200);
+    const cleanDescription = (article.description || '')
+      .replace(/[^\w\s\-.,!?']/g, '')
+      .substring(0, 500);
+    const cleanSource = (source || '')
+      .replace(/[^\w\s\-.,!?']/g, '')
+      .substring(0, 80);
 
-Human Impact - Real consequences people will face
-Winners and Losers - Who benefits, who pays the price  
-What's Not Being Said - What's happening beneath the surface
-How Does This Affect Me - Personal relevance and broader implications
+    // >>> Updated prompt with explicit section headlines <<<
+    const prompt = `
+Write 200-250 words in plain English. Do NOT use bullets, numbers, emojis, asterisks, hashtags, or any special formatting.
 
-Write in flowing paragraphs without any formatting. Be specific with numbers and timelines. Show human faces behind decisions. Reveal the interests and calculations not being discussed publicly.
+Use EXACTLY these 4 section headlines, in this order, each on its own line followed by a single paragraph. Do not add extra sections or lines:
+
+HUMAN IMPACT:
+WINNERS AND LOSERS:
+WHAT'S NOT BEING SAID:
+HOW THIS AFFECTS YOU:
+
+Be concrete with costs, timelines, access, paperwork, and who is most exposed. Keep a neutral, factual tone.
 
 Story: "${cleanTitle}"
 Details: "${cleanDescription}"
 Source: "${cleanSource}"
-Date: "${pubDate}"`;
+Date: "${pubDate}"
+`.trim();
 
     try {
       const requestBody = {
@@ -222,30 +236,32 @@ Date: "${pubDate}"`;
         messages: [
           {
             role: 'system',
-            content: 'You are a news explainer who breaks down complex situations into plain English. Be straightforward, factual, and tell it like it is without political spin or jargon.'
+            content:
+              'You are a news explainer who writes in clear, plain paragraphs, no lists. Use the exact section headlines provided by the user and nothing else.'
           },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 350,
+        max_tokens: 380,
         temperature: 0.4
       };
+
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestBody)
       });
+
       if (!r.ok) {
         const errorBody = await r.text();
         throw new Error(`OpenAI API error ${r.status}: ${errorBody}`);
       }
+
       const data = await r.json();
       const content = data.choices?.[0]?.message?.content;
-      if (!content) {
-        throw new Error('OpenAI returned empty content');
-      }
+      if (!content) throw new Error('OpenAI returned empty content');
       return content.trim();
     } catch (error) {
       console.error('❌ OpenAI API call failed:', error.message);
@@ -254,7 +270,7 @@ Date: "${pubDate}"`;
   }
 
   sanitize(article, text) {
-    // Normalize and strip carriage returns
+    // Normalize line breaks and trim
     const normalized = text
       .replace(/\r/g, '')
       .split('\n')
@@ -268,14 +284,55 @@ Date: "${pubDate}"`;
       return null;
     }
 
-    // Check for bullet points or numbered lists
+    // Reject bullets / numbered lists
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
-      console.log(`  ❌ Formatting rejected: bullet points/numbered lists detected`);
+      console.log('  ❌ Formatting rejected: bullet points/numbered lists detected');
       return null;
     }
 
-    console.log(`  ✅ Sanitize passed: ${wc} words, flowing prose format`);
-    return normalized;
+    // Enforce exact 4-section structure with required headlines
+    const required = [
+      'HUMAN IMPACT:',
+      'WINNERS AND LOSERS:',
+      "WHAT'S NOT BEING SAID:",
+      'HOW THIS AFFECTS YOU:'
+    ];
+
+    // Split into sections by headline lines
+    const parts = normalized.split(/\n{2,}/); // paragraphs separated by blank lines
+    // Build a map: headline -> paragraph text
+    const map = {};
+    let current = null;
+    for (const p of parts) {
+      if (required.includes(p)) {
+        current = p;
+        map[current] = '';
+      } else if (current) {
+        // append paragraph content (single paragraph per headline)
+        if (map[current]) {
+          // if a second paragraph shows up under same headline, reject
+          console.log('  ❌ Multiple paragraphs detected under one section');
+          return null;
+        }
+        map[current] = p;
+      }
+    }
+
+    // Validate presence and order
+    for (const key of required) {
+      if (!map[key] || map[key].trim().length < 40) {
+        console.log(`  ❌ Missing or too-short section: ${key}`);
+        return null;
+      }
+    }
+
+    // Reconstruct in the exact order with single blank lines
+    const rebuilt = required
+      .map(h => `${h}\n\n${map[h].trim()}`)
+      .join('\n\n');
+
+    console.log(`  ✅ Sanitize passed: ${wc} words, 4 required headlines present`);
+    return rebuilt;
   }
 
 
