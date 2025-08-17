@@ -174,16 +174,16 @@ function savePrompts() {
 
 function resetPrompts() {
     document.getElementById('prompt-editor').value = "You are a news explainer who writes in clear, plain paragraphs, no lists. Use the exact section headlines provided by the user and nothing else.";
-    document.getElementById('user-prompt-editor').value = `Write 200-250 words in a conversational tone like a knowledgeable person explaining news. Use simple language and focus on how this affects real people's daily lives. Be relatable but not overly casual.
+    document.getElementById('user-prompt-editor').value = `Write 150-180 words in a conversational tone like a knowledgeable person explaining news. Use simple language and focus on how this affects real people's daily lives. Be relatable but not overly casual.
 
-Use EXACTLY these 4 section headlines, in this order, each on its own line followed by a single paragraph:
+Use EXACTLY these 4 section headlines, in this order, each on its own line followed by 1-2 short sentences:
 
 WHAT'S HAPPENING
 WHO WINS AND LOSES
 WHAT'S NOT BEING SAID
 HOW DOES THIS AFFECT ME
 
-Always show the human side - real people, real consequences. Look for the political or financial motivations behind the scenes. Don't be too literal with the headlines - vary your approach to avoid repetition. Keep the last section short and punchy.
+Keep each section brief and punchy. Always show the human side - real people, real consequences. Look for the political or financial motivations behind the scenes. Don't be too literal with the headlines - vary your approach to avoid repetition. Keep the last section especially short.
 
 Story: "{title}"
 Details: "{description}"
