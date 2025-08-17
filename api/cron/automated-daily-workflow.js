@@ -53,78 +53,120 @@ class AutomatedPublisher {
     }
 
     // Environment variable configuration
-    const maxGeneral = process.env.GNEWS_MAX_GENERAL || '20';
-    const maxPolitics = process.env.GNEWS_MAX_POLITICS || '6';
+    const primaryCategory = process.env.GNEWS_PRIMARY_CATEGORY || 'general';
+    const secondaryType = process.env.GNEWS_SECONDARY_TYPE || 'category';
+    const secondaryCategory = process.env.GNEWS_SECONDARY_CATEGORY || 'nation';
+    const secondaryQuery = process.env.GNEWS_SECONDARY_QUERY || 'congress OR senate OR biden OR trump OR policy OR federal OR government OR legislation';
+    const maxPrimary = process.env.GNEWS_MAX_PRIMARY || '20';
+    const maxSecondary = process.env.GNEWS_MAX_SECONDARY || '6';
     const maxFallback = process.env.GNEWS_MAX_FALLBACK || '20';
     const country = process.env.GNEWS_COUNTRY || 'us';
     const language = process.env.GNEWS_LANGUAGE || 'en';
     const delayMs = parseInt(process.env.GNEWS_DELAY_MS || '1000');
 
     console.log('📡 Fetching combined news with fallback handling...');
-    console.log('⚙️ Config:', { maxGeneral, maxPolitics, country, language, delayMs });
+    console.log('⚙️ Config:', { 
+      primaryCategory, 
+      secondaryType,
+      secondaryCategory, 
+      secondaryQuery,
+      maxPrimary, 
+      maxSecondary, 
+      country, 
+      language, 
+      delayMs 
+    });
     
-    let generalArticles = [];
-    let politicsArticles = [];
+    let primaryArticles = [];
+    let secondaryArticles = [];
 
-    // TRY 1: Fetch general headlines
+    // TRY 1: Fetch primary category headlines
     try {
-      console.log(`📰 Fetching ${maxGeneral} general headlines...`);
-      const generalUrl = `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxGeneral}&token=${API_KEY}`;
-      const generalResponse = await fetch(generalUrl);
-      if (generalResponse.ok) {
-        const generalData = await generalResponse.json();
-        generalArticles = generalData.articles || [];
-        console.log(`✅ General headlines: ${generalArticles.length} articles`);
+      console.log(`📰 Fetching ${maxPrimary} ${primaryCategory} headlines...`);
+      const primaryUrl = primaryCategory === 'general' 
+        ? `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxPrimary}&token=${API_KEY}`
+        : `https://gnews.io/api/v4/top-headlines?category=${primaryCategory}&lang=${language}&country=${country}&max=${maxPrimary}&token=${API_KEY}`;
+      
+      const primaryResponse = await fetch(primaryUrl);
+      if (primaryResponse.ok) {
+        const primaryData = await primaryResponse.json();
+        primaryArticles = primaryData.articles || [];
+        console.log(`✅ ${primaryCategory} headlines: ${primaryArticles.length} articles`);
         
         // Debug GNews response
-        console.log('🔍 GNews general sample:', {
-          title: generalData.articles?.[0]?.title,
-          description: generalData.articles?.[0]?.description,
-          hasDescription: !!generalData.articles?.[0]?.description
+        console.log(`🔍 GNews ${primaryCategory} sample:`, {
+          title: primaryData.articles?.[0]?.title,
+          description: primaryData.articles?.[0]?.description,
+          hasDescription: !!primaryData.articles?.[0]?.description
         });
       } else {
-        console.warn(`⚠️ General headlines failed: ${generalResponse.status}`);
+        console.warn(`⚠️ ${primaryCategory} headlines failed: ${primaryResponse.status}`);
       }
     } catch (error) {
-      console.warn('⚠️ General headlines error:', error.message);
+      console.warn(`⚠️ ${primaryCategory} headlines error:`, error.message);
     }
 
     // Small delay between API calls
     await new Promise(resolve => setTimeout(resolve, delayMs));
 
-    // TRY 2: Fetch politics headlines
+    // TRY 2: Fetch secondary content (either headlines by category or search)
     try {
-      console.log(`🏛️ Fetching ${maxPolitics} politics headlines...`);
-      const politicsUrl = `https://gnews.io/api/v4/top-headlines?category=politics&lang=${language}&country=${country}&max=${maxPolitics}&token=${API_KEY}`;
-      const politicsResponse = await fetch(politicsUrl);
-      if (politicsResponse.ok) {
-        const politicsData = await politicsResponse.json();
-        politicsArticles = politicsData.articles || [];
-        console.log(`✅ Politics headlines: ${politicsArticles.length} articles`);
+      if (secondaryType === 'search') {
+        console.log(`🔍 Searching for ${maxSecondary} articles: "${secondaryQuery.substring(0, 50)}..."`);
+        const searchUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(secondaryQuery)}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
         
-        // Debug GNews response
-        console.log('🔍 GNews politics sample:', {
-          title: politicsData.articles?.[0]?.title,
-          description: politicsData.articles?.[0]?.description,
-          hasDescription: !!politicsData.articles?.[0]?.description
-        });
+        const searchResponse = await fetch(searchUrl);
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+          secondaryArticles = searchData.articles || [];
+          console.log(`✅ Political search: ${secondaryArticles.length} articles`);
+          
+          // Debug GNews response
+          console.log(`🔍 GNews search sample:`, {
+            title: searchData.articles?.[0]?.title,
+            description: searchData.articles?.[0]?.description,
+            hasDescription: !!searchData.articles?.[0]?.description
+          });
+        } else {
+          console.warn(`⚠️ Political search failed: ${searchResponse.status}`);
+        }
       } else {
-        console.warn(`⚠️ Politics headlines failed: ${politicsResponse.status}`);
+        console.log(`🏛️ Fetching ${maxSecondary} ${secondaryCategory} headlines...`);
+        const secondaryUrl = secondaryCategory === 'general' 
+          ? `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`
+          : `https://gnews.io/api/v4/top-headlines?category=${secondaryCategory}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
+        
+        const secondaryResponse = await fetch(secondaryUrl);
+        if (secondaryResponse.ok) {
+          const secondaryData = await secondaryResponse.json();
+          secondaryArticles = secondaryData.articles || [];
+          console.log(`✅ ${secondaryCategory} headlines: ${secondaryArticles.length} articles`);
+          
+          // Debug GNews response
+          console.log(`🔍 GNews ${secondaryCategory} sample:`, {
+            title: secondaryData.articles?.[0]?.title,
+            description: secondaryData.articles?.[0]?.description,
+            hasDescription: !!secondaryData.articles?.[0]?.description
+          });
+        } else {
+          console.warn(`⚠️ ${secondaryCategory} headlines failed: ${secondaryResponse.status}`);
+        }
       }
     } catch (error) {
-      console.warn('⚠️ Politics headlines error:', error.message);
+      const errorType = secondaryType === 'search' ? 'search' : secondaryCategory;
+      console.warn(`⚠️ ${errorType} error:`, error.message);
     }
 
     // FALLBACK: If both fail, try single top headlines call
-    if (generalArticles.length === 0 && politicsArticles.length === 0) {
+    if (primaryArticles.length === 0 && secondaryArticles.length === 0) {
       console.log('🔄 Both calls failed, trying fallback...');
       try {
         const fallbackUrl = `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxFallback}&token=${API_KEY}`;
         const fallbackResponse = await fetch(fallbackUrl);
         if (fallbackResponse.ok) {
           const fallbackData = await fallbackResponse.json();
-          generalArticles = fallbackData.articles || [];
-          console.log(`✅ Fallback headlines: ${generalArticles.length} articles`);
+          primaryArticles = fallbackData.articles || [];
+          console.log(`✅ Fallback headlines: ${primaryArticles.length} articles`);
         }
       } catch (error) {
         console.error('❌ All API calls failed:', error.message);
@@ -132,8 +174,9 @@ class AutomatedPublisher {
     }
 
     // Combine what we have
-    let allArticles = [...generalArticles, ...politicsArticles];
-    console.log(`📊 Combined: ${allArticles.length} articles (${generalArticles.length} general + ${politicsArticles.length} politics)`);
+    let allArticles = [...primaryArticles, ...secondaryArticles];
+    const secondaryLabel = secondaryType === 'search' ? 'search results' : secondaryCategory;
+    console.log(`📊 Combined: ${allArticles.length} articles (${primaryArticles.length} ${primaryCategory} + ${secondaryArticles.length} ${secondaryLabel})`);
 
     // Filter invalid articles
     allArticles = allArticles.filter(article => article?.title && article?.description);
