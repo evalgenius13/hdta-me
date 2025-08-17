@@ -44,7 +44,7 @@ class AutomatedPublisher {
     return edition;
   }
 
-  // IMPROVED: Fetch with partial failure handling
+  // IMPROVED: Fetch with partial failure handling and environment variable configuration
   async fetchCombinedNewsWithFallback() {
     const API_KEY = process.env.GNEWS_API_KEY;
     if (!API_KEY) {
@@ -52,20 +52,36 @@ class AutomatedPublisher {
       return [];
     }
 
+    // Environment variable configuration
+    const maxGeneral = process.env.GNEWS_MAX_GENERAL || '20';
+    const maxPolitics = process.env.GNEWS_MAX_POLITICS || '6';
+    const maxFallback = process.env.GNEWS_MAX_FALLBACK || '20';
+    const country = process.env.GNEWS_COUNTRY || 'us';
+    const language = process.env.GNEWS_LANGUAGE || 'en';
+    const delayMs = parseInt(process.env.GNEWS_DELAY_MS || '1000');
+
     console.log('📡 Fetching combined news with fallback handling...');
+    console.log('⚙️ Config:', { maxGeneral, maxPolitics, country, language, delayMs });
     
     let generalArticles = [];
     let politicsArticles = [];
 
     // TRY 1: Fetch general headlines
     try {
-      console.log('📰 Fetching 20 general headlines...');
-      const generalUrl = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=20&token=${API_KEY}`;
+      console.log(`📰 Fetching ${maxGeneral} general headlines...`);
+      const generalUrl = `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxGeneral}&token=${API_KEY}`;
       const generalResponse = await fetch(generalUrl);
       if (generalResponse.ok) {
         const generalData = await generalResponse.json();
         generalArticles = generalData.articles || [];
         console.log(`✅ General headlines: ${generalArticles.length} articles`);
+        
+        // Debug GNews response
+        console.log('🔍 GNews general sample:', {
+          title: generalData.articles?.[0]?.title,
+          description: generalData.articles?.[0]?.description,
+          hasDescription: !!generalData.articles?.[0]?.description
+        });
       } else {
         console.warn(`⚠️ General headlines failed: ${generalResponse.status}`);
       }
@@ -74,17 +90,24 @@ class AutomatedPublisher {
     }
 
     // Small delay between API calls
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, delayMs));
 
     // TRY 2: Fetch politics headlines
     try {
-      console.log('🏛️ Fetching 6 politics headlines...');
-      const politicsUrl = `https://gnews.io/api/v4/top-headlines?category=politics&lang=en&country=us&max=6&token=${API_KEY}`;
+      console.log(`🏛️ Fetching ${maxPolitics} politics headlines...`);
+      const politicsUrl = `https://gnews.io/api/v4/top-headlines?category=politics&lang=${language}&country=${country}&max=${maxPolitics}&token=${API_KEY}`;
       const politicsResponse = await fetch(politicsUrl);
       if (politicsResponse.ok) {
         const politicsData = await politicsResponse.json();
         politicsArticles = politicsData.articles || [];
         console.log(`✅ Politics headlines: ${politicsArticles.length} articles`);
+        
+        // Debug GNews response
+        console.log('🔍 GNews politics sample:', {
+          title: politicsData.articles?.[0]?.title,
+          description: politicsData.articles?.[0]?.description,
+          hasDescription: !!politicsData.articles?.[0]?.description
+        });
       } else {
         console.warn(`⚠️ Politics headlines failed: ${politicsResponse.status}`);
       }
@@ -96,7 +119,7 @@ class AutomatedPublisher {
     if (generalArticles.length === 0 && politicsArticles.length === 0) {
       console.log('🔄 Both calls failed, trying fallback...');
       try {
-        const fallbackUrl = `https://gnews.io/api/v4/top-headlines?lang=en&country=us&max=20&token=${API_KEY}`;
+        const fallbackUrl = `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxFallback}&token=${API_KEY}`;
         const fallbackResponse = await fetch(fallbackUrl);
         if (fallbackResponse.ok) {
           const fallbackData = await fallbackResponse.json();
@@ -110,13 +133,54 @@ class AutomatedPublisher {
 
     // Combine what we have
     let allArticles = [...generalArticles, ...politicsArticles];
-
     console.log(`📊 Combined: ${allArticles.length} articles (${generalArticles.length} general + ${politicsArticles.length} politics)`);
 
     // Filter invalid articles
     allArticles = allArticles.filter(article => article?.title && article?.description);
-
     console.log(`📊 Valid articles: ${allArticles.length}`);
+
+    // CONTENT FILTERING based on environment variables
+    const excludeKeywords = process.env.GNEWS_EXCLUDE_KEYWORDS 
+      ? process.env.GNEWS_EXCLUDE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
+      : [];
+    const requireKeywords = process.env.GNEWS_REQUIRE_KEYWORDS 
+      ? process.env.GNEWS_REQUIRE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
+      : [];
+
+    if (excludeKeywords.length > 0 || requireKeywords.length > 0) {
+      console.log('🔍 Applying content filters:', { 
+        excludeCount: excludeKeywords.length, 
+        requireCount: requireKeywords.length 
+      });
+      
+      const beforeFilter = allArticles.length;
+      
+      allArticles = allArticles.filter(article => {
+        const text = `${article.title} ${article.description || ''}`.toLowerCase();
+        
+        // Exclude articles with banned keywords
+        for (const keyword of excludeKeywords) {
+          if (text.includes(keyword)) {
+            console.log(`🚫 Excluded: ${article.title.substring(0, 50)}... (contains "${keyword}")`);
+            return false;
+          }
+        }
+        
+        // Require at least one required keyword (if any specified)
+        if (requireKeywords.length > 0) {
+          const hasRequired = requireKeywords.some(keyword => text.includes(keyword));
+          if (!hasRequired) {
+            console.log(`🚫 Filtered: ${article.title.substring(0, 50)}... (missing required keywords)`);
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      console.log(`📊 After content filtering: ${allArticles.length} articles (removed ${beforeFilter - allArticles.length})`);
+    }
+
     return allArticles;
   }
 
@@ -224,26 +288,13 @@ class AutomatedPublisher {
       .replace(/[^\w\s\-.,!?']/g, '')
       .substring(0, 80);
 
-    // Use environment variables for prompts with fallbacks
-    const systemPrompt = process.env.SYSTEM_PROMPT || 
-      'You are a news explainer who writes in clear, plain paragraphs, no lists. Use the exact section headlines provided by the user and nothing else.';
+    // Use environment variables for prompts (required - no fallbacks)
+    const systemPrompt = process.env.SYSTEM_PROMPT;
+    const userPromptTemplate = process.env.USER_PROMPT;
     
-    const userPromptTemplate = process.env.USER_PROMPT || 
-      `Write 150-180 words in a conversational tone like a knowledgeable person explaining news. Use simple language and focus on how this affects real people's daily lives. Be relatable but not overly casual.
-
-Use EXACTLY these 4 section headlines, in this order, each on its own line followed by 1-2 short sentences:
-
-WHAT'S HAPPENING
-WHO WINS AND LOSES
-WHAT'S NOT BEING SAID
-HOW DOES THIS AFFECT ME
-
-Keep each section brief and punchy. Always show the human side - real people, real consequences. Look for the political or financial motivations behind the scenes. Don't be too literal with the headlines - vary your approach to avoid repetition. Keep the last section especially short.
-
-Story: "{title}"
-Details: "{description}"
-Source: "{source}"
-Date: "{date}"`;
+    if (!systemPrompt || !userPromptTemplate) {
+      throw new Error('SYSTEM_PROMPT and USER_PROMPT environment variables must be set');
+    }
 
     // Replace placeholders in the user prompt
     const prompt = userPromptTemplate
@@ -301,7 +352,7 @@ Date: "{date}"`;
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
     if (wc < 120 || wc > 280) {
-      console.log(`  ❌ Word count rejected: ${wc} words (need 120-220)`);
+      console.log(`  ❌ Word count rejected: ${wc} words (need 120-280)`);
       return null;
     }
 
@@ -314,8 +365,6 @@ Date: "{date}"`;
     console.log(`  ✅ Sanitize passed: ${wc} words, flowing prose format`);
     return normalized;
   }
-
-
 
   dedupe(list) {
     const seen = [];
@@ -374,8 +423,6 @@ Date: "{date}"`;
     if (qualitySources.some(src => (article.source?.name || '').toLowerCase().includes(src))) s += 5;
     return Math.max(0, s);
   }
-
-
 
   async createEdition(date, articles, status) {
     if (!articles || articles.length === 0) {
