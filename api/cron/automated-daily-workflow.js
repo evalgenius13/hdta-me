@@ -204,19 +204,18 @@ class AutomatedPublisher {
 
     // UPDATED PROMPT - Story-first journalism style
     const prompt = `
-Write an easy-to-read explainer for a general audience about the following policy/news topic. Use informal subheadings that answer direct questions, such as "What is it, and why does it matter?", "How does this affect me?", and "What do I need to know?". Keep paragraphs short, use plain English, and highlight practical facts and context. Include important numbers, decision details, and key impacts.
+Write an easy-to-read explainer for a general audience about the following policy/news topic. No asterisks. Write 200-250 words like a compelling Time Magazine story. Structure as:
 
-Do NOT invent names, quotes, or testimonials. Only summarize what's in the provided description and title.
+**Human Impact** - Real consequences people will face
+**Winners and Losers** - Who benefits, who pays the price  
+**What's Not Being Said** - What's happening beneath the surface
+**How Does This Affect Me** - Personal relevance and broader implications
 
-Write in plain, conversational English as 3-4 natural paragraphs. No lists or section headings. Be direct, concrete, and compelling—like a journalist uncovering what's really happening in homes, neighborhoods, and communities. Don't repeat the same opening for multiple stories. Let the story lead.
+Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
 
-Keep it to 150-200 words.
-
-Story: "${cleanTitle}"
-Details: "${cleanDescription}"
-Source: "${cleanSource}"
-Date: "${pubDate}"
-`.trim();
+Policy: "{title}"
+Details: "{description}"
+Source: "{source}"
 
     try {
       const requestBody = {
@@ -224,7 +223,7 @@ Date: "${pubDate}"
         messages: [
           {
             role: 'system',
-            content: 'You are an investigative journalist who reveals the human impact behind policy news. You write compelling analysis that uncovers what people are really experiencing and why it matters to everyone. Write like you are talking to a friend over coffee - conversational but insightful.'
+            content: 'You are a policy analyst who explains the real human impact of policy decisions with the depth and narrative style of a Time Magazine human rights story. Be approachable, engaging, and cut through political spin.'
           },
           { role: 'user', content: prompt }
         ],
