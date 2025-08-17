@@ -177,18 +177,17 @@ class AutomatedPublisher {
       throw new Error('GNEWS_API_KEY not found');
     }
 
-    const primaryCategory = process.env.GNEWS_PRIMARY_CATEGORY || 'general';
-    const secondaryType = process.env.GNEWS_SECONDARY_TYPE || 'category';
-    const secondaryCategory = process.env.GNEWS_SECONDARY_CATEGORY || 'nation';
-    const secondaryQuery = process.env.GNEWS_SECONDARY_QUERY || 
+    // Use unified config variables, fall back to GNews-specific ones for backward compatibility
+    const primaryCategory = process.env.NEWS_API_PRIMARY_CATEGORY || process.env.GNEWS_PRIMARY_CATEGORY || 'general';
+    const secondaryQuery = process.env.NEWS_API_SECONDARY_QUERY || process.env.GNEWS_SECONDARY_QUERY || 
       'congress OR senate OR biden OR trump OR policy OR federal OR government OR legislation';
-    const maxPrimary = process.env.GNEWS_MAX_PRIMARY || '20';
-    const maxSecondary = process.env.GNEWS_MAX_SECONDARY || '6';
-    const country = process.env.GNEWS_COUNTRY || 'us';
-    const language = process.env.GNEWS_LANGUAGE || 'en';
-    const delayMs = parseInt(process.env.GNEWS_DELAY_MS || '1000');
+    const maxPrimary = process.env.NEWS_API_MAX_PRIMARY || process.env.GNEWS_MAX_PRIMARY || '20';
+    const maxSecondary = process.env.NEWS_API_MAX_SECONDARY || process.env.GNEWS_MAX_SECONDARY || '6';
+    const country = process.env.NEWS_API_COUNTRY || process.env.GNEWS_COUNTRY || 'us';
+    const language = process.env.NEWS_API_LANGUAGE || process.env.GNEWS_LANGUAGE || 'en';
+    const delayMs = parseInt(process.env.NEWS_API_DELAY_MS || process.env.GNEWS_DELAY_MS || '1000');
 
-    console.log('📰 GNews fallback config:', { primaryCategory, secondaryType, maxPrimary, maxSecondary });
+    console.log('📰 GNews fallback config:', { primaryCategory, maxPrimary, maxSecondary });
 
     let primaryArticles = [];
     let secondaryArticles = [];
@@ -211,27 +210,17 @@ class AutomatedPublisher {
 
     await new Promise(resolve => setTimeout(resolve, delayMs));
 
-    // Fetch secondary content
+    // Fetch secondary content (always use search for political content)
     try {
-      if (secondaryType === 'search') {
-        const searchUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(secondaryQuery)}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
-        const searchResponse = await fetch(searchUrl);
-        if (searchResponse.ok) {
-          const searchData = await searchResponse.json();
-          secondaryArticles = (searchData.articles || []).map(article => this.normalizeGNewsArticle(article));
-          console.log(`✅ GNews search: ${secondaryArticles.length} articles`);
-        }
-      } else {
-        const secondaryUrl = `https://gnews.io/api/v4/top-headlines?category=${secondaryCategory}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
-        const secondaryResponse = await fetch(secondaryUrl);
-        if (secondaryResponse.ok) {
-          const secondaryData = await secondaryResponse.json();
-          secondaryArticles = (secondaryData.articles || []).map(article => this.normalizeGNewsArticle(article));
-          console.log(`✅ GNews ${secondaryCategory}: ${secondaryArticles.length} articles`);
-        }
+      const searchUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(secondaryQuery)}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
+      const searchResponse = await fetch(searchUrl);
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        secondaryArticles = (searchData.articles || []).map(article => this.normalizeGNewsArticle(article));
+        console.log(`✅ GNews search: ${secondaryArticles.length} articles`);
       }
     } catch (error) {
-      console.warn(`⚠️ GNews secondary failed: ${error.message}`);
+      console.warn(`⚠️ GNews search failed: ${error.message}`);
     }
 
     return { primary: primaryArticles, secondary: secondaryArticles };
