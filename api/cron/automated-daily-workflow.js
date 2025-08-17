@@ -230,10 +230,10 @@ Write 200-250 words in a conversational tone like a knowledgeable person explain
 
 Use EXACTLY these 4 section headlines, in this order, each on its own line followed by a single paragraph:
 
-WHAT'S HAPPENING:
-WHO WINS AND LOSES:
-WHAT'S NOT BEING SAID:
-HOW DOES THIS AFFECT ME:
+WHAT'S HAPPENING
+WHO WINS AND LOSES
+WHAT'S NOT BEING SAID
+HOW DOES THIS AFFECT ME
 
 Always show the human side - real people, real consequences. Look for the political or financial motivations behind the scenes. Don't be too literal with the headlines - vary your approach to avoid repetition. Keep the last section short and punchy.
 
