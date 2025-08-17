@@ -270,7 +270,7 @@ Date: "${pubDate}"
   }
 
   sanitize(article, text) {
-    // Normalize line breaks and trim
+    // Normalize and strip carriage returns
     const normalized = text
       .replace(/\r/g, '')
       .split('\n')
@@ -284,55 +284,14 @@ Date: "${pubDate}"
       return null;
     }
 
-    // Reject bullets / numbered lists
+    // Check for bullet points or numbered lists
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
-      console.log('  ❌ Formatting rejected: bullet points/numbered lists detected');
+      console.log(`  ❌ Formatting rejected: bullet points/numbered lists detected`);
       return null;
     }
 
-    // Enforce exact 4-section structure with required headlines
-    const required = [
-      'HUMAN IMPACT:',
-      'WINNERS AND LOSERS:',
-      "WHAT'S NOT BEING SAID:",
-      'HOW THIS AFFECTS YOU:'
-    ];
-
-    // Split into sections by headline lines
-    const parts = normalized.split(/\n{2,}/); // paragraphs separated by blank lines
-    // Build a map: headline -> paragraph text
-    const map = {};
-    let current = null;
-    for (const p of parts) {
-      if (required.includes(p)) {
-        current = p;
-        map[current] = '';
-      } else if (current) {
-        // append paragraph content (single paragraph per headline)
-        if (map[current]) {
-          // if a second paragraph shows up under same headline, reject
-          console.log('  ❌ Multiple paragraphs detected under one section');
-          return null;
-        }
-        map[current] = p;
-      }
-    }
-
-    // Validate presence and order
-    for (const key of required) {
-      if (!map[key] || map[key].trim().length < 40) {
-        console.log(`  ❌ Missing or too-short section: ${key}`);
-        return null;
-      }
-    }
-
-    // Reconstruct in the exact order with single blank lines
-    const rebuilt = required
-      .map(h => `${h}\n\n${map[h].trim()}`)
-      .join('\n\n');
-
-    console.log(`  ✅ Sanitize passed: ${wc} words, 4 required headlines present`);
-    return rebuilt;
+    console.log(`  ✅ Sanitize passed: ${wc} words, flowing prose format`);
+    return normalized;
   }
 
 
