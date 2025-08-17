@@ -165,19 +165,7 @@ function savePrompts() {
 
 function resetPrompts() {
     document.getElementById('prompt-editor').value = "You are a policy explainer who breaks down complex government decisions into plain English. Be straightforward, factual, and tell it like it is without political spin or jargon.";
-    document.getElementById('user-prompt-editor').value = `Write 200-250 words explaining this policy in plain English without any formatting or markdown. Structure as:
-
-Human Impact - Real consequences people will face
-Winners and Losers - Who benefits, who pays the price  
-What's Not Being Said - What's happening beneath the surface
-How Does This Affect Me - Personal relevance and broader implications
-
-Write in flowing paragraphs without bold text or special formatting. Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
-
-Policy: "{title}"
-Details: "{description}"
-Source: "{source}"
-Date: "{date}"`;
+    document.getElementById('user-prompt-editor').value = "Write 200-250 words explaining this policy in plain English without any formatting or markdown. Structure as:\n\nHuman Impact - Real consequences people will face\nWinners and Losers - Who benefits, who pays the price\nWhat's Not Being Said - What's happening beneath the surface\nHow Does This Affect Me - Personal relevance and broader implications\n\nWrite in flowing paragraphs without bold text or special formatting. Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.\n\nPolicy: \"{title}\"\nDetails: \"{description}\"\nSource: \"{source}\"\nDate: \"{date}\"";
     adminPanel.addLog('info', 'Prompts reset to default');
 }
 
