@@ -202,14 +202,14 @@ class AutomatedPublisher {
     const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
     const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-    const prompt = `Write 200-250 words explaining this policy in plain English. Structure as:
+    const prompt = `Write 200-250 words explaining this policy in plain English without any formatting or markdown. Structure as:
 
 Human Impact - Real consequences people will face
 Winners and Losers - Who benefits, who pays the price  
 What's Not Being Said - What's happening beneath the surface
 How Does This Affect Me - Personal relevance and broader implications
 
-Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
+Write in flowing paragraphs without bold text or special formatting. Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
 
 Policy: "${cleanTitle}"
 Details: "${cleanDescription}"
