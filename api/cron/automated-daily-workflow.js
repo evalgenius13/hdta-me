@@ -202,16 +202,16 @@ class AutomatedPublisher {
     const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
     const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-    const prompt = `Write 200-250 words explaining this policy in plain English without any formatting or markdown. Structure as:
+    const prompt = `Write 200-250 words explaining this news story in plain English. Never use asterisks, bold text, hashtags, or any special formatting characters. Write only in plain text paragraphs. Structure as:
 
 Human Impact - Real consequences people will face
 Winners and Losers - Who benefits, who pays the price  
 What's Not Being Said - What's happening beneath the surface
 How Does This Affect Me - Personal relevance and broader implications
 
-Write in flowing paragraphs without bold text or special formatting. Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
+Write in flowing paragraphs without any formatting. Be specific with numbers and timelines. Show human faces behind decisions. Reveal the interests and calculations not being discussed publicly.
 
-Policy: "${cleanTitle}"
+Story: "${cleanTitle}"
 Details: "${cleanDescription}"
 Source: "${cleanSource}"
 Date: "${pubDate}"`;
@@ -222,7 +222,7 @@ Date: "${pubDate}"`;
         messages: [
           {
             role: 'system',
-            content: 'You are a policy explainer who breaks down complex government decisions into plain English. Be straightforward, factual, and tell it like it is without political spin or jargon.'
+            content: 'You are a news explainer who breaks down complex situations into plain English. Be straightforward, factual, and tell it like it is without political spin or jargon.'
           },
           { role: 'user', content: prompt }
         ],
