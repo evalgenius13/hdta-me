@@ -226,16 +226,16 @@ class AutomatedPublisher {
 
     // >>> Updated prompt with explicit section headlines <<<
     const prompt = `
-Write 200-250 words in plain English. Do NOT use bullets, numbers, emojis, asterisks, hashtags, or any special formatting.
+Write 200-250 words in a conversational tone like a knowledgeable person explaining news. Use simple language and focus on how this affects real people's daily lives. Be relatable but not overly casual.
 
-Use EXACTLY these 4 section headlines, in this order, each on its own line followed by a single paragraph. Do not add extra sections or lines:
+Use EXACTLY these 4 section headlines, in this order, each on its own line followed by a single paragraph:
 
-HUMAN IMPACT:
-WINNERS AND LOSERS:
+WHAT'S HAPPENING:
+WHO WINS AND LOSES:
 WHAT'S NOT BEING SAID:
-HOW THIS AFFECTS YOU:
+HOW DOES THIS AFFECT ME:
 
-Be concrete with costs, timelines, access, paperwork, and who is most exposed. Keep a neutral, factual tone.
+Always show the human side - real people, real consequences. Look for the political or financial motivations behind the scenes. Don't be too literal with the headlines - vary your approach to avoid repetition. Keep the last section short and punchy.
 
 Story: "${cleanTitle}"
 Details: "${cleanDescription}"
