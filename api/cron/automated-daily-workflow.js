@@ -292,8 +292,8 @@ Date: "${pubDate}"
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 150 || wc > 300) {
-      console.log(`  ❌ Word count rejected: ${wc} words (need 150-300)`);
+    if (wc < 150 || wc > 400) {
+      console.log(`  ❌ Word count rejected: ${wc} words (need 150-400)`);
       return null;
     }
 
