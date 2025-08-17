@@ -1,3 +1,4 @@
+// api/cron/automated-daily-workflow.js - UPDATED: News API primary, GNews fallback
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -28,7 +29,7 @@ class AutomatedPublisher {
       return existing;
     }
 
-    // Fetch articles with improved error handling
+    // Fetch articles with News API primary, GNews fallback
     const articles = await this.fetchCombinedNewsWithFallback();
     console.log('🔵 fetchCombinedNews returned:', articles.length, 'articles');
 
@@ -44,45 +45,156 @@ class AutomatedPublisher {
     return edition;
   }
 
-  // IMPROVED: Fetch with partial failure handling and environment variable configuration
+  // UPDATED: News API primary with GNews fallback
   async fetchCombinedNewsWithFallback() {
-    const API_KEY = process.env.GNEWS_API_KEY;
-    if (!API_KEY) {
-      console.error('❌ GNEWS_API_KEY not found');
-      return [];
+    // Environment variable configuration with News API defaults
+    const provider = process.env.NEWS_API_PROVIDER || 'newsapi'; // newsapi or gnews
+    const newsApiKey = process.env.NEWS_API_KEY;
+    const gNewsApiKey = process.env.GNEWS_API_KEY;
+    
+    console.log('📡 News provider configuration:', { 
+      primary: provider,
+      hasNewsAPI: !!newsApiKey,
+      hasGNews: !!gNewsApiKey 
+    });
+
+    let primaryArticles = [];
+    let secondaryArticles = [];
+    let usedProvider = 'none';
+
+    // TRY 1: News API (primary)
+    if (provider === 'newsapi' && newsApiKey) {
+      try {
+        const newsApiResult = await this.fetchFromNewsAPI();
+        primaryArticles = newsApiResult.primary || [];
+        secondaryArticles = newsApiResult.secondary || [];
+        usedProvider = 'newsapi';
+        console.log(`✅ News API success: ${primaryArticles.length} + ${secondaryArticles.length} articles`);
+      } catch (error) {
+        console.warn('⚠️ News API failed:', error.message);
+      }
     }
 
-    // Environment variable configuration
+    // FALLBACK: GNews API
+    if (primaryArticles.length === 0 && secondaryArticles.length === 0 && gNewsApiKey) {
+      console.log('🔄 Falling back to GNews API...');
+      try {
+        const gNewsResult = await this.fetchFromGNews();
+        primaryArticles = gNewsResult.primary || [];
+        secondaryArticles = gNewsResult.secondary || [];
+        usedProvider = 'gnews';
+        console.log(`✅ GNews fallback success: ${primaryArticles.length} + ${secondaryArticles.length} articles`);
+      } catch (error) {
+        console.error('❌ GNews fallback also failed:', error.message);
+      }
+    }
+
+    // Combine and process results
+    let allArticles = [...primaryArticles, ...secondaryArticles];
+    console.log(`📊 Combined from ${usedProvider}: ${allArticles.length} articles`);
+
+    // Apply content filtering
+    allArticles = this.applyContentFiltering(allArticles);
+    
+    return allArticles;
+  }
+
+  // NEW: News API implementation
+  async fetchFromNewsAPI() {
+    const API_KEY = process.env.NEWS_API_KEY;
+    const country = process.env.NEWS_API_COUNTRY || 'us';
+    const language = process.env.NEWS_API_LANGUAGE || 'en';
+    const maxPrimary = process.env.NEWS_API_MAX_PRIMARY || '20';
+    const maxSecondary = process.env.NEWS_API_MAX_SECONDARY || '6';
+    const delayMs = parseInt(process.env.NEWS_API_DELAY_MS || '1000');
+    
+    // News API category mapping (limited categories available)
+    const primaryCategory = process.env.NEWS_API_PRIMARY_CATEGORY || 'general';
+    const secondaryQuery = process.env.NEWS_API_SECONDARY_QUERY || 
+      'congress OR senate OR biden OR trump OR policy OR federal OR government OR legislation';
+    
+    console.log('📰 News API config:', { primaryCategory, country, language, maxPrimary, maxSecondary });
+
+    let primaryArticles = [];
+    let secondaryArticles = [];
+
+    // Fetch 1: Top headlines by category
+    try {
+      console.log(`📰 Fetching ${maxPrimary} ${primaryCategory} headlines from News API...`);
+      const primaryUrl = `https://newsapi.org/v2/top-headlines?category=${primaryCategory}&country=${country}&pageSize=${maxPrimary}&apiKey=${API_KEY}`;
+      
+      const primaryResponse = await fetch(primaryUrl);
+      if (primaryResponse.ok) {
+        const primaryData = await primaryResponse.json();
+        
+        if (primaryData.status === 'ok') {
+          primaryArticles = (primaryData.articles || []).map(article => this.normalizeNewsAPIArticle(article));
+          console.log(`✅ News API headlines: ${primaryArticles.length} articles`);
+        } else {
+          throw new Error(`News API error: ${primaryData.message || 'Unknown error'}`);
+        }
+      } else {
+        throw new Error(`News API HTTP ${primaryResponse.status}: ${primaryResponse.statusText}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ News API headlines failed: ${error.message}`);
+    }
+
+    // Small delay between API calls
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+
+    // Fetch 2: Everything search for political content
+    try {
+      console.log(`🔍 Searching News API for political content...`);
+      
+      // Use 'everything' endpoint for better search capabilities
+      const searchUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(secondaryQuery)}&language=${language}&pageSize=${maxSecondary}&sortBy=publishedAt&apiKey=${API_KEY}`;
+      
+      const searchResponse = await fetch(searchUrl);
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        
+        if (searchData.status === 'ok') {
+          secondaryArticles = (searchData.articles || []).map(article => this.normalizeNewsAPIArticle(article));
+          console.log(`✅ News API search: ${secondaryArticles.length} articles`);
+        } else {
+          throw new Error(`News API search error: ${searchData.message || 'Unknown error'}`);
+        }
+      } else {
+        throw new Error(`News API search HTTP ${searchResponse.status}: ${searchResponse.statusText}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ News API search failed: ${error.message}`);
+    }
+
+    return { primary: primaryArticles, secondary: secondaryArticles };
+  }
+
+  // EXISTING: GNews implementation (kept as fallback)
+  async fetchFromGNews() {
+    const API_KEY = process.env.GNEWS_API_KEY;
+    if (!API_KEY) {
+      throw new Error('GNEWS_API_KEY not found');
+    }
+
     const primaryCategory = process.env.GNEWS_PRIMARY_CATEGORY || 'general';
     const secondaryType = process.env.GNEWS_SECONDARY_TYPE || 'category';
     const secondaryCategory = process.env.GNEWS_SECONDARY_CATEGORY || 'nation';
-    const secondaryQuery = process.env.GNEWS_SECONDARY_QUERY || 'congress OR senate OR biden OR trump OR policy OR federal OR government OR legislation';
+    const secondaryQuery = process.env.GNEWS_SECONDARY_QUERY || 
+      'congress OR senate OR biden OR trump OR policy OR federal OR government OR legislation';
     const maxPrimary = process.env.GNEWS_MAX_PRIMARY || '20';
     const maxSecondary = process.env.GNEWS_MAX_SECONDARY || '6';
-    const maxFallback = process.env.GNEWS_MAX_FALLBACK || '20';
     const country = process.env.GNEWS_COUNTRY || 'us';
     const language = process.env.GNEWS_LANGUAGE || 'en';
     const delayMs = parseInt(process.env.GNEWS_DELAY_MS || '1000');
 
-    console.log('📡 Fetching combined news with fallback handling...');
-    console.log('⚙️ Config:', { 
-      primaryCategory, 
-      secondaryType,
-      secondaryCategory, 
-      secondaryQuery,
-      maxPrimary, 
-      maxSecondary, 
-      country, 
-      language, 
-      delayMs 
-    });
-    
+    console.log('📰 GNews fallback config:', { primaryCategory, secondaryType, maxPrimary, maxSecondary });
+
     let primaryArticles = [];
     let secondaryArticles = [];
 
-    // TRY 1: Fetch primary category headlines
+    // Fetch primary category headlines
     try {
-      console.log(`📰 Fetching ${maxPrimary} ${primaryCategory} headlines...`);
       const primaryUrl = primaryCategory === 'general' 
         ? `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxPrimary}&token=${API_KEY}`
         : `https://gnews.io/api/v4/top-headlines?category=${primaryCategory}&lang=${language}&country=${country}&max=${maxPrimary}&token=${API_KEY}`;
@@ -90,104 +202,87 @@ class AutomatedPublisher {
       const primaryResponse = await fetch(primaryUrl);
       if (primaryResponse.ok) {
         const primaryData = await primaryResponse.json();
-        primaryArticles = primaryData.articles || [];
-        console.log(`✅ ${primaryCategory} headlines: ${primaryArticles.length} articles`);
-        
-        // Debug GNews response
-        console.log(`🔍 GNews ${primaryCategory} sample:`, {
-          title: primaryData.articles?.[0]?.title,
-          description: primaryData.articles?.[0]?.description,
-          hasDescription: !!primaryData.articles?.[0]?.description
-        });
-      } else {
-        console.warn(`⚠️ ${primaryCategory} headlines failed: ${primaryResponse.status}`);
+        primaryArticles = (primaryData.articles || []).map(article => this.normalizeGNewsArticle(article));
+        console.log(`✅ GNews ${primaryCategory}: ${primaryArticles.length} articles`);
       }
     } catch (error) {
-      console.warn(`⚠️ ${primaryCategory} headlines error:`, error.message);
+      console.warn(`⚠️ GNews ${primaryCategory} failed: ${error.message}`);
     }
 
-    // Small delay between API calls
     await new Promise(resolve => setTimeout(resolve, delayMs));
 
-    // TRY 2: Fetch secondary content (either headlines by category or search)
+    // Fetch secondary content
     try {
       if (secondaryType === 'search') {
-        console.log(`🔍 Searching for ${maxSecondary} articles: "${secondaryQuery.substring(0, 50)}..."`);
         const searchUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(secondaryQuery)}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
-        
         const searchResponse = await fetch(searchUrl);
         if (searchResponse.ok) {
           const searchData = await searchResponse.json();
-          secondaryArticles = searchData.articles || [];
-          console.log(`✅ Political search: ${secondaryArticles.length} articles`);
-          
-          // Debug GNews response
-          console.log(`🔍 GNews search sample:`, {
-            title: searchData.articles?.[0]?.title,
-            description: searchData.articles?.[0]?.description,
-            hasDescription: !!searchData.articles?.[0]?.description
-          });
-        } else {
-          console.warn(`⚠️ Political search failed: ${searchResponse.status}`);
+          secondaryArticles = (searchData.articles || []).map(article => this.normalizeGNewsArticle(article));
+          console.log(`✅ GNews search: ${secondaryArticles.length} articles`);
         }
       } else {
-        console.log(`🏛️ Fetching ${maxSecondary} ${secondaryCategory} headlines...`);
-        const secondaryUrl = secondaryCategory === 'general' 
-          ? `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`
-          : `https://gnews.io/api/v4/top-headlines?category=${secondaryCategory}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
-        
+        const secondaryUrl = `https://gnews.io/api/v4/top-headlines?category=${secondaryCategory}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
         const secondaryResponse = await fetch(secondaryUrl);
         if (secondaryResponse.ok) {
           const secondaryData = await secondaryResponse.json();
-          secondaryArticles = secondaryData.articles || [];
-          console.log(`✅ ${secondaryCategory} headlines: ${secondaryArticles.length} articles`);
-          
-          // Debug GNews response
-          console.log(`🔍 GNews ${secondaryCategory} sample:`, {
-            title: secondaryData.articles?.[0]?.title,
-            description: secondaryData.articles?.[0]?.description,
-            hasDescription: !!secondaryData.articles?.[0]?.description
-          });
-        } else {
-          console.warn(`⚠️ ${secondaryCategory} headlines failed: ${secondaryResponse.status}`);
+          secondaryArticles = (secondaryData.articles || []).map(article => this.normalizeGNewsArticle(article));
+          console.log(`✅ GNews ${secondaryCategory}: ${secondaryArticles.length} articles`);
         }
       }
     } catch (error) {
-      const errorType = secondaryType === 'search' ? 'search' : secondaryCategory;
-      console.warn(`⚠️ ${errorType} error:`, error.message);
+      console.warn(`⚠️ GNews secondary failed: ${error.message}`);
     }
 
-    // FALLBACK: If both fail, try single top headlines call
-    if (primaryArticles.length === 0 && secondaryArticles.length === 0) {
-      console.log('🔄 Both calls failed, trying fallback...');
-      try {
-        const fallbackUrl = `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxFallback}&token=${API_KEY}`;
-        const fallbackResponse = await fetch(fallbackUrl);
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json();
-          primaryArticles = fallbackData.articles || [];
-          console.log(`✅ Fallback headlines: ${primaryArticles.length} articles`);
-        }
-      } catch (error) {
-        console.error('❌ All API calls failed:', error.message);
+    return { primary: primaryArticles, secondary: secondaryArticles };
+  }
+
+  // NEW: Normalize News API article format to match expected structure
+  normalizeNewsAPIArticle(article) {
+    return {
+      title: article.title,
+      description: article.description,
+      url: article.url,
+      urlToImage: article.urlToImage,
+      publishedAt: article.publishedAt,
+      source: {
+        name: article.source?.name || 'Unknown Source'
       }
-    }
+    };
+  }
 
-    // Combine what we have
-    let allArticles = [...primaryArticles, ...secondaryArticles];
-    const secondaryLabel = secondaryType === 'search' ? 'search results' : secondaryCategory;
-    console.log(`📊 Combined: ${allArticles.length} articles (${primaryArticles.length} ${primaryCategory} + ${secondaryArticles.length} ${secondaryLabel})`);
+  // NEW: Normalize GNews article format
+  normalizeGNewsArticle(article) {
+    return {
+      title: article.title,
+      description: article.description,
+      url: article.url,
+      urlToImage: article.image,
+      publishedAt: article.publishedAt,
+      source: {
+        name: article.source?.name || 'Unknown Source'
+      }
+    };
+  }
 
+  // EXTRACTED: Content filtering logic
+  applyContentFiltering(allArticles) {
     // Filter invalid articles
-    allArticles = allArticles.filter(article => article?.title && article?.description);
-    console.log(`📊 Valid articles: ${allArticles.length}`);
+    allArticles = allArticles.filter(article => 
+      article?.title && 
+      article?.description && 
+      article?.url &&
+      !article.title.includes('[Removed]') // News API removed articles
+    );
+    
+    console.log(`📊 Valid articles after basic filtering: ${allArticles.length}`);
 
-    // CONTENT FILTERING based on environment variables
-    const excludeKeywords = process.env.GNEWS_EXCLUDE_KEYWORDS 
-      ? process.env.GNEWS_EXCLUDE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
+    // Apply keyword filtering
+    const excludeKeywords = process.env.NEWS_EXCLUDE_KEYWORDS 
+      ? process.env.NEWS_EXCLUDE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
       : [];
-    const requireKeywords = process.env.GNEWS_REQUIRE_KEYWORDS 
-      ? process.env.GNEWS_REQUIRE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
+    const requireKeywords = process.env.NEWS_REQUIRE_KEYWORDS 
+      ? process.env.NEWS_REQUIRE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
       : [];
 
     if (excludeKeywords.length > 0 || requireKeywords.length > 0) {
@@ -227,6 +322,9 @@ class AutomatedPublisher {
     return allArticles;
   }
 
+  // REST OF THE CLASS REMAINS UNCHANGED...
+  // (analyzeAll, selectBest, generateHumanImpactAnalysis, sanitize, dedupe, score, createEdition, etc.)
+
   async analyzeAll(articles) {
     const out = [];
     for (let i = 0; i < Math.min(articles.length, this.maxArticles); i++) {
@@ -241,7 +339,6 @@ class AutomatedPublisher {
             console.log(`  📝 Generation attempt ${attempt + 1}...`);
             const raw = await this.generateHumanImpactAnalysis(a);
             console.log(`  📊 Generated ${raw ? raw.split(/\s+/).length : 0} words`);
-            console.log(`  🔍 RAW AI RESPONSE:`, raw ? raw.substring(0, 200) + '...' : 'NULL');
 
             if (raw) {
               const cleaned = this.sanitize(a, raw);
@@ -250,7 +347,6 @@ class AutomatedPublisher {
                 console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
               } else {
                 console.log(`  ❌ Analysis REJECTED by sanitize function`);
-                console.log(`  📝 Full rejected text:`, raw.substring(0, 500) + '...');
               }
             } else {
               console.log(`  ⚠️ No analysis generated - OpenAI returned empty`);
@@ -265,20 +361,10 @@ class AutomatedPublisher {
         }
         if (!analysis) {
           console.log(`  ❌ No analysis generated for article ${i + 1} - leaving empty`);
-          // analysis stays null
         }
       }
 
       const finalAnalysis = analysis || 'No analysis available';
-
-      // Debug logging to see what's happening
-      console.log(`🐛 DEBUG: Article ${i + 1} final analysis:`, JSON.stringify({
-        hasAnalysis: !!analysis,
-        analysisLength: analysis ? analysis.length : 0,
-        finalAnalysisPreview: finalAnalysis.substring(0, 100) + '...',
-        shouldAnalyze: shouldAnalyze,
-        articleTitle: a.title?.substring(0, 50) + '...'
-      }));
 
       out.push({
         ...a,
@@ -291,7 +377,6 @@ class AutomatedPublisher {
       });
     }
     
-    // Final debug - show what we're returning
     console.log(`🐛 DEBUG: Returning ${out.length} articles, ${out.filter(a => a.analysis !== 'No analysis available').length} with real analysis`);
     return out;
   }
@@ -320,7 +405,6 @@ class AutomatedPublisher {
     const pubDate = article.publishedAt || 'not stated';
     const source = article.source?.name || 'not stated';
 
-    // keep the inputs clean and bounded
     const cleanTitle = (article.title || '')
       .replace(/[^\w\s\-.,!?']/g, '')
       .substring(0, 200);
@@ -331,7 +415,6 @@ class AutomatedPublisher {
       .replace(/[^\w\s\-.,!?']/g, '')
       .substring(0, 80);
 
-    // Use environment variables for prompts (required - no fallbacks)
     const systemPrompt = process.env.SYSTEM_PROMPT;
     const userPromptTemplate = process.env.USER_PROMPT;
     
@@ -339,7 +422,6 @@ class AutomatedPublisher {
       throw new Error('SYSTEM_PROMPT and USER_PROMPT environment variables must be set');
     }
 
-    // Replace placeholders in the user prompt
     const prompt = userPromptTemplate
       .replace('{title}', cleanTitle)
       .replace('{description}', cleanDescription)
@@ -350,10 +432,7 @@ class AutomatedPublisher {
       const requestBody = {
         model: 'gpt-4o',
         messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt }
         ],
         max_tokens: 500,
@@ -385,7 +464,6 @@ class AutomatedPublisher {
   }
 
   sanitize(article, text) {
-    // Normalize and strip carriage returns
     const normalized = text
       .replace(/\r/g, '')
       .split('\n')
@@ -399,7 +477,6 @@ class AutomatedPublisher {
       return null;
     }
 
-    // Check for bullet points or numbered lists
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
       console.log(`  ❌ Formatting rejected: bullet points/numbered lists detected`);
       return null;
@@ -532,31 +609,10 @@ class AutomatedPublisher {
       article_score: a.score
     }));
 
-    // Debug what we're trying to save
-    console.log(`🐛 DEBUG: Saving ${rows.length} articles to database`);
-    rows.forEach((row, i) => {
-      console.log(`🐛 Article ${i + 1}: analysis_text = ${row.analysis_text ? row.analysis_text.substring(0, 50) + '...' : 'NULL'}`);
-    });
-
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const { error: e2 } = await supabase.from('analyzed_articles').insert(rows);
         if (e2) throw e2;
-        
-        // Debug: Verify what was actually saved
-        const { data: savedArticles } = await supabase
-          .from('analyzed_articles')
-          .select('id, title, analysis_text')
-          .eq('edition_id', edition.id)
-          .limit(3);
-        
-        console.log(`🐛 DEBUG: First 3 saved articles:`, savedArticles?.map(a => ({
-          id: a.id,
-          title: a.title?.substring(0, 30) + '...',
-          hasAnalysis: !!a.analysis_text,
-          analysisLength: a.analysis_text?.length || 0
-        })));
-        
         break;
       } catch (error) {
         console.warn(`⚠️ Articles insert attempt ${attempt} failed for edition ${edition.id} with ${rows.length} articles:`, error.message);
