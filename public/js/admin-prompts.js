@@ -164,15 +164,15 @@ function savePrompts() {
 }
 
 function resetPrompts() {
-    document.getElementById('prompt-editor').value = "You are a policy analyst who explains the real human impact of policy decisions with the depth and narrative style of a Time Magazine human rights story. Be approachable, engaging, and cut through political spin.";
-    document.getElementById('user-prompt-editor').value = `Write 200-250 words like a compelling Time Magazine story. Structure as:
+    document.getElementById('prompt-editor').value = "You are a policy explainer who breaks down complex government decisions into plain English. Be straightforward, factual, and tell it like it is without political spin or jargon.";
+    document.getElementById('user-prompt-editor').value = `Write 200-250 words explaining this policy in plain English without any formatting or markdown. Structure as:
 
 Human Impact - Real consequences people will face
 Winners and Losers - Who benefits, who pays the price  
 What's Not Being Said - What's happening beneath the surface
 How Does This Affect Me - Personal relevance and broader implications
 
-Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
+Write in flowing paragraphs without bold text or special formatting. Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
 
 Policy: "{title}"
 Details: "{description}"
