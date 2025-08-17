@@ -226,16 +226,16 @@ class AutomatedPublisher {
 
     // >>> Updated prompt with explicit section headlines <<<
     const prompt = `
-Write 200-250 words in a conversational tone like a knowledgeable person explaining news. Use simple language and focus on how this affects real people's daily lives. Be relatable but not overly casual.
+Write 150-180 words in a conversational tone like a knowledgeable person explaining news. Use simple language and focus on how this affects real people's daily lives. Be relatable but not overly casual.
 
-Use EXACTLY these 4 section headlines, in this order, each on its own line followed by a single paragraph:
+Use EXACTLY these 4 section headlines, in this order, each on its own line followed by 1-2 short sentences:
 
 WHAT'S HAPPENING
 WHO WINS AND LOSES
 WHAT'S NOT BEING SAID
 HOW DOES THIS AFFECT ME
 
-Always show the human side - real people, real consequences. Look for the political or financial motivations behind the scenes. Don't be too literal with the headlines - vary your approach to avoid repetition. Keep the last section short and punchy.
+Keep each section brief and punchy. Always show the human side - real people, real consequences. Look for the political or financial motivations behind the scenes. Don't be too literal with the headlines - vary your approach to avoid repetition. Keep the last section especially short.
 
 Story: "${cleanTitle}"
 Details: "${cleanDescription}"
@@ -292,8 +292,8 @@ Date: "${pubDate}"
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 150 || wc > 400) {
-      console.log(`  ❌ Word count rejected: ${wc} words (need 150-400)`);
+    if (wc < 120 || wc > 220) {
+      console.log(`  ❌ Word count rejected: ${wc} words (need 120-220)`);
       return null;
     }
 
