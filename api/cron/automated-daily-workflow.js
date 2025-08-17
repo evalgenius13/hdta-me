@@ -164,6 +164,15 @@ class AutomatedPublisher {
 
       const finalAnalysis = analysis || 'No analysis available';
 
+      // Debug logging to see what's happening
+      console.log(`🐛 DEBUG: Article ${i + 1} final analysis:`, JSON.stringify({
+        hasAnalysis: !!analysis,
+        analysisLength: analysis ? analysis.length : 0,
+        finalAnalysisPreview: finalAnalysis.substring(0, 100) + '...',
+        shouldAnalyze: shouldAnalyze,
+        articleTitle: a.title?.substring(0, 50) + '...'
+      }));
+
       out.push({
         ...a,
         order: i + 1,
@@ -174,6 +183,9 @@ class AutomatedPublisher {
         score: a.score || 0
       });
     }
+    
+    // Final debug - show what we're returning
+    console.log(`🐛 DEBUG: Returning ${out.length} articles, ${out.filter(a => a.analysis !== 'No analysis available').length} with real analysis`);
     return out;
   }
 
@@ -422,10 +434,31 @@ Date: "${pubDate}"
       article_score: a.score
     }));
 
+    // Debug what we're trying to save
+    console.log(`🐛 DEBUG: Saving ${rows.length} articles to database`);
+    rows.forEach((row, i) => {
+      console.log(`🐛 Article ${i + 1}: analysis_text = ${row.analysis_text ? row.analysis_text.substring(0, 50) + '...' : 'NULL'}`);
+    });
+
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const { error: e2 } = await supabase.from('analyzed_articles').insert(rows);
         if (e2) throw e2;
+        
+        // Debug: Verify what was actually saved
+        const { data: savedArticles } = await supabase
+          .from('analyzed_articles')
+          .select('id, title, analysis_text')
+          .eq('edition_id', edition.id)
+          .limit(3);
+        
+        console.log(`🐛 DEBUG: First 3 saved articles:`, savedArticles?.map(a => ({
+          id: a.id,
+          title: a.title?.substring(0, 30) + '...',
+          hasAnalysis: !!a.analysis_text,
+          analysisLength: a.analysis_text?.length || 0
+        })));
+        
         break;
       } catch (error) {
         console.warn(`⚠️ Articles insert attempt ${attempt} failed for edition ${edition.id} with ${rows.length} articles:`, error.message);
