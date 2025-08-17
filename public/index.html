@@ -168,10 +168,67 @@
       showPreGeneratedAnalysis(i){
         const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`);
         if(a.preGeneratedAnalysis&&el){
-          const formatted=this.renderAnalysisBlock({ impact: a.preGeneratedAnalysis });
+          const formatted=this.formatNewAnalysis(a.preGeneratedAnalysis);
           el.innerHTML=formatted;
           this.sharingData[i]={article:a,analysis:this.extractKeyInsight(a.preGeneratedAnalysis,null),url:`${window.location.origin}#story-${i}`};
         }
+      }
+
+      // NEW: Format the new analysis structure with updated headers
+      formatNewAnalysis(text) {
+        if (!text || text === 'No analysis available') {
+          return '<div class="no-analysis">Analysis coming soon - check back for updates to this story.</div>';
+        }
+
+        // Split by the new section headers
+        const sections = {};
+        const lines = text.split('\n').filter(line => line.trim());
+        let currentSection = '';
+        let currentContent = [];
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed === 'WHAT\'S HAPPENING' || 
+              trimmed === 'WHO WINS AND LOSES' || 
+              trimmed === 'WHAT\'S NOT BEING SAID' || 
+              trimmed === 'HOW DOES THIS AFFECT ME') {
+            // Save previous section if exists
+            if (currentSection && currentContent.length > 0) {
+              sections[currentSection] = currentContent.join(' ').trim();
+            }
+            // Start new section
+            currentSection = trimmed;
+            currentContent = [];
+          } else if (currentSection && trimmed) {
+            currentContent.push(trimmed);
+          }
+        }
+        
+        // Save the last section
+        if (currentSection && currentContent.length > 0) {
+          sections[currentSection] = currentContent.join(' ').trim();
+        }
+
+        // Build the formatted HTML
+        let html = '';
+        
+        if (sections['WHAT\'S HAPPENING']) {
+          html += `<div style="margin-bottom: 16px;"><strong>What's Happening:</strong><br>${this.escapeHtml(sections['WHAT\'S HAPPENING'])}</div>`;
+        }
+        
+        if (sections['WHO WINS AND LOSES']) {
+          html += `<div style="margin-bottom: 16px;"><strong>Who Wins and Loses:</strong><br>${this.escapeHtml(sections['WHO WINS AND LOSES'])}</div>`;
+        }
+        
+        if (sections['WHAT\'S NOT BEING SAID']) {
+          html += `<div style="margin-bottom: 16px;"><strong>What's Not Being Said:</strong><br>${this.escapeHtml(sections['WHAT\'S NOT BEING SAID'])}</div>`;
+        }
+        
+        if (sections['HOW DOES THIS AFFECT ME']) {
+          html += `<div style="margin-bottom: 8px;"><strong>How Does This Affect Me:</strong><br>${this.escapeHtml(sections['HOW DOES THIS AFFECT ME'])}</div>`;
+        }
+
+        return html || this.formatAnalysis(text);
       }
 
       // NEW: Show message for articles without analysis instead of calling API
