@@ -1,4 +1,4 @@
-// api/manual-trigger.js - CLEANED: Real news only, no mock data
+// api/manual-trigger.js - FIXED: Proper handling of existing editions
 import { runAutomatedWorkflow } from './cron/automated-daily-workflow.js';
 import { createClient } from '@supabase/supabase-js';
 
@@ -89,24 +89,34 @@ export default async function handler(req, res) {
     let edition;
     let action = 'created';
 
-    if (existingEdition && existingEdition.analyzed_articles?.length > 0 && !force_refetch) {
-      // Edition exists and has articles
-      console.log(`📰 Found existing edition #${existingEdition.issue_number} with ${existingEdition.analyzed_articles.length} articles`);
-      console.log('✅ Using existing articles (use force_refetch to override)');
-      
-      edition = existingEdition;
-      action = 'preserved';
-      
-    } else if (existingEdition && force_refetch) {
-      // Force refetch requested - delete and recreate
+    // FIXED LOGIC: Handle all cases properly
+    if (existingEdition && force_refetch) {
+      // Force refetch requested - delete and recreate regardless of article count
       console.log('🔄 Force refetch requested - deleting existing edition');
       await supabase.from('analyzed_articles').delete().eq('edition_id', existingEdition.id);
       await supabase.from('daily_editions').delete().eq('id', existingEdition.id);
       
       edition = await runAutomatedWorkflow();
       action = 'refetched';
+      
+    } else if (existingEdition && existingEdition.analyzed_articles?.length > 0) {
+      // Edition exists and has articles - preserve it
+      console.log(`📰 Found existing edition #${existingEdition.issue_number} with ${existingEdition.analyzed_articles.length} articles`);
+      console.log('✅ Using existing articles');
+      
+      edition = existingEdition;
+      action = 'preserved';
+      
+    } else if (existingEdition) {
+      // Edition exists but has no articles - delete it first, then create new one
+      console.log('📝 Found existing edition with no articles - will recreate');
+      await supabase.from('daily_editions').delete().eq('id', existingEdition.id);
+      
+      edition = await runAutomatedWorkflow();
+      action = 'recreated';
+      
     } else {
-      // No existing edition or empty edition - create new one
+      // No existing edition - create new one
       console.log('📝 Creating new edition with fresh articles');
       edition = await runAutomatedWorkflow();
       action = 'created';
