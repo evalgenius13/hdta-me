@@ -121,60 +121,60 @@ class AutomatedPublisher {
   }
 
   async analyzeAll(articles) {
-  const out = [];
-  for (let i = 0; i < Math.min(articles.length, this.maxArticles); i++) {
-    const a = articles[i];
-    let analysis = null;
-    const shouldAnalyze = i < this.numAnalyzed;
+    const out = [];
+    for (let i = 0; i < Math.min(articles.length, this.maxArticles); i++) {
+      const a = articles[i];
+      let analysis = null;
+      const shouldAnalyze = i < this.numAnalyzed;
 
-    if (shouldAnalyze) {
-      console.log(`🔬 Analyzing article ${i + 1}: ${a.title?.substring(0, 60)}...`);
-      for (let attempt = 0; attempt < this.maxRetries && !analysis; attempt++) {
-        try {
-          console.log(`  📝 Generation attempt ${attempt + 1}...`);
-          const raw = await this.generateHumanImpactAnalysis(a);
-          console.log(`  📊 Generated ${raw ? raw.split(/\s+/).length : 0} words`);
-          console.log(`  🔍 RAW AI RESPONSE:`, raw ? raw.substring(0, 200) + '...' : 'NULL');
+      if (shouldAnalyze) {
+        console.log(`🔬 Analyzing article ${i + 1}: ${a.title?.substring(0, 60)}...`);
+        for (let attempt = 0; attempt < this.maxRetries && !analysis; attempt++) {
+          try {
+            console.log(`  📝 Generation attempt ${attempt + 1}...`);
+            const raw = await this.generateHumanImpactAnalysis(a);
+            console.log(`  📊 Generated ${raw ? raw.split(/\s+/).length : 0} words`);
+            console.log(`  🔍 RAW AI RESPONSE:`, raw ? raw.substring(0, 200) + '...' : 'NULL');
 
-          if (raw) {
-            const cleaned = this.sanitize(a, raw);
-            if (cleaned) {
-              analysis = cleaned;
-              console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
+            if (raw) {
+              const cleaned = this.sanitize(a, raw);
+              if (cleaned) {
+                analysis = cleaned;
+                console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
+              } else {
+                console.log(`  ❌ Analysis REJECTED by sanitize function`);
+              }
             } else {
-              console.log(`  ❌ Analysis REJECTED by sanitize function`);
+              console.log(`  ⚠️ No analysis generated - OpenAI returned empty`);
             }
-          } else {
-            console.log(`  ⚠️ No analysis generated - OpenAI returned empty`);
+          } catch (error) {
+            console.log(`  ❌ Generation failed: ${error.message}`);
           }
-        } catch (error) {
-          console.log(`  ❌ Generation failed: ${error.message}`);
+          if (!analysis && attempt < this.maxRetries - 1) {
+            console.log(`  🔄 Retrying in ${this.retryDelay}ms...`);
+            await this.sleep(this.retryDelay);
+          }
         }
-        if (!analysis && attempt < this.maxRetries - 1) {
-          console.log(`  🔄 Retrying in ${this.retryDelay}ms...`);
-          await this.sleep(this.retryDelay);
+        if (!analysis) {
+          console.log(`  ❌ No analysis generated for article ${i + 1} - leaving empty`);
+          // analysis stays null
         }
       }
-    if (!analysis) {
-  console.log(`  ❌ No analysis generated for article ${i + 1} - leaving empty`);
-  // analysis stays null
-}
+
+      const finalAnalysis = analysis || 'No analysis available';
+
+      out.push({
+        ...a,
+        order: i + 1,
+        analysis: finalAnalysis,
+        analysis_generated_at: analysis ? new Date().toISOString() : null,
+        analysis_word_count: finalAnalysis ? finalAnalysis.split(/\s+/).filter(Boolean).length : 0,
+        status: shouldAnalyze ? 'published' : 'queue',
+        score: a.score || 0
+      });
     }
-
-    const finalAnalysis = analysis || this.queueFallback();
-
-    out.push({
-      ...a,
-      order: i + 1,
-      analysis: finalAnalysis,
-      analysis_generated_at: analysis ? new Date().toISOString() : null,
-      analysis_word_count: finalAnalysis.split(/\s+/).filter(Boolean).length,
-      status: shouldAnalyze ? 'published' : 'queue',
-      score: a.score || 0
-    });
+    return out;
   }
-  return out;
-}
 
   selectBest(list) {
     console.log('🔍 Starting selection with', list.length, 'articles');
@@ -253,39 +253,32 @@ Date: "${pubDate}"`;
     }
   }
 
-sanitize(article, text) {
-  // Normalize and strip carriage returns
-  const normalized = text
-    .replace(/\r/g, '')
-    .split('\n')
-    .map(s => s.trim())
-    .filter(Boolean)
-    .join('\n\n');
+  sanitize(article, text) {
+    // Normalize and strip carriage returns
+    const normalized = text
+      .replace(/\r/g, '')
+      .split('\n')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .join('\n\n');
 
-  const wc = normalized.split(/\s+/).filter(Boolean).length;
-  if (wc < 180 || wc > 280) {
-    this.logFallbackUsage('word_count', `${wc} words (need 180-280)`);
-    return null;
+    const wc = normalized.split(/\s+/).filter(Boolean).length;
+    if (wc < 180 || wc > 280) {
+      console.log(`  ❌ Word count rejected: ${wc} words (need 180-280)`);
+      return null;
+    }
+
+    // Check for bullet points or numbered lists
+    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
+      console.log(`  ❌ Formatting rejected: bullet points/numbered lists detected`);
+      return null;
+    }
+
+    console.log(`  ✅ Sanitize passed: ${wc} words, flowing prose format`);
+    return normalized;
   }
 
-  // Check for bullet points or numbered lists
-  if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
-    this.logFallbackUsage('formatting', 'bullet points/numbered lists detected');
-    return null;
-  }
 
-  console.log(`  ✅ Sanitize passed: ${wc} words, flowing prose format`);
-  return normalized;
-}
-
-  fallback() {
-    this.logFallbackUsage('generation_failed', 'AI generation or sanitization failed');
-    return 'The concrete impact of this policy remains unclear due to ongoing negotiations, leaving people affected facing new paperwork, eligibility changes, and delays in accessing benefits that create uncertainty for families already dealing with financial stress. The ripple effect reaches schools, healthcare providers, and social service agencies as they scramble to understand new requirements, while local organizations brace for increased demand with reduced resources. Individuals with strong legal or financial resources are likely to navigate these changes more easily, while those lacking access to professional help may struggle with compliance as hidden costs like administrative delays and unexpected exclusions emerge months after implementation, hitting the most vulnerable hardest. Even those not directly impacted should pay attention since these regulatory shifts often signal broader policy directions that could affect housing, employment, or healthcare access down the line, especially as further guidance emerges that could expand these requirements to other areas.';
-  }
-
-  queueFallback() {
-    return 'This story is in the queue for detailed human impact analysis that will explore how this affects individuals, families, and communities once the full assessment is completed. Check back for updates on who this impacts, the broader ripple effects, and why it matters for your community.';
-  }
 
   dedupe(list) {
     const seen = [];
@@ -345,10 +338,7 @@ sanitize(article, text) {
     return Math.max(0, s);
   }
 
-  logFallbackUsage(reason, details) {
-    const timestamp = new Date().toISOString();
-    console.log(`🔄 FALLBACK USED: ${reason} - ${details} at ${timestamp}`);
-  }
+
 
   async createEdition(date, articles, status) {
     if (!articles || articles.length === 0) {
