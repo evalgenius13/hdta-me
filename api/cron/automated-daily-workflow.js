@@ -1,4 +1,4 @@
-// api/cron/automated-daily-workflow.js - UPDATED: News API primary, GNews fallback
+// api/cron/automated-daily-workflow.js - FIXED: News API primary, GNews fallback, inline filtering
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -93,8 +93,44 @@ class AutomatedPublisher {
     let allArticles = [...primaryArticles, ...secondaryArticles];
     console.log(`📊 Combined from ${usedProvider}: ${allArticles.length} articles`);
 
-    // Apply content filtering
-    allArticles = this.applyContentFiltering(allArticles);
+    // FIXED: Inline content filtering (no method call)
+    
+    // Filter invalid articles
+    allArticles = allArticles.filter(article => 
+      article?.title && 
+      article?.description && 
+      article?.url &&
+      !article.title?.includes('[Removed]') // News API removed articles
+    );
+    
+    console.log(`📊 Valid articles after basic filtering: ${allArticles.length}`);
+
+    // Get exclude keywords only (NO require keywords to fix the filtering issue)
+    const excludeKeywords = process.env.NEWS_EXCLUDE_KEYWORDS 
+      ? process.env.NEWS_EXCLUDE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
+      : [];
+    
+    console.log('🔍 Applying exclude filters only:', { excludeCount: excludeKeywords.length });
+
+    if (excludeKeywords.length > 0) {
+      const beforeFilter = allArticles.length;
+      
+      allArticles = allArticles.filter(article => {
+        const text = `${article.title} ${article.description || ''}`.toLowerCase();
+        
+        // Exclude articles with banned keywords
+        for (const keyword of excludeKeywords) {
+          if (text.includes(keyword)) {
+            console.log(`🚫 Excluded: ${article.title.substring(0, 50)}... (contains "${keyword}")`);
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      console.log(`📊 After exclude filtering: ${allArticles.length} articles (removed ${beforeFilter - allArticles.length})`);
+    }
     
     return allArticles;
   }
@@ -253,66 +289,6 @@ class AutomatedPublisher {
       }
     };
   }
-
-  // EXTRACTED: Content filtering logic
-  applyContentFiltering(allArticles) {
-    // Filter invalid articles
-    allArticles = allArticles.filter(article => 
-      article?.title && 
-      article?.description && 
-      article?.url &&
-      !article.title.includes('[Removed]') // News API removed articles
-    );
-    
-    console.log(`📊 Valid articles after basic filtering: ${allArticles.length}`);
-
-    // Apply keyword filtering
-    const excludeKeywords = process.env.NEWS_EXCLUDE_KEYWORDS 
-      ? process.env.NEWS_EXCLUDE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
-      : [];
-    const requireKeywords = process.env.NEWS_REQUIRE_KEYWORDS 
-      ? process.env.NEWS_REQUIRE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
-      : [];
-
-    if (excludeKeywords.length > 0 || requireKeywords.length > 0) {
-      console.log('🔍 Applying content filters:', { 
-        excludeCount: excludeKeywords.length, 
-        requireCount: requireKeywords.length 
-      });
-      
-      const beforeFilter = allArticles.length;
-      
-      allArticles = allArticles.filter(article => {
-        const text = `${article.title} ${article.description || ''}`.toLowerCase();
-        
-        // Exclude articles with banned keywords
-        for (const keyword of excludeKeywords) {
-          if (text.includes(keyword)) {
-            console.log(`🚫 Excluded: ${article.title.substring(0, 50)}... (contains "${keyword}")`);
-            return false;
-          }
-        }
-        
-        // Require at least one required keyword (if any specified)
-        if (requireKeywords.length > 0) {
-          const hasRequired = requireKeywords.some(keyword => text.includes(keyword));
-          if (!hasRequired) {
-            console.log(`🚫 Filtered: ${article.title.substring(0, 50)}... (missing required keywords)`);
-            return false;
-          }
-        }
-        
-        return true;
-      });
-      
-      console.log(`📊 After content filtering: ${allArticles.length} articles (removed ${beforeFilter - allArticles.length})`);
-    }
-
-    return allArticles;
-  }
-
-  // REST OF THE CLASS REMAINS UNCHANGED...
-  // (analyzeAll, selectBest, generateHumanImpactAnalysis, sanitize, dedupe, score, createEdition, etc.)
 
   async analyzeAll(articles) {
     const out = [];
