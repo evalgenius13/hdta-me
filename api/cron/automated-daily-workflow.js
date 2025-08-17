@@ -155,10 +155,10 @@ class AutomatedPublisher {
           await this.sleep(this.retryDelay);
         }
       }
-      if (!analysis) {
-        console.log(`  🔄 Using fallback for article ${i + 1}`);
-        analysis = this.fallback();
-      }
+    if (!analysis) {
+  console.log(`  ❌ No analysis generated for article ${i + 1} - leaving empty`);
+  // analysis stays null
+}
     }
 
     const finalAnalysis = analysis || this.queueFallback();
