@@ -58,46 +58,52 @@ AdminPanel.prototype.saveAnalysisToDatabase = async function(articleId, analysis
     }
 };
 
-// Prompt template management (kept for reference/future use)
+// Prompt template management
 const PromptTemplates = {
     insider: {
-        system: "You are a seasoned policy insider who explains complex regulations in terms of real human impact. Be specific, credible, and revealing about how policy actually works in practice.",
-        user: `Write exactly 140-170 words as a compelling insider analysis. Use plain English but show deep policy knowledge.
+        system: "You are a policy analyst who explains the real human impact of policy decisions with the depth and narrative style of a Time Magazine human rights story. Be approachable, engaging, and cut through political spin.",
+        user: `Write 200-250 words like a compelling Time Magazine story. Structure as:
 
-1) IMMEDIATE IMPACT: Lead with concrete consequences people will feel. Be specific about dollar amounts and timelines.
-2) THE MECHANICS: How does this actually work? Include specific deadlines, eligibility, implementation details.
-3) WINNERS & LOSERS: Who actually benefits and who gets hurt? Be direct about specific industries, regions, demographics.
-4) INSIDER PERSPECTIVE: What's not being said publicly? Historical precedent? Hidden motivations?
+Human Impact - Real consequences people will face
+Winners and Losers - Who benefits, who pays the price  
+What's Not Being Said - What's happening beneath the surface
+How Does This Affect Me - Personal relevance and broader implications
+
+Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
 
 Policy: "{title}"
 Details: "{description}"
 Source: "{source}"`
     },
     consumer: {
-        system: "You are a consumer advocate who translates policy into practical impact for everyday people. Focus on costs, benefits, and actionable steps.",
-        user: `Write 140-170 words explaining how this affects regular people's wallets and daily lives.
+        system: "You are a policy analyst who explains the real human impact of policy decisions with the depth and narrative style of a Time Magazine human rights story. Be approachable, engaging, and cut through political spin.",
+        user: `Write 200-250 words like a compelling Time Magazine story. Structure as:
 
-1) MONEY IMPACT: Exact costs or savings for typical household
-2) TIMELINE: When changes take effect, deadlines to know
-3) ACTION NEEDED: What people should do to prepare or benefit
-4) WATCH OUT FOR: Hidden costs, eligibility requirements, catches
+Human Impact - Real consequences people will face
+Winners and Losers - Who benefits, who pays the price  
+What's Not Being Said - What's happening beneath the surface
+How Does This Affect Me - Personal relevance and broader implications
 
-Policy: "{title}"  
-Details: "{description}"`
-    },
-    technical: {
-        system: "You are a policy analyst who provides detailed technical analysis with specific data, citations, and implementation mechanics.",
-        user: `Write a detailed 150-200 word technical analysis covering:
-
-1) REGULATORY FRAMEWORK: Specific sections, implementation timeline
-2) AFFECTED PARTIES: Industries, demographics, geographic regions with data
-3) COMPLIANCE REQUIREMENTS: Specific obligations, reporting, penalties
-4) PRECEDENT & CONTEXT: Historical comparison, legal basis
+Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
 
 Policy: "{title}"
 Details: "{description}"
-Source: "{source}"
-Date: "{date}"`
+Source: "{source}"`
+    },
+    technical: {
+        system: "You are a policy analyst who explains the real human impact of policy decisions with the depth and narrative style of a Time Magazine human rights story. Be approachable, engaging, and cut through political spin.",
+        user: `Write 200-250 words like a compelling Time Magazine story. Structure as:
+
+**Human Impact** - Real consequences people will face
+**Winners and Losers** - Who benefits, who pays the price  
+**What's Not Being Said** - What's happening beneath the surface
+**How Does This Affect Me** - Personal relevance and broader implications
+
+Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
+
+Policy: "{title}"
+Details: "{description}"
+Source: "{source}"`
     }
 };
 
@@ -158,16 +164,15 @@ function savePrompts() {
 }
 
 function resetPrompts() {
-    document.getElementById('prompt-editor').value = "You are a seasoned policy insider who explains complex regulations in terms of real human impact. Be specific, credible, and revealing about how policy actually works in practice. Avoid euphemisms and jargon while maintaining credibility.";
-    document.getElementById('user-prompt-editor').value = `Write 130 to 170 words as a compelling insider analysis that reveals what's really happening. Plain English but deep policy knowledge.
+    document.getElementById('prompt-editor').value = "You are a policy analyst who explains the real human impact of policy decisions with the depth and narrative style of a Time Magazine human rights story. Be approachable, engaging, and cut through political spin.";
+    document.getElementById('user-prompt-editor').value = `Write 200-250 words like a compelling Time Magazine story. Structure as:
 
-1) IMMEDIATE IMPACT: Lead with the concrete consequence people will feel. Be specific - "Your student loan payment drops $150/month" not "payments may change." Think like someone who's seen this before.
+Human Impact - Real consequences people will face
+Winners and Losers - Who benefits, who pays the price  
+What's Not Being Said - What's happening beneath the surface
+How Does This Affect Me - Personal relevance and broader implications
 
-2) THE REAL MECHANICS: How does this actually work? Include specific timelines, dollar amounts, eligibility details. What's the implementation reality vs. the press release spin?
-
-3) WINNERS & LOSERS: Who actually benefits and who gets hurt? Be direct about specific industries, regions, or groups when the evidence supports it.
-
-4) INSIDER PERSPECTIVE: What's not being emphasized publicly? Historical context? Hidden timelines? Watch for details that signal the true long-term impact.
+Be specific with numbers and timelines. Show human faces behind policy decisions. Reveal the interests and calculations not being discussed publicly.
 
 Policy: "{title}"
 Details: "{description}"
