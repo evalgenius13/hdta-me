@@ -202,7 +202,7 @@ class AutomatedPublisher {
     const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
     const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-    const prompt = `Write 200-250 words like a compelling Time Magazine story. Structure as:
+    const prompt = `Write 200-250 words explaining this policy in plain English. Structure as:
 
 Human Impact - Real consequences people will face
 Winners and Losers - Who benefits, who pays the price  
@@ -222,7 +222,7 @@ Date: "${pubDate}"`;
         messages: [
           {
             role: 'system',
-            content: 'You are a policy analyst who explains the real human impact of policy decisions with the depth and narrative style of a Time Magazine human rights story. Be approachable, engaging, and cut through political spin.'
+            content: 'You are a policy explainer who breaks down complex government decisions into plain English. Be straightforward, factual, and tell it like it is without political spin or jargon.'
           },
           { role: 'user', content: prompt }
         ],
