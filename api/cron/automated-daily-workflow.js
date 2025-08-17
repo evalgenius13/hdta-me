@@ -202,14 +202,14 @@ class AutomatedPublisher {
     const cleanDescription = (article.description || '').replace(/[^\w\s\-.,!?]/g, '').substring(0, 500);
     const cleanSource = (source || '').replace(/[^\w\s]/g, '').substring(0, 50);
 
-    const prompt = `Write 200-250 words explaining this news story in plain English. Never use asterisks, bold text, hashtags, or any special formatting characters. Write only in plain text paragraphs. Structure as:
+    const prompt = `Write 200-250 words explaining this news story in plain English. Use these four section headers followed by paragraphs, but never use asterisks, bold text, hashtags, or any special formatting characters:
 
 Human Impact - Real consequences people will face
 Winners and Losers - Who benefits, who pays the price  
 What's Not Being Said - What's happening beneath the surface
 How Does This Affect Me - Personal relevance and broader implications
 
-Write in flowing paragraphs without any formatting. Be specific with numbers and timelines. Show human faces behind decisions. Reveal the interests and calculations not being discussed publicly.
+Write each section as a clear header followed by a paragraph. Be specific with numbers and timelines. Show human faces behind decisions. Reveal the interests and calculations not being discussed publicly.
 
 Story: "${cleanTitle}"
 Details: "${cleanDescription}"
