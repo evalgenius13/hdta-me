@@ -1,4 +1,4 @@
-// api/fetch-news.js - READ-ONLY from database (never calls GNews API)
+// api/fetch-news.js - MINIMAL FIX: Remove edition status gate
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -29,13 +29,16 @@ export default async function handler(req, res) {
       return returnNoArticlesMessage(res, 'Database not configured');
     }
 
-    // STEP 1: Try to get today's edition from database
+    // Helper functions for safe filtering
+    const isPublished = (s) => (s || '').toString().trim().toLowerCase() === 'published';
+    const hasText = (s) => typeof s === 'string' && s.trim().length > 0;
+
+    // STEP 1: FIXED - Get today's edition regardless of edition status
     let { data: edition, error: edErr } = await supabase
       .from('daily_editions')
       .select('*')
       .eq('edition_date', today)
-      .in('status', ['published', 'sent'])
-      .single();
+      .single(); // accept today's edition regardless of status
 
     console.log('📊 Today\'s edition query:', { found: !!edition, error: edErr?.message });
 
@@ -81,10 +84,9 @@ export default async function handler(req, res) {
       return returnNoArticlesMessage(res, 'Edition exists but contains no articles');
     }
 
-    // STEP 4: Format articles for frontend
-    // Return articles with status 'published' for main site display
-    const publishedArticles = rows
-      .filter(a => a.article_status === 'published')
+    // STEP 4: FIXED - Normalize "published" check + safe isAnalyzed
+    const publishedArticles = (rows || [])
+      .filter(a => isPublished(a.article_status))
       .map(a => ({
         title: a.title,
         description: a.description,
@@ -93,11 +95,62 @@ export default async function handler(req, res) {
         source: { name: a.source_name || 'Unknown Source' },
         publishedAt: a.published_at,
         preGeneratedAnalysis: a.analysis_text,
-        isAnalyzed: !!a.analysis_text
+        isAnalyzed: hasText(a.analysis_text)
       }));
 
     console.log(`✅ Returning ${publishedArticles.length} published articles from database`);
     console.log(`📊 Total articles in edition: ${rows.length}, Published: ${publishedArticles.length}`);
+
+    // STEP 5: FALLBACK - Only to released editions (keep status filter for fallbacks)
+    if ((!publishedArticles || publishedArticles.length === 0) && edition && edition.edition_date === today) {
+      console.log('🔄 Today\'s edition has no published articles, checking for fallback...');
+      
+      const { data: latestEdition, error: latestErr } = await supabase
+        .from('daily_editions')
+        .select('*')
+        .in('status', ['published', 'sent'])     // ← keep status gate for fallbacks
+        .order('edition_date', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!latestErr && latestEdition) {
+        const { data: rows2, error: artErr2 } = await supabase
+          .from('analyzed_articles')
+          .select('*')
+          .eq('edition_id', latestEdition.id)
+          .order('article_order', { ascending: true });
+
+        const fallback = (rows2 || [])
+          .filter(a => isPublished(a.article_status))
+          .map(a => ({
+            title: a.title,
+            description: a.description,
+            url: a.url,
+            urlToImage: a.image_url,
+            source: { name: a.source_name || 'Unknown Source' },
+            publishedAt: a.published_at,
+            preGeneratedAnalysis: a.analysis_text,
+            isAnalyzed: hasText(a.analysis_text)
+          }));
+
+        if (fallback.length) {
+          console.log(`🔄 Using fallback edition: ${latestEdition.edition_date} with ${fallback.length} articles`);
+          
+          return res.json({
+            articles: fallback,
+            count: fallback.length,
+            edition_info: {
+              date: latestEdition.edition_date,
+              issue_number: latestEdition.issue_number,
+              mode: 'fallback_to_released',
+              is_today: false,
+              total_articles: rows2?.length || 0,
+              published_articles: fallback.length
+            }
+          });
+        }
+      }
+    }
 
     return res.json({
       articles: publishedArticles,
