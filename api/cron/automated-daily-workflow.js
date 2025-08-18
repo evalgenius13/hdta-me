@@ -1,11 +1,11 @@
-// api/cron/automated-daily-workflow.js - FIXED: GPT-4o compatible, News API primary, GNews fallback, inline filtering
+// api/cron/automated-daily-workflow.js - FIXED: GPT-4.1 compatible, News API primary, GNews fallback, inline filtering
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 class AutomatedPublisher {
   constructor() {
-    this.maxArticles = 40;  // Increased from 26 to 40
+    this.maxArticles = 26;
     this.numAnalyzed = 6;
     this.maxRetries = 3;
     this.retryDelay = 1500;
@@ -439,7 +439,7 @@ class AutomatedPublisher {
     return final;
   }
 
-  // FIXED: generateHumanImpactAnalysis method - reverted to environment variables with proper validation
+  // FIXED: generateHumanImpactAnalysis method - Admin API compatible with GPT-4.1
   async generateHumanImpactAnalysis(article) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set');
@@ -472,8 +472,8 @@ class AutomatedPublisher {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 180,
-      temperature: 0.3,
+      max_tokens: 300,
+      temperature: 0.4,
       stop: ["\n\n"]
     };
 
@@ -498,25 +498,12 @@ class AutomatedPublisher {
       throw new Error('Empty completion from GPT-4.1');
     }
 
-    // Post-processing guards
+    // Post-processing guards (matching admin API expectations)
     const banned = /^(in|at|on|inside|across)\b/i;
     if (banned.test(content)) {
       content = content.replace(banned, '').replace(/^[\s,–—-]+/, '').replace(/^[a-z]/, c => c.toUpperCase());
     }
 
-    // Helper function to tighten content to word limit
-    function tightenToWords(text, maxWords = 120) {
-      const words = text.trim().split(/\s+/);
-      if (words.length <= maxWords) return text.trim();
-      
-      const cut = words.slice(0, maxWords).join(' ');
-      const lastPeriod = cut.lastIndexOf('.');
-      
-      return (lastPeriod > 60 ? cut.slice(0, lastPeriod + 1) : cut).trim();
-    }
-
-    content = tightenToWords(content, 120);
-    
     console.log(`✅ GPT-4.1 generated ${content.length} characters`);
     return content;
   }
@@ -742,7 +729,7 @@ class AutomatedPublisher {
     }
   }
 
-async findEdition(date) {
+  async findEdition(date) {
     try {
       const { data, error } = await supabase
         .from('daily_editions')
