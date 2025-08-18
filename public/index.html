@@ -31,9 +31,12 @@
     .article-summary{color:#1f2937;font-size:16px;line-height:1.6;margin-bottom:12px}
 
     .analysis{border-top:1px solid #e5e5e5;margin-top:12px;padding-top:12px}
-    .analysis-label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#111;margin-bottom:6px;font-weight:600}
+    .analysis-section{margin-bottom:16px}
+    .analysis-section:last-child{margin-bottom:0}
+    .analysis-label{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:#111;margin-bottom:8px;font-weight:700;border-bottom:2px solid #0ea5e9;padding-bottom:4px}
     .analysis-text{font-size:16px;line-height:1.7;color:#1f2937}
     .analysis-text p{margin-bottom:12px}
+    .analysis-text p:last-child{margin-bottom:0}
 
     .loading-state{text-align:center;padding:36px 16px;color:#64748b;font-style:italic}
     .loading-spinner{width:16px;height:16px;border:2px solid #e2e8f0;border-top:2px solid #0ea5e9;border-radius:50%;animation:spin 1s linear infinite;display:inline-block;margin-right:8px;vertical-align:-3px}
@@ -51,10 +54,6 @@
     .copy-btn{background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:6px;font-size:.9rem;cursor:pointer}
     .copy-btn.copied{background:#10b981}
 
-    .takeaway{font-weight:700;margin:0 0 8px 0}
-    .facts{margin:0 0 12px 18px}
-    .facts li{margin:2px 0}
-    .impact-footer{margin-top:10px;font-size:14px;color:#374151}
     .no-analysis{color:#64748b;font-style:italic;padding:12px;background:#f8f9fa;border-radius:6px}
   </style>
 </head>
@@ -82,7 +81,7 @@
       constructor(){ 
         this.articles=[]; 
         this.sharingData={}; 
-        this.API_BASE = 'https://hdta-me.vercel.app';
+        this.API_BASE = '';  // Use relative URLs for same domain
         this.init(); 
       }
 
@@ -90,7 +89,7 @@
 
       async fetchTodaysContent(){
         try{
-          const response=await fetch(`${this.API_BASE}/api/fetch-news`);
+          const response=await fetch('/api/fetch-news');  // Relative URL
           if(!response.ok) throw new Error(`HTTP ${response.status}`);
           const data=await response.json();
           if(data.articles){
@@ -119,9 +118,9 @@
         loading.style.display='none'; container.style.display='block';
         container.innerHTML=this.articles.map((a,i)=>this.createArticleHTML(a,i)).join('');
         
-        // Fill sections for each article
+        // Display structured analysis for each article
         for(let i=0;i<this.articles.length;i++){
-          this.showPreGeneratedAnalysis(i);
+          this.showStructuredAnalysis(i);
         }
       }
 
@@ -129,8 +128,7 @@
         const timeAgo=this.getTimeAgo(article.publishedAt);
         const cleanTitle=this.cleanTitle(article.title);
         return `
-        <!-- FIX: add anchor id so #story-${index} links work -->
-        <article id="story-${index}" class="article-item" onclick="window.open('${article.url}','_blank')">
+        <article class="article-item" onclick="window.open('${article.url}','_blank')">
           <div class="news-image">
             ${article.urlToImage||article.image ? `<img src="${article.urlToImage||article.image}" alt="News image" onerror="this.parentElement.innerHTML='📰'">` : '📰'}
           </div>
@@ -142,16 +140,8 @@
             <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
             <p class="article-summary">${this.escapeHtml(article.description||'')}</p>
 
-            <!-- Section 1: What's Happening Here? -->
-            <div class="analysis">
-              <div class="analysis-label">What's Happening Here?</div>
-              <div class="analysis-text" id="whats-happening-${index}"></div>
-            </div>
-
-            <!-- Section 2: How Does This Affect Me? -->
-            <div class="analysis">
-              <div class="analysis-label">How Does This Affect Me?</div>
-              <div class="analysis-text" id="affects-me-${index}"></div>
+            <div class="analysis" id="analysis-container-${index}">
+              <!-- Analysis sections will be inserted here -->
             </div>
 
             <div class="social-sharing">
@@ -170,88 +160,94 @@
         </article>`;
       }
 
-      showPreGeneratedAnalysis(i){
-        const a=this.articles[i];
-        const elWhat=document.getElementById(`whats-happening-${i}`);
-        const elAffect=document.getElementById(`affects-me-${i}`);
+      showStructuredAnalysis(index){
+        const article = this.articles[index];
+        const container = document.getElementById(`analysis-container-${index}`);
+        
+        if (!container) return;
 
-        // Prefer structured fields from backend if present
-        let whats = a.whatsHappening || a.whats_happening || '';
-        let affect = a.affectsMe || a.affects_me || '';
-
-        // Fallback: parse the single preGeneratedAnalysis into two sections
-        if ((!whats || !affect) && a.preGeneratedAnalysis) {
-          const { whatsHappening, affectsMe } = this.splitTwoSections(a.preGeneratedAnalysis);
-          whats = whats || whatsHappening;
-          affect = affect || affectsMe;
-        }
-
-        // Render with graceful fallback
-        if (elWhat) {
-          elWhat.innerHTML = whats
-            ? this.formatAnalysis(whats)
-            : '<div class="no-analysis">Context loading — check back for the quick summary.</div>';
-        }
-        if (elAffect) {
-          elAffect.innerHTML = affect
-            ? this.formatAnalysis(affect)
-            : '<div class="no-analysis">Impact details coming soon — we’re updating this story.</div>';
-        }
-
-        // Share text uses “affects me” if available, else “what’s happening”
-        const shareText = (affect && affect.trim()) || (whats && whats.trim()) || 'Analysis coming soon';
-        this.sharingData[i]={article:a,analysis:this.extractKeyInsight(shareText,null),url:`${window.location.origin}#story-${i}`};
-      }
-
-      // Split into the two H3 sections (supports both H3 and ALL-CAPS headers)
-      splitTwoSections(text){
-        const cleaned = (text||'').replace(/\r/g,'').trim();
-        if(!cleaned) return { whatsHappening:'', affectsMe:'' };
-
-        // Primary: H3 headers
-        const h1 = /(?:^|\n)###\s*What'?s Happening Here\?\s*([\s\S]*?)(?=(?:^|\n)###\s*How Does This Affect Me\?|$)/i.exec(cleaned);
-        const h2 = /(?:^|\n)###\s*How Does This Affect Me\?\s*([\s\S]*)$/i.exec(cleaned);
-
-        let whats = (h1?.[1]||'').trim();
-        let affect = (h2?.[1]||'').trim();
-
-        if(!whats || !affect){
-          // FIX: make ALL-CAPS fallback match "WHAT'S HAPPENING HERE" exactly
-          const up = cleaned.toUpperCase();
-          const H1 = "WHAT'S HAPPENING HERE";
-          const H2 = "HOW DOES THIS AFFECT ME";
-          const a1 = up.indexOf(H1);
-          const a2 = up.indexOf(H2);
-          if(a1 !== -1 && a2 !== -1 && a2 > a1){
-            whats = cleaned.slice(a1 + H1.length, a2).trim();
-            affect = cleaned.slice(a2 + H2.length).trim();
+        // Check if we have structured sections
+        const hasStructured = article.whatsHappening || article.affectsMe;
+        
+        if (hasStructured) {
+          // Display structured sections with headlines
+          let html = '';
+          
+          if (article.whatsHappening) {
+            html += `
+              <div class="analysis-section">
+                <div class="analysis-label">What's Happening Here?</div>
+                <div class="analysis-text">${this.formatAnalysisText(article.whatsHappening)}</div>
+              </div>
+            `;
           }
+          
+          if (article.affectsMe) {
+            html += `
+              <div class="analysis-section">
+                <div class="analysis-label">How Does This Affect Me?</div>
+                <div class="analysis-text">${this.formatAnalysisText(article.affectsMe)}</div>
+              </div>
+            `;
+          }
+          
+          container.innerHTML = html;
+          
+          // Set up sharing data - use the "affects me" section for sharing if available
+          const shareText = article.affectsMe || article.whatsHappening || 'Analysis available';
+          this.sharingData[index] = {
+            article: article,
+            analysis: this.extractKeyInsight(shareText),
+            url: `${window.location.origin}#story-${index}`
+          };
+          
+        } else if (article.preGeneratedAnalysis) {
+          // Fallback to old format for articles without structured sections
+          container.innerHTML = `
+            <div class="analysis-section">
+              <div class="analysis-label">How Does This Affect Me?</div>
+              <div class="analysis-text">${this.formatAnalysisText(article.preGeneratedAnalysis)}</div>
+            </div>
+          `;
+          
+          this.sharingData[index] = {
+            article: article,
+            analysis: this.extractKeyInsight(article.preGeneratedAnalysis),
+            url: `${window.location.origin}#story-${index}`
+          };
+          
+        } else {
+          // No analysis available
+          container.innerHTML = `
+            <div class="analysis-section">
+              <div class="analysis-label">How Does This Affect Me?</div>
+              <div class="analysis-text">
+                <div class="no-analysis">Analysis coming soon - check back for updates to this story.</div>
+              </div>
+            </div>
+          `;
+          
+          this.sharingData[index] = {
+            article: article,
+            analysis: 'Analysis coming soon',
+            url: `${window.location.origin}#story-${index}`
+          };
         }
-
-        return { whatsHappening: whats, affectsMe: affect };
       }
 
-      // Unchanged helpers you had
-      renderAnalysisBlock(data){
-        const parts=[];
-        if(data.takeaway){ parts.push(`<p class="takeaway">${this.escapeHtml(data.takeaway)}</p>`); }
-        if(Array.isArray(data.facts)&&data.facts.length){
-          const items=data.facts.slice(0,3).map(f=>`<li>${this.escapeHtml(f)}</li>`).join('');
-          parts.push(`<ol class="facts">${items}</ol>`);
+      formatAnalysisText(text) {
+        if (!text || text === 'No analysis available') {
+          return '<div class="no-analysis">Analysis coming soon - check back for updates to this story.</div>';
         }
-        if(data.impact){ parts.push(this.formatAnalysis(data.impact)); }
-        const footer=[];
-        if(data.winners) footer.push(`<span><strong>Winners:</strong> ${this.escapeHtml(data.winners)}</span>`);
-        if(data.losers) footer.push(`<span><strong>Losers:</strong> ${this.escapeHtml(data.losers)}</span>`);
-        if(data.watch_next) footer.push(`<span><strong>Watch next:</strong> ${this.escapeHtml(data.watch_next)}</span>`);
-        if(footer.length){ parts.push(`<div class="impact-footer">${footer.join('')}</div>`); }
-        return parts.join('');
+        
+        // Convert text to paragraphs
+        return text.split('\n\n').filter(p => p.trim()).map(p => `<p>${this.escapeHtml(p.trim())}</p>`).join('');
       }
 
-      extractKeyInsight(a,structured){
-        if(structured?.takeaway) return structured.takeaway;
-        const s=(a||'').split('. ');
-        return (s.find(x=>x.length>50)?.trim()+'.') || ((a||'').substring(0,100)+'...');
+      extractKeyInsight(text){
+        if (!text) return 'Analysis coming soon';
+        const sentences = text.split('. ');
+        return (sentences.find(x => x.length > 50)?.trim() + '.') || (text.substring(0, 100) + '...');
       }
 
       cleanTitle(t){ if(!t) return ''; return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i,''); }
@@ -265,10 +261,6 @@
 
       escapeHtml(t){ if(!t) return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
 
-      // Keep your paragraph formatting
-      formatAnalysis(t){ return (t||'').split('\n\n').filter(p=>p.trim()).map(p=>`<p>${this.escapeHtml(p.trim())}</p>`).join(''); }
-
-      // Share + copy controls (unchanged)
       shareToTwitter(i){
         const d=this.sharingData[i]; if(!d) return;
         const text=`How Does This Affect Me: "${d.analysis}" Read more: ${d.url}`;
