@@ -742,7 +742,7 @@ class AutomatedPublisher {
     }
   }
 
-  async findEdition(date) {
+async findEdition(date) {
     try {
       const { data, error } = await supabase
         .from('daily_editions')
@@ -777,10 +777,7 @@ class AutomatedPublisher {
   }
 }
 
-// FIXED: Export both classes for admin API
-export { AutomatedPublisher };
-
-// FIXED: Export both classes for admin API
+// Export the class and workflow function
 export { AutomatedPublisher };
 
 export async function runAutomatedWorkflow() {
