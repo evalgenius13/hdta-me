@@ -437,7 +437,7 @@ class AutomatedPublisher {
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 120 || wc > 280) {
+    if (wc < 120 || wc > 450) {
       console.log(`  ❌ Word count rejected: ${wc} words (need 120-280)`);
       return null;
     }
