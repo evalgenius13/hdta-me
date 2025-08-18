@@ -5,7 +5,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 class AutomatedPublisher {
   constructor() {
-    this.maxArticles = 26;
+    this.maxArticles = 40;  // Increased from 26 to 40
     this.numAnalyzed = 6;
     this.maxRetries = 3;
     this.retryDelay = 1500;
