@@ -410,45 +410,21 @@
             }
 
             async init() {
-                await this.loadData();
-                this.updateStats();
-                this.addLog('success', 'Admin panel ready with manual analysis');
-            }
-
-            async loadData() {
-                try {
-                    this.addLog('info', 'Loading articles...');
-                    
-                    const response = await fetch(`${this.API_BASE}/api/admin?action=get-articles`, {
-                        headers: { 'Authorization': `Bearer ${this.adminKey}` }
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    const data = await response.json();
-                    this.articles = data.articles || [];
-                    
-                    if (data.edition) {
-                        document.getElementById('edition-info').textContent = 
-                            `Issue #${data.edition.issue_number} • ${data.edition.date}`;
-                    } else {
-                        document.getElementById('edition-info').textContent = 'No edition found';
-                    }
-                    
-                    this.renderArticles();
-                    document.getElementById('articles-loading').style.display = 'none';
-                    document.getElementById('articles-grid').style.display = 'grid';
-                    
-                    this.addLog('success', `Loaded ${this.articles.length} articles`);
-                    
-                } catch (error) {
-                    console.error('Failed to load articles:', error);
-                    this.addLog('error', 'Failed to load articles: ' + error.message);
-                }
-            }
-
+    // await this.loadData();  // ← COMMENTED OUT - no auto-loading
+    this.updateStats();
+    this.addLog('success', 'Admin panel ready - click "📊 Reload Data" to load articles');
+    
+    // Hide loading spinner and show ready state
+    document.getElementById('articles-loading').style.display = 'none';
+    document.getElementById('articles-grid').style.display = 'grid';
+    document.getElementById('articles-grid').innerHTML = `
+        <div style="text-align: center; color: #6b7280; padding: 40px;">
+            <div style="font-size: 18px; margin-bottom: 12px;">📰 Ready to Load Articles</div>
+            <div style="font-size: 14px; margin-bottom: 20px;">Click "📊 Reload Data" to get started</div>
+            <button class="btn" onclick="refreshData()">📊 Reload Data</button>
+        </div>
+    `;
+}
             renderArticles(filter = 'all') {
                 const grid = document.getElementById('articles-grid');
                 if (!grid) return;
