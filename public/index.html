@@ -42,18 +42,6 @@
     .loading-spinner{width:16px;height:16px;border:2px solid #e2e8f0;border-top:2px solid #0ea5e9;border-radius:50%;animation:spin 1s linear infinite;display:inline-block;margin-right:8px;vertical-align:-3px}
     @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
 
-    .social-sharing{background:#f8fafc;padding:10px;border-radius:6px;border:1px solid #e5e5e5;margin-top:10px}
-    .sharing-title{font-size:.95rem;color:#0f172a;margin-bottom:8px;font-weight:700}
-    .share-buttons{display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap}
-    .share-btn{padding:.45rem .9rem;border:0;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600}
-    .share-btn.twitter{background:#1da1f2;color:#fff}
-    .share-btn.linkedin{background:#0077b5;color:#fff}
-    .share-btn.facebook{background:#1877f2;color:#fff}
-    .copy-link{display:flex;gap:.5rem}
-    .link-input{flex:1;padding:.5rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.9rem;background:#fff;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-    .copy-btn{background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:6px;font-size:.9rem;cursor:pointer}
-    .copy-btn.copied{background:#10b981}
-
     .no-analysis{color:#64748b;font-style:italic;padding:12px;background:#f8f9fa;border-radius:6px}
   </style>
 </head>
@@ -144,18 +132,6 @@
               <!-- Analysis sections will be inserted here -->
             </div>
 
-            <div class="social-sharing">
-              <div class="sharing-title">Share this analysis</div>
-              <div class="share-buttons">
-                <button class="share-btn twitter" onclick="event.stopPropagation(); dailyNewsletter.shareToTwitter(${index})">Twitter</button>
-                <button class="share-btn linkedin" onclick="event.stopPropagation(); dailyNewsletter.shareToLinkedIn(${index})">LinkedIn</button>
-                <button class="share-btn facebook" onclick="event.stopPropagation(); dailyNewsletter.shareToFacebook(${index})">Facebook</button>
-              </div>
-              <div class="copy-link">
-                <input type="text" class="link-input" id="link-${index}" value="${window.location.origin}#story-${index}" readonly>
-                <button class="copy-btn" onclick="event.stopPropagation(); dailyNewsletter.copyLink(${index})">Copy</button>
-              </div>
-            </div>
           </div>
         </article>`;
       }
@@ -193,14 +169,6 @@
           
           container.innerHTML = html;
           
-          // Set up sharing data - use the "affects me" section for sharing if available
-          const shareText = article.affectsMe || article.whatsHappening || 'Analysis available';
-          this.sharingData[index] = {
-            article: article,
-            analysis: this.extractKeyInsight(shareText),
-            url: `${window.location.origin}#story-${index}`
-          };
-          
         } else if (article.preGeneratedAnalysis) {
           // Fallback to old format for articles without structured sections
           container.innerHTML = `
@@ -209,12 +177,6 @@
               <div class="analysis-text">${this.formatAnalysisText(article.preGeneratedAnalysis)}</div>
             </div>
           `;
-          
-          this.sharingData[index] = {
-            article: article,
-            analysis: this.extractKeyInsight(article.preGeneratedAnalysis),
-            url: `${window.location.origin}#story-${index}`
-          };
           
         } else {
           // No analysis available
@@ -226,12 +188,6 @@
               </div>
             </div>
           `;
-          
-          this.sharingData[index] = {
-            article: article,
-            analysis: 'Analysis coming soon',
-            url: `${window.location.origin}#story-${index}`
-          };
         }
       }
 
@@ -244,12 +200,6 @@
         return text.split('\n\n').filter(p => p.trim()).map(p => `<p>${this.escapeHtml(p.trim())}</p>`).join('');
       }
 
-      extractKeyInsight(text){
-        if (!text) return 'Analysis coming soon';
-        const sentences = text.split('. ');
-        return (sentences.find(x => x.length > 50)?.trim() + '.') || (text.substring(0, 100) + '...');
-      }
-
       cleanTitle(t){ if(!t) return ''; return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i,''); }
 
       getTimeAgo(p){
@@ -260,19 +210,6 @@
       }
 
       escapeHtml(t){ if(!t) return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
-
-      shareToTwitter(i){
-        const d=this.sharingData[i]; if(!d) return;
-        const text=`How Does This Affect Me: "${d.analysis}" Read more: ${d.url}`;
-        const u=`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`; window.open(u,'_blank');
-      }
-      shareToLinkedIn(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
-      shareToFacebook(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
-      copyLink(i){
-        const input=document.getElementById(`link-${i}`); if(!input) return; const btn=input.parentElement.querySelector('.copy-btn');
-        input.select(); document.execCommand('copy');
-        if(btn){ btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='Copy'; btn.classList.remove('copied')},2000); }
-      }
     }
 
     document.addEventListener('DOMContentLoaded',()=>{ window.dailyNewsletter=new DailyNewsletterSite(); });
