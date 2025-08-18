@@ -1,4 +1,4 @@
-// api/admin.js - FIXED manual analysis functionality with proper error handling
+// api/admin.js - FIXED manual analysis functionality with proper error handling AND article reordering
 import { createClient } from '@supabase/supabase-js';
 import { runAutomatedWorkflow, AutomatedPublisher } from './cron/automated-daily-workflow.js';
 
@@ -40,6 +40,8 @@ export default async function handler(req, res) {
         return await regenerateToday(req, res);
       case 'clear-today':
         return await clearToday(req, res);
+      case 'reorder-article':
+        return await reorderArticle(req, res);
       default:
         return res.status(400).json({ error: 'Invalid action' });
     }
@@ -462,5 +464,84 @@ async function clearToday(req, res) {
   } catch (error) {
     console.error('❌ Failed to clear edition:', error);
     return res.status(500).json({ error: 'Failed to clear edition: ' + error.message });
+  }
+}
+
+async function reorderArticle(req, res) {
+  const { articleId, direction } = req.body;
+  
+  // Validate input
+  if (!articleId) {
+    return res.status(400).json({ error: 'articleId is required' });
+  }
+  
+  if (!direction || !['up', 'down'].includes(direction)) {
+    return res.status(400).json({ error: 'direction must be "up" or "down"' });
+  }
+
+  try {
+    // Get the current article
+    const { data: currentArticle, error: fetchError } = await supabase
+      .from('analyzed_articles')
+      .select('id, title, article_order, edition_id')
+      .eq('id', articleId)
+      .single();
+
+    if (fetchError || !currentArticle) {
+      return res.status(404).json({ error: 'Article not found' });
+    }
+
+    const currentOrder = currentArticle.article_order;
+    const newOrder = direction === 'up' ? currentOrder - 1 : currentOrder + 1;
+
+    // Find the article to swap with
+    const { data: swapArticle, error: swapError } = await supabase
+      .from('analyzed_articles')
+      .select('id, title, article_order')
+      .eq('edition_id', currentArticle.edition_id)
+      .eq('article_order', newOrder)
+      .single();
+
+    if (swapError || !swapArticle) {
+      return res.status(400).json({ 
+        error: `Cannot move ${direction} - already at ${direction === 'up' ? 'top' : 'bottom'}` 
+      });
+    }
+
+    // Perform the swap using a transaction-like approach
+    // First, temporarily set one to a high number to avoid constraint conflicts
+    const tempOrder = 9999;
+    
+    await supabase
+      .from('analyzed_articles')
+      .update({ article_order: tempOrder })
+      .eq('id', currentArticle.id);
+
+    await supabase
+      .from('analyzed_articles')
+      .update({ article_order: currentOrder })
+      .eq('id', swapArticle.id);
+
+    await supabase
+      .from('analyzed_articles')
+      .update({ article_order: newOrder })
+      .eq('id', currentArticle.id);
+
+    console.log(`✅ Moved "${currentArticle.title.substring(0, 30)}..." ${direction} (${currentOrder} → ${newOrder})`);
+
+    return res.json({
+      success: true,
+      message: `Article moved ${direction} successfully`,
+      articleId: articleId,
+      oldOrder: currentOrder,
+      newOrder: newOrder,
+      swappedWith: swapArticle.title.substring(0, 30) + '...'
+    });
+
+  } catch (error) {
+    console.error('❌ Reorder article failed:', error);
+    return res.status(500).json({ 
+      error: 'Failed to reorder article: ' + error.message 
+    });
   }
 }
