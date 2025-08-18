@@ -480,7 +480,9 @@
                     const safeMeta = this.escapeHtml(article.source?.name || 'Unknown Source');
                     const safeUrl = this.escapeHtml(article.url || '');
                     const timeAgo = this.getTimeAgo(article.publishedAt);
-                    const hasAnalysis = article.preGeneratedAnalysis && article.preGeneratedAnalysis !== 'No analysis available';
+                    const hasAnalysis = article.preGeneratedAnalysis && 
+                                       article.preGeneratedAnalysis !== 'No analysis available' &&
+                                       article.preGeneratedAnalysis.trim() !== '';
                     const statusClass = hasAnalysis ? 'status-success' : 'status-warning';
                     const statusText = hasAnalysis ? 'Has Analysis' : 'No Analysis';
                     const analysisContent = this.formatAnalysis(article.preGeneratedAnalysis || 'No analysis available');
@@ -661,7 +663,11 @@
             updateStats() {
                 const published = this.articles.filter(a => a.status === 'published').length;
                 const queue = this.articles.filter(a => a.status === 'queue').length;
-                const analyzed = this.articles.filter(a => a.preGeneratedAnalysis).length;
+                const analyzed = this.articles.filter(a => 
+                    a.preGeneratedAnalysis && 
+                    a.preGeneratedAnalysis !== 'No analysis available' &&
+                    a.preGeneratedAnalysis.trim() !== ''
+                ).length;
                 
                 document.getElementById('stat-total').textContent = this.articles.length;
                 document.getElementById('stat-published').textContent = published;
