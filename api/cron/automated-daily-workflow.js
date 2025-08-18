@@ -395,13 +395,13 @@ class AutomatedPublisher {
 
     try {
       const requestBody = {
-        model: 'gpt-4o',
+        model: 'gpt-5',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 500,
-        temperature: 0.4
+        max_completion_tokens: 300,
+        reasoning_effort: 'high'
       };
 
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -437,7 +437,7 @@ class AutomatedPublisher {
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 120 || wc > 450) {
+    if (wc < 120 || wc > 280) {
       console.log(`  ❌ Word count rejected: ${wc} words (need 120-280)`);
       return null;
     }
