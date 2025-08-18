@@ -1,6 +1,6 @@
-// api/admin.js - ENHANCED with status update functionality
+// api/admin.js - FIXED manual analysis functionality with proper error handling
 import { createClient } from '@supabase/supabase-js';
-import { runAutomatedWorkflow } from './cron/automated-daily-workflow.js';
+import { runAutomatedWorkflow, AutomatedPublisher } from './cron/automated-daily-workflow.js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
@@ -18,8 +18,7 @@ export default async function handler(req, res) {
   
   if (!authHeader || authHeader !== `Bearer ${adminKey}`) {
     return res.status(401).json({ 
-      error: 'Unauthorized - Invalid admin key',
-      hint: 'Set ADMIN_KEY environment variable or use default key'
+      error: 'Unauthorized - Invalid admin key'
     });
   }
 
@@ -29,6 +28,8 @@ export default async function handler(req, res) {
     switch (action) {
       case 'get-articles':
         return await getArticles(req, res);
+      case 'generate-analysis':
+        return await generateAnalysis(req, res);
       case 'update-analysis':
         return await updateAnalysis(req, res);
       case 'update-status':
@@ -39,10 +40,6 @@ export default async function handler(req, res) {
         return await regenerateToday(req, res);
       case 'clear-today':
         return await clearToday(req, res);
-      case 'get-stats':
-        return await getStats(req, res);
-      case 'get-logs':
-        return await getLogs(req, res);
       default:
         return res.status(400).json({ error: 'Invalid action' });
     }
@@ -52,130 +49,245 @@ export default async function handler(req, res) {
   }
 }
 
-async function getArticles(req, res) {
-  const today = new Date().toISOString().split('T')[0];
+// FIXED: Generate analysis with proper error handling and no auto-database update
+async function generateAnalysis(req, res) {
+  const { article } = req.body;
   
-  // Get today's edition
-  const { data: edition } = await supabase
-    .from('daily_editions')
-    .select('*')
-    .eq('edition_date', today)
-    .single();
-
-  if (!edition) {
-    return res.json({ 
-      articles: [], 
-      edition: null,
-      message: 'No edition found for today' 
-    });
+  // Validate input
+  if (!article || !article.title || !article.description) {
+    return res.status(400).json({ error: 'Missing required article data (title, description)' });
   }
 
-  // Get ALL articles for this edition
-  const { data: articles } = await supabase
-    .from('analyzed_articles')
-    .select('*')
-    .eq('edition_id', edition.id)
-    .order('article_order', { ascending: true });
+  // Check environment variables
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({ error: 'OpenAI API key not configured' });
+  }
 
-  // Format for frontend with proper field mapping
-  const formatted = articles?.map(a => ({
-    id: a.id,
-    title: a.title,
-    description: a.description,
-    url: a.url,
-    urlToImage: a.image_url,
-    source: { name: a.source_name },
-    publishedAt: a.published_at,
-    preGeneratedAnalysis: a.analysis_text,
-    analysisWordCount: a.analysis_word_count,
-    order: a.article_order,
-    status: a.article_status || 'queue',
-    score: a.article_score || 0
-  })) || [];
+  if (!process.env.SYSTEM_PROMPT || !process.env.USER_PROMPT) {
+    return res.status(500).json({ error: 'Analysis prompts not configured (SYSTEM_PROMPT, USER_PROMPT)' });
+  }
 
-  // Categorize by status
-  const published = formatted.filter(a => a.status === 'published');
-  const drafts = formatted.filter(a => a.status === 'draft');
-  const queue = formatted.filter(a => a.status === 'queue');
-  const rejected = formatted.filter(a => a.status === 'rejected');
-
-  console.log(`Admin API returning ${formatted.length} articles:`, {
-    published: published.length,
-    drafts: drafts.length,
-    queue: queue.length,
-    rejected: rejected.length
-  });
-
-  return res.json({
-    articles: formatted,
-    edition: {
-      id: edition.id,
-      date: edition.edition_date,
-      issue_number: edition.issue_number,
-      status: edition.status,
-      featured_headline: edition.featured_headline
-    },
-    summary: {
-      total: formatted.length,
-      published: published.length,
-      drafts: drafts.length,
-      queue: queue.length,
-      rejected: rejected.length
+  try {
+    console.log(`🧠 Manual analysis for: ${article.title.substring(0, 50)}...`);
+    
+    // Create publisher instance and generate analysis
+    const publisher = new AutomatedPublisher();
+    const analysis = await publisher.generateHumanImpactAnalysis(article);
+    
+    if (!analysis) {
+      return res.status(500).json({ error: 'No analysis generated - OpenAI returned empty response' });
     }
-  });
+    
+    // Sanitize and validate the analysis
+    const sanitized = publisher.sanitize(article, analysis);
+    
+    if (!sanitized) {
+      return res.status(400).json({ error: 'Analysis failed quality checks - try regenerating' });
+    }
+    
+    const wordCount = sanitized.split(/\s+/).filter(Boolean).length;
+    console.log(`✅ Manual analysis: ${wordCount} words`);
+    
+    // Return analysis without auto-saving - let frontend handle the save
+    return res.json({ 
+      success: true, 
+      analysis: sanitized,
+      wordCount: wordCount
+    });
+    
+  } catch (error) {
+    console.error('Manual analysis failed:', error);
+    
+    // Provide more specific error messages
+    if (error.message.includes('OpenAI')) {
+      return res.status(500).json({ error: 'OpenAI API error: ' + error.message });
+    } else if (error.message.includes('fetch')) {
+      return res.status(500).json({ error: 'Network error connecting to OpenAI' });
+    } else {
+      return res.status(500).json({ error: 'Analysis generation failed: ' + error.message });
+    }
+  }
+}
+
+async function getArticles(req, res) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data: edition, error: editionError } = await supabase
+      .from('daily_editions')
+      .select('*')
+      .eq('edition_date', today)
+      .single();
+
+    if (editionError && editionError.code !== 'PGRST116') {
+      throw editionError;
+    }
+
+    if (!edition) {
+      return res.json({ 
+        articles: [], 
+        edition: null,
+        message: 'No edition found for today' 
+      });
+    }
+
+    const { data: articles, error: articlesError } = await supabase
+      .from('analyzed_articles')
+      .select('*')
+      .eq('edition_id', edition.id)
+      .order('article_order', { ascending: true });
+
+    if (articlesError) {
+      throw articlesError;
+    }
+
+    const formatted = articles?.map(a => ({
+      id: a.id,
+      title: a.title,
+      description: a.description,
+      url: a.url,
+      urlToImage: a.image_url,
+      source: { name: a.source_name },
+      publishedAt: a.published_at,
+      preGeneratedAnalysis: a.analysis_text,
+      analysisWordCount: a.analysis_word_count,
+      order: a.article_order,
+      status: a.article_status || 'queue',
+      score: a.article_score || 0
+    })) || [];
+
+    return res.json({
+      articles: formatted,
+      edition: {
+        id: edition.id,
+        date: edition.edition_date,
+        issue_number: edition.issue_number,
+        status: edition.status
+      }
+    });
+  } catch (error) {
+    console.error('Failed to get articles:', error);
+    return res.status(500).json({ error: 'Failed to load articles: ' + error.message });
+  }
 }
 
 async function updateAnalysis(req, res) {
   const { articleId, newAnalysis } = req.body;
   
-  if (!articleId || !newAnalysis) {
-    return res.status(400).json({ error: 'Missing articleId or newAnalysis' });
+  // Validate input
+  if (!articleId) {
+    return res.status(400).json({ error: 'articleId is required' });
+  }
+  
+  if (!newAnalysis || typeof newAnalysis !== 'string' || !newAnalysis.trim()) {
+    return res.status(400).json({ error: 'newAnalysis must be a non-empty string' });
   }
 
-  const wordCount = newAnalysis.split(/\s+/).filter(Boolean).length;
+  const trimmedAnalysis = newAnalysis.trim();
+  const wordCount = trimmedAnalysis.split(/\s+/).filter(Boolean).length;
+  
+  // Validate word count
+  if (wordCount < 10) {
+    return res.status(400).json({ error: 'Analysis must be at least 10 words' });
+  }
+  
+  if (wordCount > 500) {
+    return res.status(400).json({ error: 'Analysis must be under 500 words' });
+  }
   
   try {
-    const { error } = await supabase
+    // First check if article exists
+    const { data: existingArticle, error: checkError } = await supabase
+      .from('analyzed_articles')
+      .select('id, title')
+      .eq('id', articleId)
+      .single();
+
+    if (checkError || !existingArticle) {
+      return res.status(404).json({ error: 'Article not found' });
+    }
+
+    // Update the analysis
+    const { error: updateError } = await supabase
       .from('analyzed_articles')
       .update({
-        analysis_text: newAnalysis,
+        analysis_text: trimmedAnalysis,
         analysis_word_count: wordCount,
         analysis_generated_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', articleId);
 
-    if (error) throw error;
+    if (updateError) {
+      throw updateError;
+    }
 
-    console.log(`✅ Updated analysis for article ${articleId}, word count: ${wordCount}`);
+    console.log(`✅ Updated analysis for article ${existingArticle.title.substring(0, 30)}... (${wordCount} words)`);
 
     return res.json({ 
       success: true, 
-      message: 'Analysis updated successfully',
-      wordCount 
+      wordCount,
+      articleId,
+      message: 'Analysis updated successfully'
     });
   } catch (error) {
-    console.error('❌ Failed to update analysis:', error);
-    throw error;
+    console.error('Failed to update analysis:', error);
+    return res.status(500).json({ error: 'Database error: ' + error.message });
   }
 }
 
-// NEW: Update article status (promote/demote)
+// FIXED: Status update with proper validation and 6-article limit enforcement
 async function updateStatus(req, res) {
   const { articleId, status } = req.body;
   
-  if (!articleId || !status) {
-    return res.status(400).json({ error: 'Missing articleId or status' });
+  // Validate input
+  if (!articleId) {
+    return res.status(400).json({ error: 'articleId is required' });
+  }
+  
+  if (!status) {
+    return res.status(400).json({ error: 'status is required' });
   }
 
-  // Validate status
   const validStatuses = ['published', 'draft', 'queue', 'rejected'];
   if (!validStatuses.includes(status)) {
-    return res.status(400).json({ error: 'Invalid status. Must be: ' + validStatuses.join(', ') });
+    return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
   }
 
   try {
-    const { error } = await supabase
+    // First check if article exists
+    const { data: existingArticle, error: checkError } = await supabase
+      .from('analyzed_articles')
+      .select('id, title, article_status, edition_id')
+      .eq('id', articleId)
+      .single();
+
+    if (checkError || !existingArticle) {
+      return res.status(404).json({ error: 'Article not found' });
+    }
+
+    // If promoting to published, check current published count for this edition
+    if (status === 'published' && existingArticle.article_status !== 'published') {
+      const { data: publishedArticles, error: countError } = await supabase
+        .from('analyzed_articles')
+        .select('id')
+        .eq('edition_id', existingArticle.edition_id)
+        .eq('article_status', 'published');
+      
+      if (countError) {
+        throw countError;
+      }
+      
+      if (publishedArticles && publishedArticles.length >= 6) {
+        return res.status(400).json({ 
+          error: 'Cannot publish more than 6 articles per edition. Demote another article first.',
+          currentPublished: publishedArticles.length
+        });
+      }
+    }
+
+    // Update the status
+    const { error: updateError } = await supabase
       .from('analyzed_articles')
       .update({
         article_status: status,
@@ -183,19 +295,22 @@ async function updateStatus(req, res) {
       })
       .eq('id', articleId);
 
-    if (error) throw error;
+    if (updateError) {
+      throw updateError;
+    }
 
-    console.log(`✅ Updated article ${articleId} status to: ${status}`);
+    console.log(`✅ Updated article ${existingArticle.title.substring(0, 30)}... status to: ${status}`);
 
     return res.json({ 
       success: true, 
-      message: `Article status updated to ${status}`,
       articleId,
-      status
+      status,
+      previousStatus: existingArticle.article_status,
+      message: `Article status updated to ${status}`
     });
   } catch (error) {
-    console.error('❌ Failed to update status:', error);
-    throw error;
+    console.error('Failed to update status:', error);
+    return res.status(500).json({ error: 'Database error: ' + error.message });
   }
 }
 
@@ -203,37 +318,53 @@ async function removeArticle(req, res) {
   const { articleId } = req.body;
   
   if (!articleId) {
-    return res.status(400).json({ error: 'Missing articleId' });
+    return res.status(400).json({ error: 'articleId is required' });
   }
 
   try {
-    const { error } = await supabase
+    // First check if article exists and get its info
+    const { data: existingArticle, error: checkError } = await supabase
+      .from('analyzed_articles')
+      .select('id, title')
+      .eq('id', articleId)
+      .single();
+
+    if (checkError || !existingArticle) {
+      return res.status(404).json({ error: 'Article not found' });
+    }
+
+    // Delete the article
+    const { error: deleteError } = await supabase
       .from('analyzed_articles')
       .delete()
       .eq('id', articleId);
 
-    if (error) throw error;
+    if (deleteError) {
+      throw deleteError;
+    }
 
-    console.log(`✅ Removed article ${articleId}`);
+    console.log(`✅ Removed article: ${existingArticle.title.substring(0, 50)}...`);
 
     return res.json({ 
-      success: true, 
-      message: 'Article removed successfully' 
+      success: true,
+      articleId,
+      message: 'Article removed successfully'
     });
   } catch (error) {
-    console.error('❌ Failed to remove article:', error);
-    throw error;
+    console.error('Failed to remove article:', error);
+    return res.status(500).json({ error: 'Database error: ' + error.message });
   }
 }
 
+// FIXED: Simplified regenerate that uses existing workflow without breaking it
 async function regenerateToday(req, res) {
   const startTime = Date.now();
   const today = new Date().toISOString().split('T')[0];
   
-  console.log('🔄 Admin regenerate started');
-
   try {
-    // Delete existing edition to force recreation
+    console.log('🔄 Admin regenerate started');
+    
+    // Check for existing edition - let runAutomatedWorkflow handle deletion if needed
     const { data: existing } = await supabase
       .from('daily_editions')
       .select('id')
@@ -241,23 +372,31 @@ async function regenerateToday(req, res) {
       .single();
 
     if (existing) {
-      await supabase.from('analyzed_articles').delete().eq('edition_id', existing.id);
-      await supabase.from('daily_editions').delete().eq('id', existing.id);
-      console.log('🗑️ Deleted existing edition');
+      console.log('📰 Found existing edition, workflow will handle it');
     }
 
-    // Run workflow
+    // Run the existing automated workflow - it handles existing editions
     const edition = await runAutomatedWorkflow();
+    
+    if (!edition || !edition.id) {
+      throw new Error('Workflow failed to return valid edition');
+    }
+
     const duration = Math.floor((Date.now() - startTime) / 1000);
 
-    // Get article count
+    // Get article count for response
     const { data: articles } = await supabase
       .from('analyzed_articles')
       .select('id, analysis_text')
       .eq('edition_id', edition.id);
 
-    const analyzedCount = articles?.filter(a => a.analysis_text && 
-      !a.analysis_text.includes('depends on implementation')).length || 0;
+    const analyzedCount = articles?.filter(a => 
+      a.analysis_text && 
+      a.analysis_text !== 'No analysis available' &&
+      !a.analysis_text.includes('depends on implementation')
+    ).length || 0;
+
+    console.log(`✅ Regenerate completed in ${duration}s - ${articles?.length || 0} articles, ${analyzedCount} analyzed`);
 
     return res.json({
       success: true,
@@ -276,8 +415,18 @@ async function regenerateToday(req, res) {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('❌ Regenerate failed:', error);
-    throw error;
+    const duration = Math.floor((Date.now() - startTime) / 1000);
+    console.error('❌ Regenerate failed after', duration, 'seconds:', error);
+    
+    return res.status(500).json({ 
+      success: false,
+      error: error.message,
+      processing: {
+        duration_seconds: duration,
+        failed_at: 'workflow_execution'
+      },
+      timestamp: new Date().toISOString()
+    });
   }
 }
 
@@ -285,107 +434,33 @@ async function clearToday(req, res) {
   const today = new Date().toISOString().split('T')[0];
   
   try {
-    const { data: edition } = await supabase
+    const { data: edition, error: fetchError } = await supabase
       .from('daily_editions')
       .select('id')
       .eq('edition_date', today)
       .single();
 
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError;
+    }
+
     if (edition) {
+      // Delete articles first (foreign key constraint)
       await supabase.from('analyzed_articles').delete().eq('edition_id', edition.id);
+      // Then delete edition
       await supabase.from('daily_editions').delete().eq('id', edition.id);
-      console.log(`✅ Cleared edition ${edition.id}`);
+      console.log(`✅ Cleared edition ${edition.id} for ${today}`);
+    } else {
+      console.log(`ℹ️ No edition found for ${today} to clear`);
     }
 
     return res.json({ 
       success: true, 
-      message: 'Today\'s edition cleared successfully' 
+      message: `Today's edition cleared successfully`,
+      date: today
     });
   } catch (error) {
     console.error('❌ Failed to clear edition:', error);
-    throw error;
+    return res.status(500).json({ error: 'Failed to clear edition: ' + error.message });
   }
-}
-
-async function getStats(req, res) {
-  const today = new Date().toISOString().split('T')[0];
-  const lastWeek = new Date();
-  lastWeek.setDate(lastWeek.getDate() - 7);
-  
-  try {
-    // Get recent editions
-    const { data: editions } = await supabase
-      .from('daily_editions')
-      .select(`
-        *,
-        analyzed_articles (
-          id,
-          analysis_text,
-          analysis_word_count,
-          source_name
-        )
-      `)
-      .gte('edition_date', lastWeek.toISOString().split('T')[0])
-      .order('edition_date', { ascending: false });
-
-    const stats = {
-      total_editions: editions?.length || 0,
-      total_articles: 0,
-      avg_articles_per_edition: 0,
-      avg_word_count: 0,
-      top_sources: {},
-      success_rate: 0,
-      recent_activity: []
-    };
-
-    if (editions && editions.length > 0) {
-      const allArticles = editions.flatMap(e => e.analyzed_articles || []);
-      stats.total_articles = allArticles.length;
-      stats.avg_articles_per_edition = Math.round(stats.total_articles / editions.length);
-      
-      const analyzedArticles = allArticles.filter(a => 
-        a.analysis_text && !a.analysis_text.includes('depends on implementation'));
-      
-      if (analyzedArticles.length > 0) {
-        stats.avg_word_count = Math.round(
-          analyzedArticles.reduce((sum, a) => sum + (a.analysis_word_count || 0), 0) / analyzedArticles.length
-        );
-        stats.success_rate = Math.round((analyzedArticles.length / allArticles.length) * 100);
-      }
-
-      // Top sources
-      allArticles.forEach(a => {
-        if (a.source_name) {
-          stats.top_sources[a.source_name] = (stats.top_sources[a.source_name] || 0) + 1;
-        }
-      });
-
-      // Recent activity
-      stats.recent_activity = editions.slice(0, 5).map(e => ({
-        date: e.edition_date,
-        issue_number: e.issue_number,
-        status: e.status,
-        article_count: e.analyzed_articles?.length || 0,
-        analyzed_count: e.analyzed_articles?.filter(a => 
-          a.analysis_text && !a.analysis_text.includes('depends on implementation')).length || 0
-      }));
-    }
-
-    return res.json(stats);
-  } catch (error) {
-    console.error('❌ Failed to get stats:', error);
-    throw error;
-  }
-}
-
-async function getLogs(req, res) {
-  // Simple mock logs - in production, you'd read from actual log files
-  const logs = [
-    { timestamp: new Date().toISOString(), level: 'info', message: 'Admin panel accessed' },
-    { timestamp: new Date(Date.now() - 300000).toISOString(), level: 'success', message: 'Daily workflow completed' },
-    { timestamp: new Date(Date.now() - 600000).toISOString(), level: 'warning', message: 'Analysis regeneration requested' },
-    { timestamp: new Date(Date.now() - 900000).toISOString(), level: 'info', message: 'Articles fetched from GNews' }
-  ];
-
-  return res.json({ logs });
 }
