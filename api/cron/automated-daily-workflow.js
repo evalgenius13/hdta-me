@@ -441,73 +441,70 @@ class AutomatedPublisher {
 
   async generateHumanImpactAnalysis(article) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY environment variable is not set');
+    if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set');
 
     const pubDate = article.publishedAt || 'not stated';
     const source = article.source?.name || 'not stated';
 
     const clean = (s, max) => (s || '').replace(/[^\w\s\-.,!?'"]/g, '').substring(0, max);
-    const cleanTitle = clean(article.title, 200);
-    const cleanDescription = clean(article.description, 500);
-    const cleanSource = clean(source, 80);
+    const title = clean(article.title, 200);
+    const desc  = clean(article.description, 400);
+    const src   = clean(source, 80);
 
     const systemPrompt = process.env.SYSTEM_PROMPT;
-    const userPromptTemplate = process.env.USER_PROMPT;
-    if (!systemPrompt || !userPromptTemplate) {
-      throw new Error('SYSTEM_PROMPT and USER_PROMPT environment variables must be set');
-    }
+    const userTemplate = process.env.USER_PROMPT;
+    if (!systemPrompt || !userTemplate) throw new Error('SYSTEM_PROMPT and USER_PROMPT must be set');
 
-    const prompt = userPromptTemplate
-      .replace('{title}', cleanTitle)
-      .replace('{description}', cleanDescription)
-      .replace('{source}', cleanSource)
-      .replace('{date}', pubDate);
+    const prompt =
+      userTemplate
+        .replace('{title}', title)
+        .replace('{description}', desc)
+        .replace('{source}', src)
+        .replace('{date}', pubDate)
+      + '\n\nWrite 130–200 words in ONE paragraph. Begin your answer immediately on the next line:';
 
-    // GPT-5 only - no fallbacks
     const body = {
       model: 'gpt-5',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
-      max_completion_tokens: 300
-      // No temperature, top_p, etc. - GPT-5 doesn't support them
+      max_completion_tokens: 640,        // ↑ give it room so it doesn't spend all tokens thinking
+      response_format: { type: 'text' }  // ↑ bias toward visible text
+      // no temperature/top_p/etc for gpt-5
     };
 
-    console.log(`🧠 Calling GPT-5 for "${cleanTitle.substring(0, 50)}..."`);
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      console.error(`❌ GPT-5 API Error: ${response.status} ${response.statusText}`);
-      console.error(`❌ Error details: ${errText}`);
-      throw new Error(`GPT-5 HTTP ${response.status} ${response.statusText} :: ${errText}`);
+    if (!r.ok) {
+      const t = await r.text().catch(() => '');
+      throw new Error(`OpenAI gpt-5 HTTP ${r.status} ${r.statusText} :: ${t}`);
     }
 
-    const data = await response.json();
-    console.log(`📊 GPT-5 Response:`, {
-      id: data.id,
-      model: data.model,
-      usage: data.usage,
-      finish_reason: data.choices?.[0]?.finish_reason,
-      content_length: data.choices?.[0]?.message?.content?.length
-    });
+    const data = await r.json();
+    const content = data?.choices?.[0]?.message?.content?.trim() ?? '';
 
-    const content = data?.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      console.error(`❌ Empty content from GPT-5. Full response:`, JSON.stringify(data, null, 2));
-      throw new Error('Empty completion from GPT-5');
+    // single, MVP-friendly retry if it still came back empty due to length
+    if (!content && data?.choices?.[0]?.finish_reason === 'length') {
+      const r2 = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...body,
+          max_completion_tokens: 896,
+          messages: [...body.messages, { role: 'user', content: 'Answer now in one paragraph (130–200 words).' }]
+        })
+      });
+      const d2 = await r2.json();
+      const c2 = d2?.choices?.[0]?.message?.content?.trim() ?? '';
+      if (c2) return c2;
     }
-    
-    console.log(`✅ GPT-5 generated ${content.length} characters`);
+
+    if (!content) throw new Error('GPT-5 returned empty content');
     return content;
   }
 
@@ -519,27 +516,23 @@ class AutomatedPublisher {
       .filter(Boolean)
       .join('\n\n');
 
-    const wc = normalized.split(/\s+/).filter(Boolean).length;
-
-    // Soft clamp: trim long pieces to ~170–220 words window, rather than rejecting
-    if (wc > 280) {
-      const words = normalized.split(/\s+/).filter(Boolean);
-      const target = 220;
-      normalized = words.slice(0, target).join(' ');
-      console.log(`  ✂️ Trimmed from ${wc} to ${target} words`);
+    const words = normalized.split(/\s+/).filter(Boolean);
+    
+    // Clamp instead of reject - preserve good content
+    if (words.length > 280) {
+      normalized = words.slice(0, 220).join(' ');
+      console.log(`  ✂️ Trimmed from ${words.length} to 220 words`);
     }
 
-    const newWc = normalized.split(/\s+/).filter(Boolean).length;
-    if (newWc < 110) {
-      console.log(`  ⚠️ Short analysis (${newWc} words) — accepting anyway to avoid lost outputs`);
-    }
-
+    const finalWordCount = normalized.split(/\s+/).filter(Boolean).length;
+    
+    // Only reject if it's truly problematic formatting
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
       console.log(`  ❌ Formatting rejected: bullet points/numbered lists detected`);
       return null;
     }
 
-    console.log(`  ✅ Sanitize passed: ${newWc} words, flowing prose format`);
+    console.log(`  ✅ Sanitize passed: ${finalWordCount} words, flowing prose format`);
     return normalized;
   }
 
