@@ -136,7 +136,7 @@ class AutomatedPublisher {
     allArticles = allArticles
       .map(a => ({ ...a, policyScore: this.policyScore(a) }))
       .sort((a, b) => b.policyScore - a.policyScore)
-      .slice(0, 120); // Keep top 120 for downstream processing
+      .slice(0, this.maxArticles); // Keep only what we'll actually use (26 articles)
 
     console.log(`📊 After policy scoring: ${allArticles.length} articles (top policy-relevant)`);
     
@@ -441,22 +441,18 @@ class AutomatedPublisher {
 
   async generateHumanImpactAnalysis(article) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is not set');
-    }
+    if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY environment variable is not set');
 
     const pubDate = article.publishedAt || 'not stated';
     const source = article.source?.name || 'not stated';
 
-    const clean = (s, max) =>
-      (s || '').replace(/[^\w\s\-.,!?'"]/g, '').substring(0, max);
+    const clean = (s, max) => (s || '').replace(/[^\w\s\-.,!?'"]/g, '').substring(0, max);
     const cleanTitle = clean(article.title, 200);
     const cleanDescription = clean(article.description, 500);
     const cleanSource = clean(source, 80);
 
     const systemPrompt = process.env.SYSTEM_PROMPT;
     const userPromptTemplate = process.env.USER_PROMPT;
-    
     if (!systemPrompt || !userPromptTemplate) {
       throw new Error('SYSTEM_PROMPT and USER_PROMPT environment variables must be set');
     }
@@ -467,7 +463,7 @@ class AutomatedPublisher {
       .replace('{source}', cleanSource)
       .replace('{date}', pubDate);
 
-    // GPT-5 with only supported parameters
+    // GPT-5 only - no fallbacks
     const body = {
       model: 'gpt-5',
       messages: [
@@ -475,9 +471,11 @@ class AutomatedPublisher {
         { role: 'user', content: prompt }
       ],
       max_completion_tokens: 300
-      // ❌ NO temperature, top_p, frequency_penalty, presence_penalty for GPT-5
+      // No temperature, top_p, etc. - GPT-5 doesn't support them
     };
 
+    console.log(`🧠 Calling GPT-5 for "${cleanTitle.substring(0, 50)}..."`);
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -489,20 +487,32 @@ class AutomatedPublisher {
 
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
-      throw new Error(`OpenAI GPT-5 HTTP ${response.status} ${response.statusText} :: ${errText}`);
+      console.error(`❌ GPT-5 API Error: ${response.status} ${response.statusText}`);
+      console.error(`❌ Error details: ${errText}`);
+      throw new Error(`GPT-5 HTTP ${response.status} ${response.statusText} :: ${errText}`);
     }
 
     const data = await response.json();
+    console.log(`📊 GPT-5 Response:`, {
+      id: data.id,
+      model: data.model,
+      usage: data.usage,
+      finish_reason: data.choices?.[0]?.finish_reason,
+      content_length: data.choices?.[0]?.message?.content?.length
+    });
+
     const content = data?.choices?.[0]?.message?.content?.trim();
     if (!content) {
+      console.error(`❌ Empty content from GPT-5. Full response:`, JSON.stringify(data, null, 2));
       throw new Error('Empty completion from GPT-5');
     }
     
+    console.log(`✅ GPT-5 generated ${content.length} characters`);
     return content;
   }
 
   sanitize(article, text) {
-    const normalized = text
+    let normalized = text
       .replace(/\r/g, '')
       .split('\n')
       .map(s => s.trim())
@@ -510,9 +520,18 @@ class AutomatedPublisher {
       .join('\n\n');
 
     const wc = normalized.split(/\s+/).filter(Boolean).length;
-    if (wc < 120 || wc > 280) {
-      console.log(`  ❌ Word count rejected: ${wc} words (need 120-280)`);
-      return null;
+
+    // Soft clamp: trim long pieces to ~170–220 words window, rather than rejecting
+    if (wc > 280) {
+      const words = normalized.split(/\s+/).filter(Boolean);
+      const target = 220;
+      normalized = words.slice(0, target).join(' ');
+      console.log(`  ✂️ Trimmed from ${wc} to ${target} words`);
+    }
+
+    const newWc = normalized.split(/\s+/).filter(Boolean).length;
+    if (newWc < 110) {
+      console.log(`  ⚠️ Short analysis (${newWc} words) — accepting anyway to avoid lost outputs`);
     }
 
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
@@ -520,7 +539,7 @@ class AutomatedPublisher {
       return null;
     }
 
-    console.log(`  ✅ Sanitize passed: ${wc} words, flowing prose format`);
+    console.log(`  ✅ Sanitize passed: ${newWc} words, flowing prose format`);
     return normalized;
   }
 
