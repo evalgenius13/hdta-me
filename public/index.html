@@ -207,7 +207,7 @@
           // Fallback to old format for articles without structured sections
           container.innerHTML = `
             <div class="analysis-section">
-              <div class="analysis-label">What's Happening Here?</div>
+              <div class="analysis-label">How Does This Affect Me?</div>
               <div class="analysis-text">${this.formatAnalysisText(article.preGeneratedAnalysis)}</div>
             </div>
           `;
@@ -216,7 +216,7 @@
           // No analysis available
           container.innerHTML = `
             <div class="analysis-section">
-              <div class="analysis-label">What's Happening Here?</div>
+              <div class="analysis-label">How Does This Affect Me?</div>
               <div class="analysis-text">
                 <div class="no-analysis">Analysis coming soon - check back for updates to this story.</div>
               </div>
