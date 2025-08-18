@@ -1,4 +1,4 @@
-// api/cron/automated-daily-workflow.js - FIXED: GPT-5 compatible, News API primary, GNews fallback, inline filtering
+// api/cron/automated-daily-workflow.js - FIXED: GPT-4o compatible, News API primary, GNews fallback, inline filtering
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -439,6 +439,7 @@ class AutomatedPublisher {
     return final;
   }
 
+  // FIXED: generateHumanImpactAnalysis method for admin API compatibility
   async generateHumanImpactAnalysis(article) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set');
@@ -461,10 +462,10 @@ class AutomatedPublisher {
       .replace('{source}', src)
       .replace('{date}', pubDate);
 
-    console.log(`🧠 Calling GPT-4o for "${title.substring(0, 50)}..."`);
+    console.log(`🧠 Calling GPT-4.1 for "${title.substring(0, 50)}..."`);
 
     const body = {
-      model: 'gpt-4o',
+      model: 'gpt-4.1',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
@@ -484,21 +485,26 @@ class AutomatedPublisher {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
-      throw new Error(`OpenAI GPT-4o HTTP ${response.status} ${response.statusText} :: ${errorText}`);
+      throw new Error(`OpenAI GPT-4.1 HTTP ${response.status} ${response.statusText} :: ${errorText}`);
     }
 
     const data = await response.json();
     const content = data?.choices?.[0]?.message?.content?.trim();
     
     if (!content) {
-      throw new Error('Empty completion from GPT-4o');
+      throw new Error('Empty completion from GPT-4.1');
     }
     
-    console.log(`✅ GPT-4o generated ${content.length} characters`);
+    console.log(`✅ GPT-4.1 generated ${content.length} characters`);
     return content;
   }
 
+  // FIXED: sanitize method for admin API compatibility
   sanitize(article, text) {
+    if (!text || typeof text !== 'string') {
+      return null;
+    }
+
     let normalized = text
       .replace(/\r/g, '')
       .split('\n')
@@ -508,21 +514,33 @@ class AutomatedPublisher {
 
     const words = normalized.split(/\s+/).filter(Boolean);
     
-    // Clamp instead of reject - preserve good content
+    // Check minimum length
+    if (words.length < 20) {
+      console.log(`  ❌ Too short: ${words.length} words`);
+      return null;
+    }
+    
+    // Trim if too long
     if (words.length > 280) {
       normalized = words.slice(0, 220).join(' ');
       console.log(`  ✂️ Trimmed from ${words.length} to 220 words`);
     }
-
-    const finalWordCount = normalized.split(/\s+/).filter(Boolean).length;
     
-    // Only reject if it's truly problematic formatting
+    // Reject bullet points/lists
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
-      console.log(`  ❌ Formatting rejected: bullet points/numbered lists detected`);
+      console.log(`  ❌ Contains bullet points/lists`);
       return null;
     }
 
-    console.log(`  ✅ Sanitize passed: ${finalWordCount} words, flowing prose format`);
+    // Check for basic sentence structure
+    const sentences = normalized.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    if (sentences.length < 2) {
+      console.log(`  ❌ Not enough sentences`);
+      return null;
+    }
+
+    const finalWordCount = normalized.split(/\s+/).filter(Boolean).length;
+    console.log(`  ✅ Clean: ${finalWordCount} words`);
     return normalized;
   }
 
@@ -736,6 +754,9 @@ class AutomatedPublisher {
     return new Promise(r => setTimeout(r, ms));
   }
 }
+
+// FIXED: Export both classes for admin API
+export { AutomatedPublisher };
 
 export async function runAutomatedWorkflow() {
   const p = new AutomatedPublisher();
