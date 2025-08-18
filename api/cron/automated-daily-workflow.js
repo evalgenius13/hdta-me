@@ -474,7 +474,6 @@ class AutomatedPublisher {
       ],
       max_tokens: 300,
       temperature: 0.4,
-      stop: ["\n\n"]
     };
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
