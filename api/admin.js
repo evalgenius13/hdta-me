@@ -49,7 +49,7 @@ export default async function handler(req, res) {
   }
 }
 
-// FIXED: Generate analysis with proper error handling and no env var dependency
+// FIXED: Generate analysis with proper error handling - reverted to env vars
 async function generateAnalysis(req, res) {
   const { article } = req.body;
   
@@ -58,9 +58,13 @@ async function generateAnalysis(req, res) {
     return res.status(400).json({ error: 'Missing required article data (title, description)' });
   }
 
-  // Check OpenAI API key
+  // Check environment variables
   if (!process.env.OPENAI_API_KEY) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
+  }
+
+  if (!process.env.SYSTEM_PROMPT || !process.env.USER_PROMPT) {
+    return res.status(500).json({ error: 'Analysis prompts not configured (SYSTEM_PROMPT, USER_PROMPT)' });
   }
 
   try {
