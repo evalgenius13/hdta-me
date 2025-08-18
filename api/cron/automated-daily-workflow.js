@@ -448,63 +448,53 @@ class AutomatedPublisher {
 
     const clean = (s, max) => (s || '').replace(/[^\w\s\-.,!?'"]/g, '').substring(0, max);
     const title = clean(article.title, 200);
-    const desc  = clean(article.description, 400);
+    const desc  = clean(article.description, 500);
     const src   = clean(source, 80);
 
     const systemPrompt = process.env.SYSTEM_PROMPT;
     const userTemplate = process.env.USER_PROMPT;
     if (!systemPrompt || !userTemplate) throw new Error('SYSTEM_PROMPT and USER_PROMPT must be set');
 
-    const prompt =
-      userTemplate
-        .replace('{title}', title)
-        .replace('{description}', desc)
-        .replace('{source}', src)
-        .replace('{date}', pubDate)
-      + '\n\nWrite 130–200 words in ONE paragraph. Begin your answer immediately on the next line:';
+    const prompt = userTemplate
+      .replace('{title}', title)
+      .replace('{description}', desc)
+      .replace('{source}', src)
+      .replace('{date}', pubDate);
+
+    console.log(`🧠 Calling GPT-4o for "${title.substring(0, 50)}..."`);
 
     const body = {
-      model: 'gpt-5',
+      model: 'gpt-4o',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
-      max_completion_tokens: 640,        // ↑ give it room so it doesn't spend all tokens thinking
-      response_format: { type: 'text' }  // ↑ bias toward visible text
-      // no temperature/top_p/etc for gpt-5
+      max_tokens: 300,
+      temperature: 0.4
     };
 
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 
+        Authorization: `Bearer ${OPENAI_API_KEY}`, 
+        'Content-Type': 'application/json' 
+      },
       body: JSON.stringify(body)
     });
 
-    if (!r.ok) {
-      const t = await r.text().catch(() => '');
-      throw new Error(`OpenAI gpt-5 HTTP ${r.status} ${r.statusText} :: ${t}`);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`OpenAI GPT-4o HTTP ${response.status} ${response.statusText} :: ${errorText}`);
     }
 
-    const data = await r.json();
-    const content = data?.choices?.[0]?.message?.content?.trim() ?? '';
-
-    // single, MVP-friendly retry if it still came back empty due to length
-    if (!content && data?.choices?.[0]?.finish_reason === 'length') {
-      const r2 = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...body,
-          max_completion_tokens: 896,
-          messages: [...body.messages, { role: 'user', content: 'Answer now in one paragraph (130–200 words).' }]
-        })
-      });
-      const d2 = await r2.json();
-      const c2 = d2?.choices?.[0]?.message?.content?.trim() ?? '';
-      if (c2) return c2;
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content?.trim();
+    
+    if (!content) {
+      throw new Error('Empty completion from GPT-4o');
     }
-
-    if (!content) throw new Error('GPT-5 returned empty content');
+    
+    console.log(`✅ GPT-4o generated ${content.length} characters`);
     return content;
   }
 
