@@ -119,12 +119,13 @@
         loading.style.display='none'; container.style.display='block';
         container.innerHTML=this.articles.map((a,i)=>this.createArticleHTML(a,i)).join('');
         
-        // SIMPLIFIED: Only show pre-generated analysis, no API calls
+        // show pre-generated analysis from DB
         for(let i=0;i<this.articles.length;i++){
           if(this.articles[i].preGeneratedAnalysis){ 
             this.showPreGeneratedAnalysis(i); 
+          } else {
+            this.showNoAnalysisMessage(i);
           }
-          // No else needed - all published articles have analysis
         }
       }
 
@@ -165,96 +166,59 @@
         </article>`;
       }
 
+      // === NEW: two-section parser that matches the backend ===
+      splitTwoSections(markdown){
+        const txt=(markdown||'').replace(/\r/g,'');
+        const m1=/^###\s*What(?:'|’)?s Happening Here\?\s*([\s\S]*?)(?=^###\s*How Does This Affect Me\?\s*|$)/im.exec(txt);
+        const m2=/^###\s*How Does This Affect Me\?\s*([\s\S]*)$/im.exec(txt);
+        return {
+          whats: (m1?.[1]||'').trim(),
+          affect: (m2?.[1]||'').trim()
+        };
+      }
+
       showPreGeneratedAnalysis(i){
-        const a=this.articles[i]; const el=document.getElementById(`analysis-content-${i}`);
-        if(a.preGeneratedAnalysis&&el){
-          const formatted=this.formatNewAnalysis(a.preGeneratedAnalysis);
-          el.innerHTML=formatted;
-          this.sharingData[i]={article:a,analysis:this.extractKeyInsight(a.preGeneratedAnalysis,null),url:`${window.location.origin}#story-${i}`};
-        }
-      }
+        const a=this.articles[i];
+        const el=document.getElementById(`analysis-content-${i}`);
+        if(!el) return;
 
-      // NEW: Format the new analysis structure with updated headers
-      formatNewAnalysis(text) {
-        if (!text || text === 'No analysis available') {
-          return '<div class="no-analysis">Analysis coming soon - check back for updates to this story.</div>';
-        }
+        const { whats, affect } = this.splitTwoSections(a.preGeneratedAnalysis||'');
 
-        // Split by the new section headers
-        const sections = {};
-        const lines = text.split('\n').filter(line => line.trim());
-        let currentSection = '';
-        let currentContent = [];
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed === 'WHAT\'S HAPPENING' || 
-              trimmed === 'WHO WINS AND LOSES' || 
-              trimmed === 'WHAT\'S NOT BEING SAID' || 
-              trimmed === 'HOW DOES THIS AFFECT ME') {
-            // Save previous section if exists
-            if (currentSection && currentContent.length > 0) {
-              sections[currentSection] = currentContent.join(' ').trim();
-            }
-            // Start new section
-            currentSection = trimmed;
-            currentContent = [];
-          } else if (currentSection && trimmed) {
-            currentContent.push(trimmed);
+        if(whats || affect){
+          // render with both sections if present
+          let html='';
+          if(whats){
+            html += `<div style="margin-bottom:16px;"><strong>What's Happening Here?</strong><br>${this.escapeHtml(whats)}</div>`;
           }
-        }
-        
-        // Save the last section
-        if (currentSection && currentContent.length > 0) {
-          sections[currentSection] = currentContent.join(' ').trim();
-        }
-
-        // Build the formatted HTML
-        let html = '';
-        
-        if (sections['WHAT\'S HAPPENING']) {
-          html += `<div style="margin-bottom: 16px;"><strong>What's Happening:</strong><br>${this.escapeHtml(sections['WHAT\'S HAPPENING'])}</div>`;
-        }
-        
-        if (sections['WHO WINS AND LOSES']) {
-          html += `<div style="margin-bottom: 16px;"><strong>Who Wins and Loses:</strong><br>${this.escapeHtml(sections['WHO WINS AND LOSES'])}</div>`;
-        }
-        
-        if (sections['WHAT\'S NOT BEING SAID']) {
-          html += `<div style="margin-bottom: 16px;"><strong>What's Not Being Said:</strong><br>${this.escapeHtml(sections['WHAT\'S NOT BEING SAID'])}</div>`;
-        }
-        
-        if (sections['HOW DOES THIS AFFECT ME']) {
-          html += `<div style="margin-bottom: 8px;"><strong>How Does This Affect Me:</strong><br>${this.escapeHtml(sections['HOW DOES THIS AFFECT ME'])}</div>`;
+          if(affect){
+            html += `<div style="margin-bottom:8px;"><strong>How Does This Affect Me?</strong><br>${this.escapeHtml(affect)}</div>`;
+          }
+          el.innerHTML = html;
+          this.sharingData[i] = {
+            article: a,
+            analysis: this.extractKeyInsight(affect || whats, null),
+            url: `${window.location.origin}#story-${i}`
+          };
+          return;
         }
 
-        return html || this.formatAnalysis(text);
+        // fallback: no headers, format as paragraphs
+        const formatted=this.formatAnalysis(a.preGeneratedAnalysis);
+        el.innerHTML=formatted;
+        this.sharingData[i]={article:a,analysis:this.extractKeyInsight(a.preGeneratedAnalysis,null),url:`${window.location.origin}#story-${i}`};
       }
 
-      // NEW: Show message for articles without analysis instead of calling API
+      // kept for fallback only
+      formatAnalysis(t){ 
+        return (t||'').split('\n\n').filter(p=>p.trim()).map(p=>`<p>${this.escapeHtml(p.trim())}</p>`).join(''); 
+      }
+
       showNoAnalysisMessage(i){
         const el=document.getElementById(`analysis-content-${i}`);
         if(el){
           el.innerHTML='<div class="no-analysis">Analysis coming soon - check back for updates to this story.</div>';
-          // Still set up sharing data with basic info
           this.sharingData[i]={article:this.articles[i],analysis:'Analysis coming soon',url:`${window.location.origin}#story-${i}`};
         }
-      }
-
-      renderAnalysisBlock(data){
-        const parts=[];
-        if(data.takeaway){ parts.push(`<p class="takeaway">${this.escapeHtml(data.takeaway)}</p>`); }
-        if(Array.isArray(data.facts)&&data.facts.length){
-          const items=data.facts.slice(0,3).map(f=>`<li>${this.escapeHtml(f)}</li>`).join('');
-          parts.push(`<ol class="facts">${items}</ol>`);
-        }
-        if(data.impact){ parts.push(this.formatAnalysis(data.impact)); }
-        const footer=[];
-        if(data.winners) footer.push(`<span><strong>Winners:</strong> ${this.escapeHtml(data.winners)}</span>`);
-        if(data.losers) footer.push(`<span><strong>Losers:</strong> ${this.escapeHtml(data.losers)}</span>`);
-        if(data.watch_next) footer.push(`<span><strong>Watch next:</strong> ${this.escapeHtml(data.watch_next)}</span>`);
-        if(footer.length){ parts.push(`<div class="impact-footer">${footer.join('')}</div>`); }
-        return parts.join('');
       }
 
       extractKeyInsight(a,structured){
@@ -273,8 +237,6 @@
       }
 
       escapeHtml(t){ if(!t) return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
-
-      formatAnalysis(t){ return t.split('\n\n').filter(p=>p.trim()).map(p=>`<p>${this.escapeHtml(p.trim())}</p>`).join(''); }
 
       shareToTwitter(i){
         const d=this.sharingData[i]; if(!d) return;
