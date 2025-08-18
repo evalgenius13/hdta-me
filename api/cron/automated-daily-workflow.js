@@ -93,7 +93,7 @@ class AutomatedPublisher {
     let allArticles = [...primaryArticles, ...secondaryArticles];
     console.log(`📊 Combined from ${usedProvider}: ${allArticles.length} articles`);
 
-    // FIXED: Inline content filtering (no method call)
+    // FIXED: Inline content filtering with policy scoring
     
     // Filter invalid articles
     allArticles = allArticles.filter(article => 
@@ -105,12 +105,12 @@ class AutomatedPublisher {
     
     console.log(`📊 Valid articles after basic filtering: ${allArticles.length}`);
 
-    // Get exclude keywords only (NO require keywords to fix the filtering issue)
+    // Get exclude keywords only
     const excludeKeywords = process.env.NEWS_EXCLUDE_KEYWORDS 
       ? process.env.NEWS_EXCLUDE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
       : [];
     
-    console.log('🔍 Applying exclude filters only:', { excludeCount: excludeKeywords.length });
+    console.log('🔍 Applying exclude filters and policy scoring:', { excludeCount: excludeKeywords.length });
 
     if (excludeKeywords.length > 0) {
       const beforeFilter = allArticles.length;
@@ -131,41 +131,55 @@ class AutomatedPublisher {
       
       console.log(`📊 After exclude filtering: ${allArticles.length} articles (removed ${beforeFilter - allArticles.length})`);
     }
+
+    // Add policy scoring and keep top articles
+    allArticles = allArticles
+      .map(a => ({ ...a, policyScore: this.policyScore(a) }))
+      .sort((a, b) => b.policyScore - a.policyScore)
+      .slice(0, 120); // Keep top 120 for downstream processing
+
+    console.log(`📊 After policy scoring: ${allArticles.length} articles (top policy-relevant)`);
     
     return allArticles;
   }
 
-  // NEW: News API implementation
+  // NEW: News API implementation with smart policy filtering
   async fetchFromNewsAPI() {
     const API_KEY = process.env.NEWS_API_KEY;
     const country = process.env.NEWS_API_COUNTRY || 'us';
     const language = process.env.NEWS_API_LANGUAGE || 'en';
     const maxPrimary = process.env.NEWS_API_MAX_PRIMARY || '20';
-    const maxSecondary = process.env.NEWS_API_MAX_SECONDARY || '6';
+    const maxSecondary = process.env.NEWS_API_MAX_SECONDARY || '30';
     const delayMs = parseInt(process.env.NEWS_API_DELAY_MS || '1000');
     
-    // News API category mapping (limited categories available)
-    const primaryCategory = process.env.NEWS_API_PRIMARY_CATEGORY || 'general';
-    const secondaryQuery = process.env.NEWS_API_SECONDARY_QUERY || 
-      'congress OR senate OR biden OR trump OR policy OR federal OR government OR legislation';
+    // Smart policy filtering
+    const includeQuery = process.env.NEWS_INCLUDE_QUERY || 
+      'congress OR senate OR "house passes" OR "executive order" OR "supreme court" OR regulation';
+    const sourcesWhitelist = process.env.NEWS_SOURCES_WHITELIST;
+    const domainsWhitelist = process.env.NEWS_DOMAINS_WHITELIST;
     
-    console.log('📰 News API config:', { primaryCategory, country, language, maxPrimary, maxSecondary });
+    console.log('📰 News API config with policy filtering:', { country, language, maxPrimary, maxSecondary });
 
     let primaryArticles = [];
     let secondaryArticles = [];
 
-    // Fetch 1: Top headlines by category
+    // Fetch 1: Top headlines from quality sources
     try {
-      console.log(`📰 Fetching ${maxPrimary} ${primaryCategory} headlines from News API...`);
-      const primaryUrl = `https://newsapi.org/v2/top-headlines?category=${primaryCategory}&country=${country}&pageSize=${maxPrimary}&apiKey=${API_KEY}`;
+      console.log(`📰 Fetching ${maxPrimary} headlines from quality sources...`);
       
-      const primaryResponse = await fetch(primaryUrl);
+      const primaryUrl = sourcesWhitelist
+        ? `https://newsapi.org/v2/top-headlines?sources=${encodeURIComponent(sourcesWhitelist)}&pageSize=${maxPrimary}`
+        : `https://newsapi.org/v2/top-headlines?country=${country}&pageSize=${maxPrimary}`;
+      
+      const primaryResponse = await fetch(primaryUrl, {
+        headers: { 'X-Api-Key': API_KEY }
+      });
       if (primaryResponse.ok) {
         const primaryData = await primaryResponse.json();
         
         if (primaryData.status === 'ok') {
           primaryArticles = (primaryData.articles || []).map(article => this.normalizeNewsAPIArticle(article));
-          console.log(`✅ News API headlines: ${primaryArticles.length} articles`);
+          console.log(`✅ News API quality headlines: ${primaryArticles.length} articles`);
         } else {
           throw new Error(`News API error: ${primaryData.message || 'Unknown error'}`);
         }
@@ -179,20 +193,39 @@ class AutomatedPublisher {
     // Small delay between API calls
     await new Promise(resolve => setTimeout(resolve, delayMs));
 
-    // Fetch 2: Everything search for political content
+    // Fetch 2: Policy-targeted search with freshness window
     try {
-      console.log(`🔍 Searching News API for political content...`);
+      console.log(`🔍 Searching for policy content with targeted query...`);
       
-      // Use 'everything' endpoint for better search capabilities
-      const searchUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(secondaryQuery)}&language=${language}&pageSize=${maxSecondary}&sortBy=publishedAt&apiKey=${API_KEY}`;
+      // Add 36-hour freshness window
+      const fromISO = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
       
-      const searchResponse = await fetch(searchUrl);
+      const params = new URLSearchParams({
+        q: includeQuery,
+        language: language,
+        pageSize: maxSecondary,
+        sortBy: 'publishedAt',
+        from: fromISO
+      });
+      
+      // Trim domains list to avoid URL length limits
+      if (domainsWhitelist) {
+        const trimmedDomains = domainsWhitelist.split(',').slice(0, 30).join(',');
+        params.set('domains', trimmedDomains);
+      }
+      
+      const searchUrl = `https://newsapi.org/v2/everything?${params.toString()}`;
+      
+      const searchResponse = await fetch(searchUrl, {
+        headers: { 'X-Api-Key': API_KEY }
+      });
+      
       if (searchResponse.ok) {
         const searchData = await searchResponse.json();
         
         if (searchData.status === 'ok') {
           secondaryArticles = (searchData.articles || []).map(article => this.normalizeNewsAPIArticle(article));
-          console.log(`✅ News API search: ${secondaryArticles.length} articles`);
+          console.log(`✅ News API policy search: ${secondaryArticles.length} articles`);
         } else {
           throw new Error(`News API search error: ${searchData.message || 'Unknown error'}`);
         }
@@ -200,7 +233,7 @@ class AutomatedPublisher {
         throw new Error(`News API search HTTP ${searchResponse.status}: ${searchResponse.statusText}`);
       }
     } catch (error) {
-      console.warn(`⚠️ News API search failed: ${error.message}`);
+      console.warn(`⚠️ News API policy search failed: ${error.message}`);
     }
 
     return { primary: primaryArticles, secondary: secondaryArticles };
@@ -260,6 +293,51 @@ class AutomatedPublisher {
     }
 
     return { primary: primaryArticles, secondary: secondaryArticles };
+  }
+
+  // NEW: Policy scoring function
+  policyScore(article) {
+    const t = (article.title + ' ' + (article.description || '')).toLowerCase();
+
+    // High-value policy terms
+    const highValue = [
+      'executive order', 'supreme court', 'house passes', 'senate votes',
+      'bill signed', 'federal judge', 'appeals court', 'rulemaking', 'proposed rule',
+      'final rule', 'regulation', 'white house', 'ballot measure'
+    ];
+    
+    // Government agencies
+    const agencies = ['ftc', 'fcc', 'epa', 'hhs', 'cms', 'doj', 'dol', 'irs', 'hud', 'dot', 'doe'];
+    
+    // Civic terms
+    const civics = ['congress', 'senate', 'house', 'governor', 'statehouse', 'attorney general'];
+
+    let s = 0;
+    highValue.forEach(k => { if (t.includes(k)) s += 12; });
+    agencies.forEach(k => { if (t.includes(k)) s += 8; });
+    civics.forEach(k => { if (t.includes(k)) s += 6; });
+
+    // Quality source bonus
+    const src = (article.source?.name || '').toLowerCase();
+    const qualitySources = [
+      'reuters', 'ap', 'politico', 'axios', 'bloomberg', 'washington post', 
+      'new york times', 'wall street journal', 'npr', 'the hill', 'propublica', 
+      'ft', 'roll call', 'stat'
+    ];
+    if (qualitySources.some(q => src.includes(q))) s += 5;
+
+    // Freshness bonus
+    if (article.publishedAt) {
+      const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
+      if (hrs < 6) s += 5; 
+      else if (hrs < 24) s += 3;
+    }
+
+    // Penalty for non-policy content
+    const negative = ['nba', 'nfl', 'mlb', 'soccer', 'celebrity', 'royal family', 'oscars', 'grammys'];
+    negative.forEach(k => { if (t.includes(k)) s -= 10; });
+
+    return Math.max(0, s);
   }
 
   // NEW: Normalize News API article format to match expected structure
@@ -390,7 +468,8 @@ class AutomatedPublisher {
       .replace('{date}', pubDate);
 
     // Try in order; if you don't have access to gpt-5 your key will 404/400 and we'll fall back automatically.
-    const models = ['gpt-5', 'gpt-4o', 'gpt-4.1'];
+    const models = ['gpt-5', 'gpt-4o', 'gpt-4.1']; // Production fallbacks enabled
+    // const models = ['gpt-5']; // Test GPT-5 only - comment above and uncomment this for testing
 
     const makeRequest = async (model) => {
       const body = {
@@ -512,6 +591,7 @@ class AutomatedPublisher {
   }
 
   score(article) {
+    // Original scoring logic
     let s = 0;
     const t = (article.title + ' ' + (article.description || '')).toLowerCase();
     const highValue = ['executive order', 'supreme court', 'congress passes', 'senate votes', 'bill signed', 'federal ruling', 'white house', 'biden', 'trump'];
@@ -530,7 +610,9 @@ class AutomatedPublisher {
     }
     const qualitySources = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'new york times', 'politico', 'cnn', 'fox news'];
     if (qualitySources.some(src => (article.source?.name || '').toLowerCase().includes(src))) s += 5;
-    return Math.max(0, s);
+    
+    // Policy-first weighting
+    return this.policyScore(article) * 2 + Math.max(0, s);
   }
 
   async createEdition(date, articles, status) {
