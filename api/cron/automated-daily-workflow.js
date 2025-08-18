@@ -1,200 +1,771 @@
-// api/cron/automated-daily-workflow.js
+// api/cron/automated-daily-workflow.js - FIXED: News API primary, GNews fallback, inline filtering
+import { createClient } from '@supabase/supabase-js';
 
-import OpenAI from "openai";
-import { createClient } from "@supabase/supabase-js";
-import fetch from "node-fetch";
-
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 class AutomatedPublisher {
   constructor() {
-    this.maxArticles = 26;      // total
-    this.numAnalyzed = 6;       // first N get AI analysis
+    this.maxArticles = 26;
+    this.numAnalyzed = 6;
     this.maxRetries = 3;
     this.retryDelay = 1500;
     this.startTime = Date.now();
   }
 
   async runFullWorkflow() {
-    console.log("🚀 Starting daily workflow...");
+    console.log('🚀 Starting daily workflow...');
     const edition = await this.curateAndAnalyze();
     await this.publishToWebsite(edition.id);
     await this.markNewsletterSent(edition.id);
-    console.log("✅ Daily workflow completed");
+    console.log('✅ Daily workflow completed');
     return edition;
   }
 
   async curateAndAnalyze() {
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toISOString().split('T')[0];
     const existing = await this.findEdition(today);
     if (existing) {
       console.log(`📰 Edition already exists for ${today}, returning existing`);
       return existing;
     }
 
-    // Fetch curated news
-    const articles = await this.fetchNews();
-    if (!articles.length) throw new Error("No news articles returned.");
+    // Fetch articles with News API primary, GNews fallback
+    const articles = await this.fetchCombinedNewsWithFallback();
+    console.log('🔵 fetchCombinedNews returned:', articles.length, 'articles');
 
-    // Save new edition row
-    const { data: edition, error } = await supabase
-      .from("editions")
-      .insert({ date: today })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // Analyze top N
-    for (let i = 0; i < articles.length; i++) {
-      const article = articles[i];
-      let preGeneratedAnalysis = null;
-
-      if (i < this.numAnalyzed) {
-        preGeneratedAnalysis = await this.retryWithBackoff(() =>
-          this.analyzeArticle(article)
-        );
-      }
-
-      await supabase.from("articles").insert({
-        edition_id: edition.id,
-        title: article.title,
-        url: article.url,
-        source: article.source?.name || "Unknown",
-        snippet: article.description || "",
-        preGeneratedAnalysis
-      });
+    if (articles.length === 0) {
+      throw new Error('No articles could be fetched from any source');
     }
 
+    const selected = this.selectBest(articles);
+    console.log('🟡 selectBest after filtering:', selected.length, 'articles');
+
+    const analyzed = await this.analyzeAll(selected);
+    const edition = await this.createEdition(today, analyzed, 'published');
     return edition;
   }
 
-  async fetchNews() {
-    console.log("📡 Fetching news...");
-    const url = new URL("https://newsapi.org/v2/everything");
-    url.searchParams.set("q", "policy OR regulation OR government");
-    url.searchParams.set("language", "en");
-    url.searchParams.set("sortBy", "publishedAt");
-    url.searchParams.set("pageSize", this.maxArticles);
-    url.searchParams.set("from", new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()); // last 36h
-
-    const resp = await fetch(url, {
-      headers: { "X-Api-Key": process.env.NEWS_API_KEY }
-    });
-    const data = await resp.json();
-
-    if (!data.articles) {
-      console.error("❌ Failed to fetch articles:", data);
-      return [];
-    }
-    return data.articles;
-  }
-
-  async analyzeArticle(article) {
-    console.log(`🤖 Analyzing: ${article.title}`);
-    const prompt = `
-Analyze the following news article. Write in two H3 sections only.
-
-### What's Happening Here?
-Explain the concrete facts (costs, payback, access, timelines, paperwork).
-
-### How Does This Affect Me?
-Explain ripple effects and reveal what's not said (hidden motives, delays, politics).
-Keep tone plain English, balanced, with grit only in open/close.
-Article:
-"${article.title}" - ${article.description || ""}`;
-
-    const resp = await client.chat.completions.create({
-      model: "gpt-5", // primary
-      // fallback list if rate-limited
-      // model: ["gpt-5","gpt-4o","gpt-4.1"],
-      messages: [
-        { role: "system", content: "You are a policy explainer." },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7
+  // UPDATED: News API primary with GNews fallback
+  async fetchCombinedNewsWithFallback() {
+    // Environment variable configuration with News API defaults
+    const provider = process.env.NEWS_API_PROVIDER || 'newsapi'; // newsapi or gnews
+    const newsApiKey = process.env.NEWS_API_KEY;
+    const gNewsApiKey = process.env.GNEWS_API_KEY;
+    
+    console.log('📡 News provider configuration:', { 
+      primary: provider,
+      hasNewsAPI: !!newsApiKey,
+      hasGNews: !!gNewsApiKey 
     });
 
-    const raw = resp.choices[0]?.message?.content?.trim() || "";
-    return this.splitSections(raw);
-  }
+    let primaryArticles = [];
+    let secondaryArticles = [];
+    let usedProvider = 'none';
 
-  splitSections(text) {
-    const normalized = text.trim();
-
-    // Allowed headers strictly
-    const allowed = [
-      /^### What's Happening Here\?/mi,
-      /^### How Does This Affect Me\?/mi
-    ];
-
-    const headers = normalized.match(/^### .+/gmi) || [];
-    if (headers.length && !headers.every(h => allowed.some(r => r.test(h)))) {
-      return null; // reject if stray headers
-    }
-
-    // Split on H3 headers first
-    const parts = normalized.split(/^### /m);
-    const sections = {};
-    for (const part of parts) {
-      if (part.startsWith("What's Happening Here?")) {
-        sections.whats_happening = part.replace("What's Happening Here?", "").trim();
-      } else if (part.startsWith("How Does This Affect Me?")) {
-        sections.affects_me = part.replace("How Does This Affect Me?", "").trim();
+    // TRY 1: News API (primary)
+    if (provider === 'newsapi' && newsApiKey) {
+      try {
+        const newsApiResult = await this.fetchFromNewsAPI();
+        primaryArticles = newsApiResult.primary || [];
+        secondaryArticles = newsApiResult.secondary || [];
+        usedProvider = 'newsapi';
+        console.log(`✅ News API success: ${primaryArticles.length} + ${secondaryArticles.length} articles`);
+      } catch (error) {
+        console.warn('⚠️ News API failed:', error.message);
       }
     }
 
-    // Fallback: check ALL CAPS style
-    if (!sections.whats_happening && /WHAT'S HAPPENING HERE/i.test(normalized)) {
-      const [, rest] = normalized.split(/WHAT'S HAPPENING HERE/i);
-      sections.whats_happening = rest.split(/HOW DOES THIS AFFECT ME/i)[0]?.trim();
-    }
-    if (!sections.affects_me && /HOW DOES THIS AFFECT ME/i.test(normalized)) {
-      const [, after] = normalized.split(/HOW DOES THIS AFFECT ME/i);
-      sections.affects_me = after.trim();
+    // FALLBACK: GNews API
+    if (primaryArticles.length === 0 && secondaryArticles.length === 0 && gNewsApiKey) {
+      console.log('🔄 Falling back to GNews API...');
+      try {
+        const gNewsResult = await this.fetchFromGNews();
+        primaryArticles = gNewsResult.primary || [];
+        secondaryArticles = gNewsResult.secondary || [];
+        usedProvider = 'gnews';
+        console.log(`✅ GNews fallback success: ${primaryArticles.length} + ${secondaryArticles.length} articles`);
+      } catch (error) {
+        console.error('❌ GNews fallback also failed:', error.message);
+      }
     }
 
-    return Object.keys(sections).length ? sections : null;
+    // Combine and process results
+    let allArticles = [...primaryArticles, ...secondaryArticles];
+    console.log(`📊 Combined from ${usedProvider}: ${allArticles.length} articles`);
+
+    // FIXED: Inline content filtering with policy scoring
+    
+    // Filter invalid articles
+    allArticles = allArticles.filter(article => 
+      article?.title && 
+      article?.description && 
+      article?.url &&
+      !article.title?.includes('[Removed]') // News API removed articles
+    );
+    
+    console.log(`📊 Valid articles after basic filtering: ${allArticles.length}`);
+
+    // Get exclude keywords only
+    const excludeKeywords = process.env.NEWS_EXCLUDE_KEYWORDS 
+      ? process.env.NEWS_EXCLUDE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
+      : [];
+    
+    console.log('🔍 Applying exclude filters and policy scoring:', { excludeCount: excludeKeywords.length });
+
+    if (excludeKeywords.length > 0) {
+      const beforeFilter = allArticles.length;
+      
+      allArticles = allArticles.filter(article => {
+        const text = `${article.title} ${article.description || ''}`.toLowerCase();
+        
+        // Exclude articles with banned keywords
+        for (const keyword of excludeKeywords) {
+          if (text.includes(keyword)) {
+            console.log(`🚫 Excluded: ${article.title.substring(0, 50)}... (contains "${keyword}")`);
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      console.log(`📊 After exclude filtering: ${allArticles.length} articles (removed ${beforeFilter - allArticles.length})`);
+    }
+
+    // Add policy scoring and keep top articles
+    allArticles = allArticles
+      .map(a => ({ ...a, policyScore: this.policyScore(a) }))
+      .sort((a, b) => b.policyScore - a.policyScore)
+      .slice(0, 120); // Keep top 120 for downstream processing
+
+    console.log(`📊 After policy scoring: ${allArticles.length} articles (top policy-relevant)`);
+    
+    return allArticles;
+  }
+
+  // NEW: News API implementation with smart policy filtering
+  async fetchFromNewsAPI() {
+    const API_KEY = process.env.NEWS_API_KEY;
+    const country = process.env.NEWS_API_COUNTRY || 'us';
+    const language = process.env.NEWS_API_LANGUAGE || 'en';
+    const maxPrimary = process.env.NEWS_API_MAX_PRIMARY || '20';
+    const maxSecondary = process.env.NEWS_API_MAX_SECONDARY || '30';
+    const delayMs = parseInt(process.env.NEWS_API_DELAY_MS || '1000');
+    
+    // Smart policy filtering
+    const includeQuery = process.env.NEWS_INCLUDE_QUERY || 
+      'congress OR senate OR "house passes" OR "executive order" OR "supreme court" OR regulation';
+    const sourcesWhitelist = process.env.NEWS_SOURCES_WHITELIST;
+    const domainsWhitelist = process.env.NEWS_DOMAINS_WHITELIST;
+    
+    console.log('📰 News API config with policy filtering:', { country, language, maxPrimary, maxSecondary });
+
+    let primaryArticles = [];
+    let secondaryArticles = [];
+
+    // Fetch 1: Top headlines from quality sources
+    try {
+      console.log(`📰 Fetching ${maxPrimary} headlines from quality sources...`);
+      
+      const primaryUrl = sourcesWhitelist
+        ? `https://newsapi.org/v2/top-headlines?sources=${encodeURIComponent(sourcesWhitelist)}&pageSize=${maxPrimary}`
+        : `https://newsapi.org/v2/top-headlines?country=${country}&pageSize=${maxPrimary}`;
+      
+      const primaryResponse = await fetch(primaryUrl, {
+        headers: { 'X-Api-Key': API_KEY }
+      });
+      if (primaryResponse.ok) {
+        const primaryData = await primaryResponse.json();
+        
+        if (primaryData.status === 'ok') {
+          primaryArticles = (primaryData.articles || []).map(article => this.normalizeNewsAPIArticle(article));
+          console.log(`✅ News API quality headlines: ${primaryArticles.length} articles`);
+        } else {
+          throw new Error(`News API error: ${primaryData.message || 'Unknown error'}`);
+        }
+      } else {
+        throw new Error(`News API HTTP ${primaryResponse.status}: ${primaryResponse.statusText}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ News API headlines failed: ${error.message}`);
+    }
+
+    // Small delay between API calls
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+
+    // Fetch 2: Policy-targeted search with freshness window
+    try {
+      console.log(`🔍 Searching for policy content with targeted query...`);
+      
+      // Add 36-hour freshness window
+      const fromISO = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+      
+      const params = new URLSearchParams({
+        q: includeQuery,
+        language: language,
+        pageSize: maxSecondary,
+        sortBy: 'publishedAt',
+        from: fromISO
+      });
+      
+      // Trim domains list to avoid URL length limits
+      if (domainsWhitelist) {
+        const trimmedDomains = domainsWhitelist.split(',').slice(0, 30).join(',');
+        params.set('domains', trimmedDomains);
+      }
+      
+      const searchUrl = `https://newsapi.org/v2/everything?${params.toString()}`;
+      
+      const searchResponse = await fetch(searchUrl, {
+        headers: { 'X-Api-Key': API_KEY }
+      });
+      
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        
+        if (searchData.status === 'ok') {
+          secondaryArticles = (searchData.articles || []).map(article => this.normalizeNewsAPIArticle(article));
+          console.log(`✅ News API policy search: ${secondaryArticles.length} articles`);
+        } else {
+          throw new Error(`News API search error: ${searchData.message || 'Unknown error'}`);
+        }
+      } else {
+        throw new Error(`News API search HTTP ${searchResponse.status}: ${searchResponse.statusText}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ News API policy search failed: ${error.message}`);
+    }
+
+    return { primary: primaryArticles, secondary: secondaryArticles };
+  }
+
+  // EXISTING: GNews implementation (kept as fallback)
+  async fetchFromGNews() {
+    const API_KEY = process.env.GNEWS_API_KEY;
+    if (!API_KEY) {
+      throw new Error('GNEWS_API_KEY not found');
+    }
+
+    // Use unified config variables, fall back to GNews-specific ones for backward compatibility
+    const primaryCategory = process.env.NEWS_API_PRIMARY_CATEGORY || process.env.GNEWS_PRIMARY_CATEGORY || 'general';
+    const secondaryQuery = process.env.NEWS_API_SECONDARY_QUERY || process.env.GNEWS_SECONDARY_QUERY || 
+      'congress OR senate OR biden OR trump OR policy OR federal OR government OR legislation';
+    const maxPrimary = process.env.NEWS_API_MAX_PRIMARY || process.env.GNEWS_MAX_PRIMARY || '20';
+    const maxSecondary = process.env.NEWS_API_MAX_SECONDARY || process.env.GNEWS_MAX_SECONDARY || '6';
+    const country = process.env.NEWS_API_COUNTRY || process.env.GNEWS_COUNTRY || 'us';
+    const language = process.env.NEWS_API_LANGUAGE || process.env.GNEWS_LANGUAGE || 'en';
+    const delayMs = parseInt(process.env.NEWS_API_DELAY_MS || process.env.GNEWS_DELAY_MS || '1000');
+
+    console.log('📰 GNews fallback config:', { primaryCategory, maxPrimary, maxSecondary });
+
+    let primaryArticles = [];
+    let secondaryArticles = [];
+
+    // Fetch primary category headlines
+    try {
+      const primaryUrl = primaryCategory === 'general' 
+        ? `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxPrimary}&token=${API_KEY}`
+        : `https://gnews.io/api/v4/top-headlines?category=${primaryCategory}&lang=${language}&country=${country}&max=${maxPrimary}&token=${API_KEY}`;
+      
+      const primaryResponse = await fetch(primaryUrl);
+      if (primaryResponse.ok) {
+        const primaryData = await primaryResponse.json();
+        primaryArticles = (primaryData.articles || []).map(article => this.normalizeGNewsArticle(article));
+        console.log(`✅ GNews ${primaryCategory}: ${primaryArticles.length} articles`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ GNews ${primaryCategory} failed: ${error.message}`);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+
+    // Fetch secondary content (always use search for political content)
+    try {
+      const searchUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(secondaryQuery)}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
+      const searchResponse = await fetch(searchUrl);
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        secondaryArticles = (searchData.articles || []).map(article => this.normalizeGNewsArticle(article));
+        console.log(`✅ GNews search: ${secondaryArticles.length} articles`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ GNews search failed: ${error.message}`);
+    }
+
+    return { primary: primaryArticles, secondary: secondaryArticles };
+  }
+
+  // NEW: Policy scoring function
+  policyScore(article) {
+    const t = (article.title + ' ' + (article.description || '')).toLowerCase();
+
+    // High-value policy terms
+    const highValue = [
+      'executive order', 'supreme court', 'house passes', 'senate votes',
+      'bill signed', 'federal judge', 'appeals court', 'rulemaking', 'proposed rule',
+      'final rule', 'regulation', 'white house', 'ballot measure'
+    ];
+    
+    // Government agencies
+    const agencies = ['ftc', 'fcc', 'epa', 'hhs', 'cms', 'doj', 'dol', 'irs', 'hud', 'dot', 'doe'];
+    
+    // Civic terms
+    const civics = ['congress', 'senate', 'house', 'governor', 'statehouse', 'attorney general'];
+
+    let s = 0;
+    highValue.forEach(k => { if (t.includes(k)) s += 12; });
+    agencies.forEach(k => { if (t.includes(k)) s += 8; });
+    civics.forEach(k => { if (t.includes(k)) s += 6; });
+
+    // Quality source bonus
+    const src = (article.source?.name || '').toLowerCase();
+    const qualitySources = [
+      'reuters', 'ap', 'politico', 'axios', 'bloomberg', 'washington post', 
+      'new york times', 'wall street journal', 'npr', 'the hill', 'propublica', 
+      'ft', 'roll call', 'stat'
+    ];
+    if (qualitySources.some(q => src.includes(q))) s += 5;
+
+    // Freshness bonus
+    if (article.publishedAt) {
+      const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
+      if (hrs < 6) s += 5; 
+      else if (hrs < 24) s += 3;
+    }
+
+    // Penalty for non-policy content
+    const negative = ['nba', 'nfl', 'mlb', 'soccer', 'celebrity', 'royal family', 'oscars', 'grammys'];
+    negative.forEach(k => { if (t.includes(k)) s -= 10; });
+
+    return Math.max(0, s);
+  }
+
+  // NEW: Normalize News API article format to match expected structure
+  normalizeNewsAPIArticle(article) {
+    return {
+      title: article.title,
+      description: article.description,
+      url: article.url,
+      urlToImage: article.urlToImage,
+      publishedAt: article.publishedAt,
+      source: {
+        name: article.source?.name || 'Unknown Source'
+      }
+    };
+  }
+
+  // NEW: Normalize GNews article format
+  normalizeGNewsArticle(article) {
+    return {
+      title: article.title,
+      description: article.description,
+      url: article.url,
+      urlToImage: article.image,
+      publishedAt: article.publishedAt,
+      source: {
+        name: article.source?.name || 'Unknown Source'
+      }
+    };
+  }
+
+  async analyzeAll(articles) {
+    const out = [];
+    for (let i = 0; i < Math.min(articles.length, this.maxArticles); i++) {
+      const a = articles[i];
+      let analysis = null;
+      const shouldAnalyze = i < this.numAnalyzed;
+
+      if (shouldAnalyze) {
+        console.log(`🔬 Analyzing article ${i + 1}: ${a.title?.substring(0, 60)}...`);
+        for (let attempt = 0; attempt < this.maxRetries && !analysis; attempt++) {
+          try {
+            console.log(`  📝 Generation attempt ${attempt + 1}...`);
+            const raw = await this.generateHumanImpactAnalysis(a);
+            console.log(`  📊 Generated ${raw ? raw.split(/\s+/).length : 0} words`);
+
+            if (raw) {
+              const cleaned = this.sanitize(a, raw);
+              if (cleaned) {
+                analysis = cleaned;
+                console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
+              } else {
+                console.log(`  ❌ Analysis REJECTED by sanitize function`);
+              }
+            } else {
+              console.log(`  ⚠️ No analysis generated - OpenAI returned empty`);
+            }
+          } catch (error) {
+            console.log(`  ❌ Generation failed: ${error.message}`);
+          }
+          if (!analysis && attempt < this.maxRetries - 1) {
+            console.log(`  🔄 Retrying in ${this.retryDelay}ms...`);
+            await this.sleep(this.retryDelay);
+          }
+        }
+        if (!analysis) {
+          console.log(`  ❌ No analysis generated for article ${i + 1} - leaving empty`);
+        }
+      }
+
+      const finalAnalysis = analysis || 'No analysis available';
+
+      out.push({
+        ...a,
+        order: i + 1,
+        analysis: finalAnalysis,
+        analysis_generated_at: analysis ? new Date().toISOString() : null,
+        analysis_word_count: finalAnalysis ? finalAnalysis.split(/\s+/).filter(Boolean).length : 0,
+        status: shouldAnalyze ? 'published' : 'queue',
+        score: a.score || 0
+      });
+    }
+    
+    console.log(`🐛 DEBUG: Returning ${out.length} articles, ${out.filter(a => a.analysis !== 'No analysis available').length} with real analysis`);
+    return out;
+  }
+
+  selectBest(list) {
+    console.log('🔍 Starting selection with', list.length, 'articles');
+    const deduped = this.dedupe(list);
+    console.log('🔍 After deduplication:', deduped.length, 'articles');
+    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
+    const final = scored
+      .sort((x, y) => y.score - x.score)
+      .slice(0, this.maxArticles);
+    console.log('🔍 Final selection:', final.length, 'articles');
+    final.forEach((a, i) => {
+      console.log(`  ${i + 1}. Score ${a.score}: ${a.title.substring(0, 60)}...`);
+    });
+    return final;
+  }
+
+  async generateHumanImpactAnalysis(article) {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY environment variable is not set');
+    }
+
+    const pubDate = article.publishedAt || 'not stated';
+    const source = article.source?.name || 'not stated';
+
+    const clean = (s, max) =>
+      (s || '').replace(/[^\w\s\-.,!?'"]/g, '').substring(0, max);
+    const cleanTitle = clean(article.title, 200);
+    const cleanDescription = clean(article.description, 500);
+    const cleanSource = clean(source, 80);
+
+    const systemPrompt = process.env.SYSTEM_PROMPT;
+    const userPromptTemplate = process.env.USER_PROMPT;
+    
+    if (!systemPrompt || !userPromptTemplate) {
+      throw new Error('SYSTEM_PROMPT and USER_PROMPT environment variables must be set');
+    }
+
+    const prompt = userPromptTemplate
+      .replace('{title}', cleanTitle)
+      .replace('{description}', cleanDescription)
+      .replace('{source}', cleanSource)
+      .replace('{date}', pubDate);
+
+    // Try in order; if you don't have access to gpt-5 your key will 404/400 and we'll fall back automatically.
+    const models = ['gpt-5', 'gpt-4o', 'gpt-4.1']; // Production fallbacks enabled
+    // const models = ['gpt-5']; // Test GPT-5 only - comment above and uncomment this for testing
+
+    const makeRequest = async (model) => {
+      const body = {
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 300,           // ✅ correct param name
+        temperature: 0.4           // keep outputs tight/consistent
+        // ⛔️ do NOT send `reasoning_effort` here (only valid for o1-family)
+      };
+
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!r.ok) {
+        const errText = await r.text().catch(() => '');
+        const msg = `OpenAI ${model} HTTP ${r.status} ${r.statusText} :: ${errText}`;
+        // For 401/403 (auth) or 429 (rate limit), bubble up so your outer retry loop can handle it.
+        if ([401, 403, 429].includes(r.status)) {
+          throw new Error(msg);
+        }
+        // For model not found / invalid request, let caller try the next model.
+        return { ok: false, error: msg };
+      }
+
+      const data = await r.json();
+      const content = data?.choices?.[0]?.message?.content?.trim();
+      if (!content) {
+        return { ok: false, error: `Empty completion from ${model}` };
+      }
+      return { ok: true, content };
+    };
+
+    let lastErr = null;
+    for (const model of models) {
+      try {
+        console.log(`🧠 Trying OpenAI model: ${model}`);
+        const res = await makeRequest(model);
+        if (res.ok) return res.content;
+        console.warn(`⚠️ ${model} returned no content: ${res.error}`);
+        lastErr = new Error(res.error);
+        // continue to next model
+      } catch (e) {
+        console.warn(`⚠️ ${model} failed: ${e.message}`);
+        lastErr = e;
+        // For auth/rate-limit/etc, let your outer retry handle; otherwise continue.
+      }
+    }
+
+    // If nothing worked, throw the last error so your caller's retry logic kicks in.
+    throw lastErr ?? new Error('All OpenAI model attempts failed with unknown error');
+  }
+
+  sanitize(article, text) {
+    const normalized = text
+      .replace(/\r/g, '')
+      .split('\n')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .join('\n\n');
+
+    const wc = normalized.split(/\s+/).filter(Boolean).length;
+    if (wc < 120 || wc > 280) {
+      console.log(`  ❌ Word count rejected: ${wc} words (need 120-280)`);
+      return null;
+    }
+
+    if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
+      console.log(`  ❌ Formatting rejected: bullet points/numbered lists detected`);
+      return null;
+    }
+
+    console.log(`  ✅ Sanitize passed: ${wc} words, flowing prose format`);
+    return normalized;
+  }
+
+  dedupe(list) {
+    const seen = [];
+    const out = [];
+    for (const a of list) {
+      const norm = (a.title || '')
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .replace(/\b(the|a|an|and|or|but|in|on|at|to|for|of|with|by)\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      let dup = false;
+      for (const s of seen) {
+        const sim = this.jaccard(norm, s);
+        if (sim > 0.75) {
+          console.log(`    🔄 Duplicate detected: "${a.title?.substring(0, 50)}..." (${(sim * 100).toFixed(1)}% similar)`);
+          dup = true;
+          break;
+        }
+      }
+      if (!dup) {
+        seen.push(norm);
+        out.push(a);
+      }
+    }
+    return out;
+  }
+
+  jaccard(a, b) {
+    const wa = new Set(a.split(' ').filter(w => w.length > 2));
+    const wb = new Set(b.split(' ').filter(w => w.length > 2));
+    const inter = new Set([...wa].filter(w => wb.has(w)));
+    const uni = new Set([...wa, ...wb]);
+    if (uni.size === 0) return 0;
+    return inter.size / uni.size;
+  }
+
+  score(article) {
+    // Original scoring logic
+    let s = 0;
+    const t = (article.title + ' ' + (article.description || '')).toLowerCase();
+    const highValue = ['executive order', 'supreme court', 'congress passes', 'senate votes', 'bill signed', 'federal ruling', 'white house', 'biden', 'trump'];
+    highValue.forEach(k => { if (t.includes(k)) s += 15; });
+    const mediumValue = ['congress', 'senate', 'house', 'federal', 'government', 'policy', 'legislation', 'court', 'judge', 'ruling', 'election', 'political'];
+    mediumValue.forEach(k => { if (t.includes(k)) s += 8; });
+    const lowValue = ['mayor', 'governor', 'local', 'state', 'business', 'economy', 'health', 'education'];
+    lowValue.forEach(k => { if (t.includes(k)) s += 3; });
+    const negative = ['celebrity', 'entertainment', 'sports', 'death', 'dies', 'shooting', 'crime'];
+    negative.forEach(k => { if (t.includes(k)) s -= 5; });
+    if (article.publishedAt) {
+      const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
+      if (hrs < 6) s += 8;
+      else if (hrs < 12) s += 5;
+      else if (hrs < 24) s += 3;
+    }
+    const qualitySources = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'new york times', 'politico', 'cnn', 'fox news'];
+    if (qualitySources.some(src => (article.source?.name || '').toLowerCase().includes(src))) s += 5;
+    
+    // Policy-first weighting
+    return this.policyScore(article) * 2 + Math.max(0, s);
+  }
+
+  async createEdition(date, articles, status) {
+    if (!articles || articles.length === 0) {
+      console.warn('⚠️ No articles to create edition with');
+      throw new Error('Cannot create edition without articles');
+    }
+    let issue = 1;
+    try {
+      const { data: next, error } = await supabase.rpc('get_next_issue_number');
+      if (error) {
+        console.warn('⚠️ get_next_issue_number failed:', error.message);
+        const { data: maxIssue } = await supabase
+          .from('daily_editions')
+          .select('issue_number')
+          .order('issue_number', { ascending: false })
+          .limit(1)
+          .single();
+        issue = (maxIssue?.issue_number || 0) + 1;
+        console.log(`📊 Using fallback issue number: ${issue}`);
+      } else {
+        issue = next || 1;
+      }
+    } catch (error) {
+      console.warn('⚠️ Issue number calculation failed, using timestamp-based number');
+      issue = Math.floor(Date.now() / 86400000);
+    }
+
+    let edition;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { data: editionData, error: e1 } = await supabase
+          .from('daily_editions')
+          .insert({
+            edition_date: date,
+            issue_number: issue,
+            status,
+            featured_headline: articles[0]?.title || 'Daily Headlines'
+          })
+          .select()
+          .single();
+        if (e1) throw e1;
+        edition = editionData;
+        break;
+      } catch (error) {
+        console.warn(`⚠️ Edition creation attempt ${attempt} failed for date ${date}, issue #${issue}:`, error.message);
+        if (attempt === 3) throw error;
+        await this.sleep(2000);
+      }
+    }
+
+    const rows = articles.map(a => ({
+      edition_id: edition.id,
+      article_order: a.order,
+      title: a.title,
+      description: a.description,
+      url: a.url,
+      image_url: a.urlToImage || a.image,
+      source_name: a.source?.name || 'Unknown Source',
+      published_at: a.publishedAt || new Date().toISOString(),
+      analysis_text: a.analysis,
+      analysis_generated_at: a.analysis_generated_at,
+      analysis_word_count: a.analysis_word_count,
+      article_status: a.status,
+      article_score: a.score
+    }));
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { error: e2 } = await supabase.from('analyzed_articles').insert(rows);
+        if (e2) throw e2;
+        break;
+      } catch (error) {
+        console.warn(`⚠️ Articles insert attempt ${attempt} failed for edition ${edition.id} with ${rows.length} articles:`, error.message);
+        if (attempt === 3) {
+          await supabase.from('daily_editions').delete().eq('id', edition.id);
+          throw error;
+        }
+        await this.sleep(2000);
+      }
+    }
+
+    console.log(`✅ Created edition #${issue} with ${articles.length} articles`);
+    console.log(`📊 Breakdown: ${articles.filter(a => a.status === 'published').length} published, ${articles.filter(a => a.status === 'queue').length} queued`);
+    return edition;
   }
 
   async publishToWebsite(editionId) {
-    console.log(`🌐 Publishing edition ${editionId} to website...`);
-    // stub — connect to frontend later
+    try {
+      const { error } = await supabase
+        .from('daily_editions')
+        .update({ status: 'published', updated_at: new Date().toISOString() })
+        .eq('id', editionId);
+      if (error) throw error;
+      console.log('✅ Edition published to website');
+    } catch (error) {
+      console.error('❌ publishToWebsite failed:', error.message);
+      throw error;
+    }
   }
 
   async markNewsletterSent(editionId) {
-    console.log(`📧 Marking newsletter sent for edition ${editionId}...`);
-    await supabase.from("editions").update({ newsletter_sent: true }).eq("id", editionId);
+    try {
+      const { error } = await supabase
+        .from('daily_editions')
+        .update({ status: 'sent' })
+        .eq('id', editionId);
+      if (error) {
+        console.warn('⚠️ Failed to mark newsletter as sent:', error.message);
+      } else {
+        console.log('✅ Newsletter marked as sent');
+      }
+    } catch (error) {
+      console.warn('⚠️ markNewsletterSent error:', error.message);
+    }
   }
 
   async findEdition(date) {
-    const { data } = await supabase.from("editions").select("*").eq("date", date).maybeSingle();
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('daily_editions')
+        .select('*')
+        .eq('edition_date', date)
+        .single();
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw error;
+      }
+      const { data: articles } = await supabase
+        .from('analyzed_articles')
+        .select('id')
+        .eq('edition_id', data.id)
+        .limit(1);
+      if (!articles || articles.length === 0) {
+        console.log('🗑️ Found empty edition, will recreate');
+        await supabase.from('daily_editions').delete().eq('id', data.id);
+        return null;
+      }
+      return data;
+    } catch (error) {
+      console.error('❌ findEdition failed:', error.message);
+      throw error;
+    }
   }
 
-  async retryWithBackoff(fn) {
-    let attempt = 0;
-    while (attempt < this.maxRetries) {
-      try {
-        return await fn();
-      } catch (err) {
-        attempt++;
-        console.warn(`Retry ${attempt}/${this.maxRetries}:`, err.message);
-        if (attempt >= this.maxRetries) throw err;
-        await new Promise(r => setTimeout(r, this.retryDelay * attempt));
-      }
-    }
+  sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
   }
 }
 
-export default async function handler(req, res) {
-  try {
-    const publisher = new AutomatedPublisher();
-    const edition = await publisher.runFullWorkflow();
-    res.json({ success: true, edition });
-  } catch (error) {
-    console.error("❌ Workflow error:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
+export async function runAutomatedWorkflow() {
+  const p = new AutomatedPublisher();
+  return p.runFullWorkflow();
 }
