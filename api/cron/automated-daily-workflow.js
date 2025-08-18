@@ -439,7 +439,7 @@ class AutomatedPublisher {
     return final;
   }
 
-  // FIXED: generateHumanImpactAnalysis method for admin API compatibility
+  // FIXED: generateHumanImpactAnalysis method with improved prompt structure
   async generateHumanImpactAnalysis(article) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set');
@@ -449,29 +449,27 @@ class AutomatedPublisher {
 
     const clean = (s, max) => (s || '').replace(/[^\w\s\-.,!?'"]/g, '').substring(0, max);
     const title = clean(article.title, 200);
-    const desc  = clean(article.description, 500);
-    const src   = clean(source, 80);
+    const desc = clean(article.description, 400);  // Clamped to 400 chars
+    const src = clean(source, 80);
 
-    const systemPrompt = process.env.SYSTEM_PROMPT;
-    const userTemplate = process.env.USER_PROMPT;
-    if (!systemPrompt || !userTemplate) throw new Error('SYSTEM_PROMPT and USER_PROMPT must be set');
+    // Use improved prompt structure
+    const prompt = `Analyze this news story for human impact.
+Title: ${title} | Description: ${desc} | Source: ${src} | Date: ${pubDate}.
 
-    const prompt = userTemplate
-      .replace('{title}', title)
-      .replace('{description}', desc)
-      .replace('{source}', src)
-      .replace('{date}', pubDate);
+Write ONE paragraph, exactly 4 sentences, 90–120 words. Begin with a human subject + active verb; do NOT start with "In/At/On/Inside/Across" and no dateline.
+Include one specific number. Explain what changed (who did what, by what mechanism) and the ripple effects. If supported, note timing/motive/history. End with a daily-life stake.
+No hypotheticals, no "imagine/picture", no bullets or headings. Output now.`;
 
     console.log(`🧠 Calling GPT-4.1 for "${title.substring(0, 50)}..."`);
 
     const body = {
       model: 'gpt-4.1',
       messages: [
-        { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 500,
-      temperature: 0.4
+      max_tokens: 180,  // Reduced from 500
+      temperature: 0.3, // Reduced from 0.4 for more consistency
+      stop: ["\n\n"]    // Prevents rambling
     };
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -489,11 +487,32 @@ class AutomatedPublisher {
     }
 
     const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content?.trim();
+    let content = data?.choices?.[0]?.message?.content?.trim();
     
     if (!content) {
       throw new Error('Empty completion from GPT-4.1');
     }
+
+    // Post-processing guards to fix common issues
+    const banned = /^(in|at|on|inside|across)\b/i;
+    if (banned.test(content)) {
+      content = content.replace(banned, '').replace(/^[\s,–—-]+/, '').replace(/^[a-z]/, c => c.toUpperCase());
+    }
+
+    // Helper function to tighten content to word limit
+    function tightenToWords(text, maxWords = 120) {
+      const words = text.trim().split(/\s+/);
+      if (words.length <= maxWords) return text.trim();
+      
+      const cut = words.slice(0, maxWords).join(' ');
+      const lastPeriod = cut.lastIndexOf('.');
+      
+      // If we can end on a sentence and it's not too short, do that
+      return (lastPeriod > 60 ? cut.slice(0, lastPeriod + 1) : cut).trim();
+    }
+
+    // Tighten to word limit
+    content = tightenToWords(content, 120);
     
     console.log(`✅ GPT-4.1 generated ${content.length} characters`);
     return content;
