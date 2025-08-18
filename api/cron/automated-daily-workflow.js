@@ -370,15 +370,11 @@ class AutomatedPublisher {
     const pubDate = article.publishedAt || 'not stated';
     const source = article.source?.name || 'not stated';
 
-    const cleanTitle = (article.title || '')
-      .replace(/[^\w\s\-.,!?']/g, '')
-      .substring(0, 200);
-    const cleanDescription = (article.description || '')
-      .replace(/[^\w\s\-.,!?']/g, '')
-      .substring(0, 500);
-    const cleanSource = (source || '')
-      .replace(/[^\w\s\-.,!?']/g, '')
-      .substring(0, 80);
+    const clean = (s, max) =>
+      (s || '').replace(/[^\w\s\-.,!?'"]/g, '').substring(0, max);
+    const cleanTitle = clean(article.title, 200);
+    const cleanDescription = clean(article.description, 500);
+    const cleanSource = clean(source, 80);
 
     const systemPrompt = process.env.SYSTEM_PROMPT;
     const userPromptTemplate = process.env.USER_PROMPT;
@@ -393,15 +389,19 @@ class AutomatedPublisher {
       .replace('{source}', cleanSource)
       .replace('{date}', pubDate);
 
-    try {
-      const requestBody = {
-        model: 'gpt-5',
+    // Try in order; if you don't have access to gpt-5 your key will 404/400 and we'll fall back automatically.
+    const models = ['gpt-5', 'gpt-4o', 'gpt-4.1'];
+
+    const makeRequest = async (model) => {
+      const body = {
+        model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 300,
-        reasoning_effort: 'high'
+        max_tokens: 300,           // ✅ correct param name
+        temperature: 0.4           // keep outputs tight/consistent
+        // ⛔️ do NOT send `reasoning_effort` here (only valid for o1-family)
       };
 
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -410,22 +410,46 @@ class AutomatedPublisher {
           Authorization: `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(body)
       });
 
       if (!r.ok) {
-        const errorBody = await r.text();
-        throw new Error(`OpenAI API error ${r.status}: ${errorBody}`);
+        const errText = await r.text().catch(() => '');
+        const msg = `OpenAI ${model} HTTP ${r.status} ${r.statusText} :: ${errText}`;
+        // For 401/403 (auth) or 429 (rate limit), bubble up so your outer retry loop can handle it.
+        if ([401, 403, 429].includes(r.status)) {
+          throw new Error(msg);
+        }
+        // For model not found / invalid request, let caller try the next model.
+        return { ok: false, error: msg };
       }
 
       const data = await r.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) throw new Error('OpenAI returned empty content');
-      return content.trim();
-    } catch (error) {
-      console.error('❌ OpenAI API call failed:', error.message);
-      throw error;
+      const content = data?.choices?.[0]?.message?.content?.trim();
+      if (!content) {
+        return { ok: false, error: `Empty completion from ${model}` };
+      }
+      return { ok: true, content };
+    };
+
+    let lastErr = null;
+    for (const model of models) {
+      try {
+        console.log(`🧠 Trying OpenAI model: ${model}`);
+        const res = await makeRequest(model);
+        if (res.ok) return res.content;
+        console.warn(`⚠️ ${model} returned no content: ${res.error}`);
+        lastErr = new Error(res.error);
+        // continue to next model
+      } catch (e) {
+        console.warn(`⚠️ ${model} failed: ${e.message}`);
+        lastErr = e;
+        // For auth/rate-limit/etc, let your outer retry handle; otherwise continue.
+      }
     }
+
+    // If nothing worked, throw the last error so your caller's retry logic kicks in.
+    throw lastErr ?? new Error('All OpenAI model attempts failed with unknown error');
   }
 
   sanitize(article, text) {
