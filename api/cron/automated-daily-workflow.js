@@ -470,7 +470,7 @@ class AutomatedPublisher {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 300,
+      max_tokens: 500,
       temperature: 0.4
     };
 
