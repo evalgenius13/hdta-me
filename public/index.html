@@ -1,1085 +1,281 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDTA Admin Panel</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23374151'/><text x='50%' y='60%' text-anchor='middle' font-size='32' fill='white' font-family='system-ui'>⚙️</text></svg>">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: system-ui, -apple-system, sans-serif; 
-            background: #f8fafc; 
-            color: #1f2937; 
-            line-height: 1.5;
-        }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        
-        .header { 
-            background: white; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header h1 { font-size: 24px; font-weight: 700; }
-        .status-badge { 
-            padding: 6px 12px; 
-            border-radius: 20px; 
-            font-size: 14px; 
-            font-weight: 600;
-        }
-        .status-live { background: #dcfce7; color: #166534; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How Does This Affect Me?</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='black'/><text x='50%' y='60%' text-anchor='middle' font-size='42' fill='white' font-family='system-ui'>HD</text></svg>">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Georgia,"Times New Roman",serif;background:#fafafa;color:#111;line-height:1.6}
+    .wrap{max-width:640px;margin:0 auto;padding:0 16px}
 
-        .actions { 
-            background: white; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
-            margin-bottom: 20px;
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .btn { 
-            background: #3b82f6; 
-            color: white; 
-            padding: 10px 16px; 
-            border: none; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-size: 14px; 
-            font-weight: 600;
-            transition: background 0.2s;
-        }
-        .btn:hover { background: #2563eb; }
-        .btn:disabled { background: #9ca3af; cursor: not-allowed; }
-        .btn-secondary { background: #6b7280; }
-        .btn-secondary:hover { background: #4b5563; }
-        .btn-warning { background: #f59e0b; }
-        .btn-warning:hover { background: #d97706; }
-        .btn-danger { background: #dc2626; }
-        .btn-danger:hover { background: #b91c1c; }
+    .masthead{background:#fff;border-bottom:1px solid #e5e5e5;padding:24px 0 14px}
+    .brand{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;font-size:32px;line-height:1.1;font-weight:800;text-align:center;letter-spacing:.2px}
+    .tagline{text-align:center;font-size:15px;color:#64748b;margin-top:6px}
+    .edition-info{text-align:center;color:#6b7280;font-size:12px;margin-top:8px;text-transform:uppercase;letter-spacing:.06em}
 
-        .stats-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-        .stat-card { 
-            background: #f9fafb; 
-            padding: 16px; 
-            border-radius: 6px; 
-            border: 1px solid #e5e7eb;
-        }
-        .stat-label { 
-            font-size: 12px; 
-            font-weight: 600; 
-            text-transform: uppercase; 
-            color: #6b7280; 
-            margin-bottom: 4px;
-        }
-        .stat-value { 
-            font-size: 24px; 
-            font-weight: 700; 
-            color: #111827;
-        }
+    .main-content{padding:16px 0}
+    .articles-list{max-width:640px;margin:4px auto 0}
+    .article-item{background:#fff;padding:0 0 16px}
+    .articles-list>article+article{border-top:1px solid #e5e5e5;padding-top:16px;margin-top:16px}
 
-        .tabs { 
-            display: flex; 
-            gap: 4px; 
-            margin-bottom: 20px;
-        }
-        .tab { 
-            padding: 12px 20px; 
-            background: white; 
-            border: none; 
-            cursor: pointer; 
-            border-radius: 6px 6px 0 0;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-        .tab.active { background: #3b82f6; color: white; }
-        .tab:not(.active):hover { background: #f1f5f9; }
+    .news-image{width:100%;height:160px;background:#f8f9fa;display:flex;align-items:center;justify-content:center;color:#666;font-size:1rem;overflow:hidden}
+    .news-image img{width:100%;height:100%;object-fit:cover;object-position:center}
 
-        .panel { 
-            background: white; 
-            border-radius: 0 8px 8px 8px; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
-            padding: 20px;
-            display: none;
-        }
-        .panel.active { display: block; }
+    .article-content{padding:12px 0}
+    .article-meta{color:#6b7280;font-size:.9rem;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+    .read-full{color:#0ea5e9;text-decoration:none;font-weight:600;font-size:.9rem}
+    .read-full:hover{text-decoration:underline}
+    .article-title{font-size:20px;font-weight:700;color:#111;margin-bottom:8px;line-height:1.35}
+    .article-summary{color:#1f2937;font-size:16px;line-height:1.6;margin-bottom:12px}
 
-        .article-grid { display: grid; gap: 16px; }
-        .article-card { 
-            border: 1px solid #e5e7eb; 
-            border-radius: 8px; 
-            overflow: hidden;
-            transition: box-shadow 0.2s;
-        }
-        .article-card:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        
-        .article-header { 
-            padding: 16px; 
-            border-bottom: 1px solid #f3f4f6;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 12px;
-        }
-        .article-title { 
-            font-weight: 600; 
-            font-size: 16px; 
-            line-height: 1.4;
-            flex: 1;
-        }
-        .article-meta { 
-            font-size: 12px; 
-            color: #6b7280; 
-            margin-top: 4px;
-        }
-        .article-score { 
-            background: #f3f4f6; 
-            padding: 4px 8px; 
-            border-radius: 4px; 
-            font-size: 12px; 
-            font-weight: 600;
-            white-space: nowrap;
-        }
+    .analysis{border-top:1px solid #e5e5e5;margin-top:12px;padding-top:12px}
+    .analysis-section{margin-bottom:16px}
+    .analysis-section:last-child{margin-bottom:0}
+    .analysis-label{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:#111;margin-bottom:8px;font-weight:700;border-bottom:2px solid #0ea5e9;padding-bottom:4px}
+    .analysis-text{font-size:16px;line-height:1.7;color:#1f2937}
+    .analysis-text p{margin-bottom:12px}
+    .analysis-text p:last-child{margin-bottom:0}
 
-        .article-content { padding: 16px; }
-        .article-description { 
-            color: #4b5563; 
-            font-size: 14px; 
-            margin-bottom: 12px;
-            line-height: 1.5;
-        }
+    .loading-state{text-align:center;padding:36px 16px;color:#64748b;font-style:italic}
+    .loading-spinner{width:16px;height:16px;border:2px solid #e2e8f0;border-top:2px solid #0ea5e9;border-radius:50%;animation:spin 1s linear infinite;display:inline-block;margin-right:8px;vertical-align:-3px}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
 
-        .analysis-section { margin-top: 12px; }
-        .analysis-label { 
-            font-size: 12px; 
-            font-weight: 600; 
-            text-transform: uppercase; 
-            color: #374151; 
-            margin-bottom: 6px;
-        }
-        .analysis-content { 
-            background: #f9fafb; 
-            padding: 12px; 
-            border-radius: 6px; 
-            font-size: 14px; 
-            line-height: 1.6;
-        }
-        .analysis-status { 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 6px; 
-            font-size: 12px; 
-            margin-bottom: 8px;
-        }
-        .status-dot { 
-            width: 8px; 
-            height: 8px; 
-            border-radius: 50%; 
-        }
-        .status-success { background: #10b981; }
-        .status-warning { background: #f59e0b; }
+    .social-sharing{background:#f8fafc;padding:10px;border-radius:6px;border:1px solid #e5e5e5;margin-top:10px}
+    .sharing-title{font-size:.95rem;color:#0f172a;margin-bottom:8px;font-weight:700}
+    .share-buttons{display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap}
+    .share-btn{padding:.45rem .9rem;border:0;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600}
+    .share-btn.twitter{background:#1da1f2;color:#fff}
+    .share-btn.linkedin{background:#0077b5;color:#fff}
+    .share-btn.facebook{background:#1877f2;color:#fff}
+    .copy-link{display:flex;gap:.5rem}
+    .link-input{flex:1;padding:.5rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.9rem;background:#fff;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .copy-btn{background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:6px;font-size:.9rem;cursor:pointer}
+    .copy-btn.copied{background:#10b981}
 
-        .article-actions { 
-            padding: 12px 16px; 
-            background: #f9fafb; 
-            border-top: 1px solid #f3f4f6;
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .btn-small { 
-            padding: 6px 12px; 
-            font-size: 12px; 
-        }
-
-        .article-filter-tabs { 
-            margin-bottom: 16px; 
-            display: flex; 
-            gap: 8px; 
-            flex-wrap: wrap;
-        }
-
-        .logs { 
-            background: #1f2937; 
-            color: #f9fafb; 
-            padding: 16px; 
-            border-radius: 8px; 
-            font-family: 'Courier New', monospace; 
-            font-size: 13px; 
-            height: 400px; 
-            overflow-y: auto;
-        }
-        .log-line { margin-bottom: 4px; }
-        .log-error { color: #fca5a5; }
-        .log-success { color: #86efac; }
-        .log-warning { color: #fcd34d; }
-
-        .loading { 
-            text-align: center; 
-            padding: 40px; 
-            color: #6b7280;
-        }
-        .spinner { 
-            width: 20px; 
-            height: 20px; 
-            border: 2px solid #e5e7eb; 
-            border-top: 2px solid #3b82f6; 
-            border-radius: 50%; 
-            animation: spin 1s linear infinite; 
-            display: inline-block; 
-            margin-right: 8px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        .modal { 
-            display: none; 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: rgba(0,0,0,0.5); 
-            z-index: 1000;
-        }
-        .modal-content { 
-            background: white; 
-            margin: 50px auto; 
-            padding: 20px; 
-            border-radius: 8px; 
-            max-width: 600px; 
-            max-height: 80vh; 
-            overflow-y: auto;
-        }
-        .modal-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 20px;
-        }
-        .modal-title { font-size: 18px; font-weight: 600; }
-        .close-btn { 
-            background: none; 
-            border: none; 
-            font-size: 24px; 
-            cursor: pointer; 
-            color: #6b7280;
-        }
-        .close-btn:hover { color: #374151; }
-
-        textarea { 
-            width: 100%; 
-            min-height: 200px; 
-            padding: 12px; 
-            border: 1px solid #d1d5db; 
-            border-radius: 6px; 
-            font-family: inherit; 
-            resize: vertical;
-        }
-
-        .error-banner {
-            background: #fee2e2;
-            border: 1px solid #fecaca;
-            color: #991b1b;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-
-        .workflow-notice {
-            background: #eff6ff;
-            border: 1px solid #dbeafe;
-            color: #1e40af;
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-    </style>
+    .no-analysis{color:#64748b;font-style:italic;padding:12px;background:#f8f9fa;border-radius:6px}
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div>
-                <h1>HDTA Admin Panel</h1>
-                <div class="status-badge status-live">Article Management</div>
-            </div>
-            <div id="edition-info">Loading...</div>
-        </div>
-
-        <div class="workflow-notice">
-            <strong>🧠 Manual Analysis:</strong> Use "🧠 Analyze" on any article to generate fresh analysis. 
-            Promote/demote articles to manage your published set of 6 articles.
-        </div>
-
-        <div class="actions">
-            <button class="btn" onclick="fetchFreshArticles()">🔄 Fetch Fresh Articles</button>
-            <button class="btn btn-warning" onclick="forceRefetch()">🚀 Force Refetch</button>
-            <button class="btn btn-secondary" onclick="refreshData()">📊 Reload Data</button>
-            <button class="btn btn-danger" onclick="clearToday()">🗑️ Clear Today's Edition</button>
-        </div>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">Total Articles</div>
-                <div class="stat-value" id="stat-total">--</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Published</div>
-                <div class="stat-value" id="stat-published">--</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Queued</div>
-                <div class="stat-value" id="stat-queued">--</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">With Analysis</div>
-                <div class="stat-value" id="stat-analyzed">--</div>
-            </div>
-        </div>
-
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('articles')">📰 Articles</button>
-            <button class="tab" onclick="showTab('logs')">📋 Logs</button>
-        </div>
-
-        <div id="articles-panel" class="panel active">
-            <div class="article-filter-tabs">
-                <button class="btn btn-small" id="filter-all" onclick="filterArticles('all')">All Articles</button>
-                <button class="btn btn-small btn-secondary" id="filter-published" onclick="filterArticles('published')">Published</button>
-                <button class="btn btn-small btn-secondary" id="filter-queue" onclick="filterArticles('queue')">Queue</button>
-                <button class="btn btn-small btn-secondary" id="filter-drafts" onclick="filterArticles('drafts')">Drafts</button>
-                <button class="btn btn-small btn-secondary" id="filter-rejected" onclick="filterArticles('rejected')">Rejected</button>
-            </div>
-            
-            <div class="loading" id="articles-loading">
-                <span class="spinner"></span>
-                Loading articles...
-            </div>
-            <div class="article-grid" id="articles-grid" style="display: none;"></div>
-        </div>
-
-        <div id="logs-panel" class="panel">
-            <div style="margin-bottom: 12px;">
-                <button class="btn btn-secondary btn-small" onclick="refreshLogs()">🔄 Refresh</button>
-                <button class="btn btn-secondary btn-small" onclick="clearLogs()">🗑️ Clear</button>
-            </div>
-            <div class="logs" id="logs-container">
-                <div class="log-line log-success">[System] Admin panel ready</div>
-            </div>
-        </div>
+  <header class="masthead">
+    <div class="wrap">
+      <h1 class="brand">How Does This Affect Me?</h1>
+      <p class="tagline">Clear, practical impact from today's policy news</p>
+      <div class="edition-info" id="edition-info">Loading...</div>
     </div>
+  </header>
 
-    <!-- Modal for editing analysis -->
-    <div id="edit-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">Edit Analysis</h3>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
-            </div>
-            <div>
-                <textarea id="analysis-editor" placeholder="Edit the analysis content..."></textarea>
-                <div style="margin-top: 12px;">
-                    <button class="btn" onclick="saveAnalysis()">💾 Save</button>
-                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                </div>
-            </div>
-        </div>
+  <main class="main-content">
+    <div class="wrap">
+      <div class="loading-state" id="loading">
+        <span class="loading-spinner"></span>
+        Loading today's analysis...
+      </div>
+      <div class="articles-list" id="articles-container" style="display:none"></div>
     </div>
+  </main>
 
-    <script>
-        // AdminPanel class - Fixed for proper article ID handling and database operations
-        class AdminPanel {
-            constructor() {
-                this.API_BASE = '';
-                this.articles = [];
-                this.adminKey = 'hdta-admin-2025-temp';
-                this.currentFilter = 'all';
-                this.currentEditIndex = null;
-                this.isAnalyzing = false;
-            }
+  <script>
+    class DailyNewsletterSite {
+      constructor(){ 
+        this.articles=[]; 
+        this.sharingData={}; 
+        this.API_BASE = '';  // Use relative URLs for same domain
+        this.init(); 
+      }
 
-            async init() {
-                await this.loadData();
-                this.updateStats();
-                this.addLog('success', 'Admin panel ready with manual analysis');
-            }
+      async init(){ await this.fetchTodaysContent(); }
 
-            async loadData() {
-                try {
-                    this.addLog('info', 'Loading articles...');
-                    
-                    const response = await fetch(`${this.API_BASE}/api/admin?action=get-articles`, {
-                        headers: { 'Authorization': `Bearer ${this.adminKey}` }
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    const data = await response.json();
-                    this.articles = data.articles || [];
-                    
-                    if (data.edition) {
-                        document.getElementById('edition-info').textContent = 
-                            `Issue #${data.edition.issue_number} • ${data.edition.date}`;
-                    } else {
-                        document.getElementById('edition-info').textContent = 'No edition found';
-                    }
-                    
-                    this.renderArticles();
-                    document.getElementById('articles-loading').style.display = 'none';
-                    document.getElementById('articles-grid').style.display = 'grid';
-                    
-                    this.addLog('success', `Loaded ${this.articles.length} articles`);
-                    
-                } catch (error) {
-                    console.error('Failed to load articles:', error);
-                    this.addLog('error', 'Failed to load articles: ' + error.message);
-                }
-            }
-
-            renderArticles(filter = 'all') {
-                const grid = document.getElementById('articles-grid');
-                if (!grid) return;
-                
-                let articlesToShow = this.articles;
-                
-                if (filter === 'published') {
-                    articlesToShow = this.articles.filter(a => a.status === 'published');
-                } else if (filter === 'queue') {
-                    articlesToShow = this.articles.filter(a => a.status === 'queue');
-                } else if (filter === 'drafts') {
-                    articlesToShow = this.articles.filter(a => a.status === 'draft');
-                } else if (filter === 'rejected') {
-                    articlesToShow = this.articles.filter(a => a.status === 'rejected');
-                }
-                
-                this.updateFilterButtons(filter);
-                this.currentFilter = filter;
-                
-                if (articlesToShow.length === 0) {
-                    grid.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 40px;">No articles found</div>';
-                    return;
-                }
-                
-                grid.innerHTML = articlesToShow.map((article, displayIndex) => {
-                    const articleId = article.id;
-                    const safeTitle = this.escapeHtml(article.title || '');
-                    const safeDescription = this.escapeHtml(article.description || '');
-                    const safeMeta = this.escapeHtml(article.source?.name || 'Unknown Source');
-                    const safeUrl = this.escapeHtml(article.url || '');
-                    const timeAgo = this.getTimeAgo(article.publishedAt);
-                    const hasAnalysis = article.preGeneratedAnalysis && 
-                                       article.preGeneratedAnalysis !== 'No analysis available' &&
-                                       article.preGeneratedAnalysis.trim() !== '';
-                    const statusClass = hasAnalysis ? 'status-success' : 'status-warning';
-                    const statusText = hasAnalysis ? 'Has Analysis' : 'No Analysis';
-                    const analysisContent = this.formatAnalysis(article.preGeneratedAnalysis || 'No analysis available');
-                    
-                    let statusBadge = '';
-                    switch (article.status) {
-                        case 'published':
-                            statusBadge = '<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 12px; font-size: 11px;">PUBLISHED</span>';
-                            break;
-                        case 'draft':
-                            statusBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 12px; font-size: 11px;">DRAFT</span>';
-                            break;
-                        case 'queue':
-                            statusBadge = '<span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 12px; font-size: 11px;">QUEUE</span>';
-                            break;
-                        case 'rejected':
-                            statusBadge = '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 12px; font-size: 11px;">REJECTED</span>';
-                            break;
-                    }
-                    
-                    let statusActions = '';
-                    if (article.status === 'published') {
-                        statusActions = `
-                            <button class="btn btn-small btn-secondary" onclick="adminPanel.demoteArticle('${articleId}')">⬇️ Demote</button>
-                        `;
-                    } else {
-                        statusActions = `
-                            <button class="btn btn-small" onclick="adminPanel.promoteArticle('${articleId}')">⬆️ Promote</button>
-                        `;
-                    }
-                    
-                    return `
-                        <div class="article-card" data-article-id="${articleId}">
-                            <div class="article-header">
-                                <div style="flex: 1;">
-                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                        <div class="article-title">${safeTitle}</div>
-                                        ${statusBadge}
-                                    </div>
-                                    <div class="article-meta">
-                                        ${safeMeta} • ${timeAgo}
-                                    </div>
-                                </div>
-                                <div class="article-score">Score: ${article.score || '--'}</div>
-                            </div>
-                            
-                            <div class="article-content">
-                                <div class="article-description">${safeDescription}</div>
-                                
-                                <div class="analysis-section">
-                                    <div class="analysis-status">
-                                        <span class="status-dot ${statusClass}"></span>
-                                        ${statusText}
-                                    </div>
-                                    <div class="analysis-label">Analysis</div>
-                                    <div class="analysis-content">${analysisContent}</div>
-                                </div>
-                            </div>
-                            
-                            <div class="article-actions">
-                                <button class="btn btn-small" onclick="adminPanel.editAnalysis('${articleId}')">✏️ Edit</button>
-                                <button class="btn btn-small btn-warning analyze-btn" onclick="adminPanel.analyzeArticle('${articleId}')" data-article-id="${articleId}">🧠 Analyze</button>
-                                ${statusActions}
-                                <button class="btn btn-small btn-secondary" onclick="window.open('${safeUrl}', '_blank')">🔗 Original</button>
-                                <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle('${articleId}')">🗑️ Remove</button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            async analyzeArticle(articleId) {
-                if (this.isAnalyzing) {
-                    this.addLog('warning', 'Analysis already in progress, please wait...');
-                    return;
-                }
-
-                const article = this.articles.find(a => a.id === articleId);
-                if (!article) {
-                    this.addLog('error', 'Article not found');
-                    return;
-                }
-
-                const analyzeBtn = document.querySelector(`button.analyze-btn[data-article-id="${articleId}"]`);
-                
-                this.isAnalyzing = true;
-                
-                if (analyzeBtn) {
-                    analyzeBtn.disabled = true;
-                    analyzeBtn.textContent = '⏳ Analyzing...';
-                }
-
-                try {
-                    this.addLog('info', `Analyzing: ${article.title.substring(0, 50)}...`);
-                    
-                    const response = await fetch(`${this.API_BASE}/api/admin?action=generate-analysis`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${this.adminKey}`
-                        },
-                        body: JSON.stringify({ article })
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error || `HTTP ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    
-                    if (result.success && result.analysis) {
-                        // Update article analysis in database (this should happen in the API)
-                        const updateResponse = await fetch(`${this.API_BASE}/api/admin?action=update-analysis`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${this.adminKey}`
-                            },
-                            body: JSON.stringify({
-                                articleId: articleId,
-                                newAnalysis: result.analysis
-                            })
-                        });
-
-                        if (updateResponse.ok) {
-                            // Update local article copy
-                            article.preGeneratedAnalysis = result.analysis;
-                            this.renderArticles(this.currentFilter);
-                            this.addLog('success', `Analysis generated (${result.wordCount} words)`);
-                        } else {
-                            throw new Error('Failed to save analysis to database');
-                        }
-                    } else {
-                        throw new Error('Analysis generation failed');
-                    }
-
-                } catch (error) {
-                    console.error('Analysis failed:', error);
-                    this.addLog('error', 'Analysis failed: ' + error.message);
-                } finally {
-                    this.isAnalyzing = false;
-                    
-                    if (analyzeBtn) {
-                        analyzeBtn.disabled = false;
-                        analyzeBtn.textContent = '🧠 Analyze';
-                    }
-                }
-            }
-
-            updateFilterButtons(activeFilter) {
-                const published = this.articles.filter(a => a.status === 'published').length;
-                const queue = this.articles.filter(a => a.status === 'queue').length;
-                const drafts = this.articles.filter(a => a.status === 'draft').length;
-                const rejected = this.articles.filter(a => a.status === 'rejected').length;
-                
-                const buttons = {
-                    'filter-all': `All Articles (${this.articles.length})`,
-                    'filter-published': `Published (${published})`,
-                    'filter-queue': `Queue (${queue})`,
-                    'filter-drafts': `Drafts (${drafts})`,
-                    'filter-rejected': `Rejected (${rejected})`
-                };
-                
-                Object.keys(buttons).forEach(id => {
-                    const btn = document.getElementById(id);
-                    if (btn) {
-                        btn.textContent = buttons[id];
-                        if (id.includes(activeFilter)) {
-                            btn.classList.remove('btn-secondary');
-                        } else {
-                            btn.classList.add('btn-secondary');
-                        }
-                    }
-                });
-            }
-
-            updateStats() {
-                const published = this.articles.filter(a => a.status === 'published').length;
-                const queue = this.articles.filter(a => a.status === 'queue').length;
-                const analyzed = this.articles.filter(a => 
-                    a.preGeneratedAnalysis && 
-                    a.preGeneratedAnalysis !== 'No analysis available' &&
-                    a.preGeneratedAnalysis.trim() !== ''
-                ).length;
-                
-                document.getElementById('stat-total').textContent = this.articles.length;
-                document.getElementById('stat-published').textContent = published;
-                document.getElementById('stat-queued').textContent = queue;
-                document.getElementById('stat-analyzed').textContent = analyzed;
-            }
-
-            formatAnalysis(text) {
-                if (!text || text === 'No analysis available') return '<em>No analysis available</em>';
-                return text.split('\n\n').map(p => `<p>${this.escapeHtml(p)}</p>`).join('');
-            }
-
-            editAnalysis(articleId) {
-                const article = this.articles.find(a => a.id === articleId);
-                if (!article) return;
-                
-                this.currentEditIndex = articleId;
-                const modal = document.getElementById('edit-modal');
-                const editor = document.getElementById('analysis-editor');
-                
-                if (editor && modal) {
-                    editor.value = article.preGeneratedAnalysis || '';
-                    modal.style.display = 'block';
-                }
-            }
-
-            async saveAnalysis() {
-                if (this.currentEditIndex === null) return;
-                
-                const editor = document.getElementById('analysis-editor');
-                const newAnalysis = editor.value.trim();
-                const article = this.articles.find(a => a.id === this.currentEditIndex);
-                
-                if (!newAnalysis) {
-                    this.addLog('error', 'Analysis cannot be empty');
-                    return;
-                }
-
-                if (!article) {
-                    this.addLog('error', 'Article not found');
-                    return;
-                }
-
-                try {
-                    this.addLog('info', 'Saving analysis to database...');
-                    
-                    const response = await fetch(`${this.API_BASE}/api/admin?action=update-analysis`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${this.adminKey}`
-                        },
-                        body: JSON.stringify({
-                            articleId: this.currentEditIndex,
-                            newAnalysis: newAnalysis
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-
-                    const result = await response.json();
-                    
-                    // Update local copy
-                    article.preGeneratedAnalysis = newAnalysis;
-                    this.renderArticles(this.currentFilter);
-                    this.closeModal();
-                    
-                    this.addLog('success', `Analysis saved successfully (${result.wordCount} words)`);
-                    
-                } catch (error) {
-                    console.error('Failed to save analysis:', error);
-                    this.addLog('error', 'Failed to save analysis: ' + error.message);
-                }
-            }
-
-            async promoteArticle(articleId) {
-                const article = this.articles.find(a => a.id === articleId);
-                if (!article) {
-                    this.addLog('error', 'Article not found');
-                    return;
-                }
-
-                try {
-                    this.addLog('info', `Publishing article: ${article.title.substring(0, 30)}...`);
-                    
-                    const response = await fetch(`${this.API_BASE}/api/admin?action=update-status`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${this.adminKey}`
-                        },
-                        body: JSON.stringify({
-                            articleId: articleId,
-                            status: 'published'
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-
-                    // Update local copy
-                    article.status = 'published';
-                    this.renderArticles(this.currentFilter);
-                    this.updateStats();
-                    
-                    this.addLog('success', `Published: ${article.title.substring(0, 30)}...`);
-                    
-                } catch (error) {
-                    console.error('Failed to promote article:', error);
-                    this.addLog('error', 'Failed to publish article: ' + error.message);
-                }
-            }
-
-            async demoteArticle(articleId) {
-                const article = this.articles.find(a => a.id === articleId);
-                if (!article) {
-                    this.addLog('error', 'Article not found');
-                    return;
-                }
-
-                try {
-                    this.addLog('info', `Moving to queue: ${article.title.substring(0, 30)}...`);
-                    
-                    const response = await fetch(`${this.API_BASE}/api/admin?action=update-status`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${this.adminKey}`
-                        },
-                        body: JSON.stringify({
-                            articleId: articleId,
-                            status: 'queue'
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-
-                    // Update local copy
-                    article.status = 'queue';
-                    this.renderArticles(this.currentFilter);
-                    this.updateStats();
-                    
-                    this.addLog('warning', `Moved to queue: ${article.title.substring(0, 30)}...`);
-                    
-                } catch (error) {
-                    console.error('Failed to demote article:', error);
-                    this.addLog('error', 'Failed to move article: ' + error.message);
-                }
-            }
-
-            async removeArticle(articleId) {
-                const article = this.articles.find(a => a.id === articleId);
-                if (!article) {
-                    this.addLog('error', 'Article not found');
-                    return;
-                }
-                
-                if (!confirm('Remove this article permanently?')) return;
-
-                try {
-                    this.addLog('warning', `Removing article: ${article.title.substring(0, 30)}...`);
-                    
-                    const response = await fetch(`${this.API_BASE}/api/admin?action=remove-article`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${this.adminKey}`
-                        },
-                        body: JSON.stringify({
-                            articleId: articleId
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-
-                    // Remove from local array
-                    const title = article.title.substring(0, 30);
-                    const index = this.articles.findIndex(a => a.id === articleId);
-                    if (index !== -1) {
-                        this.articles.splice(index, 1);
-                    }
-                    this.renderArticles(this.currentFilter);
-                    this.updateStats();
-                    
-                    this.addLog('warning', `Removed: ${title}...`);
-                    
-                } catch (error) {
-                    console.error('Failed to remove article:', error);
-                    this.addLog('error', 'Failed to remove article: ' + error.message);
-                }
-            }
-
-            addLog(type, message) {
-                const logs = document.getElementById('logs-container');
-                const time = new Date().toLocaleTimeString();
-                const logClass = type === 'error' ? 'log-error' : 
-                                type === 'success' ? 'log-success' : 
-                                type === 'warning' ? 'log-warning' : '';
-                
-                const logLine = document.createElement('div');
-                logLine.className = `log-line ${logClass}`;
-                logLine.textContent = `[${time}] ${message}`;
-                
-                logs.appendChild(logLine);
-                logs.scrollTop = logs.scrollHeight;
-            }
-
-            getTimeAgo(publishedAt) {
-                if (!publishedAt) return 'Unknown time';
-                const now = new Date();
-                const pub = new Date(publishedAt);
-                const hours = Math.floor((now - pub) / 3600000);
-                const days = Math.floor(hours / 24);
-                
-                if (hours < 1) return 'Just published';
-                if (hours < 24) return `${hours}h ago`;
-                if (days === 1) return 'Yesterday';
-                if (days < 7) return `${days}d ago`;
-                return pub.toLocaleDateString();
-            }
-
-            escapeHtml(text) {
-                if (!text) return '';
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            closeModal() {
-                document.getElementById('edit-modal').style.display = 'none';
-                this.currentEditIndex = null;
-            }
+      async fetchTodaysContent(){
+        try{
+          const response=await fetch('/api/fetch-news');  // Relative URL
+          if(!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data=await response.json();
+          if(data.articles){
+            this.articles=data.articles.slice(0,6);
+            if(data.edition_info) this.updateEditionInfo(data.edition_info);
+            this.displayArticles();
+          } else { throw new Error('No articles'); }
+        }catch(e){
+          console.error('Error fetching articles:',e);
+          document.getElementById('loading').innerHTML='Unable to load today\'s analysis. Please refresh.';
         }
+      }
 
-        // Global functions for UI
-        function showTab(tabName) {
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            
-            const panel = document.getElementById(`${tabName}-panel`);
-            if (panel) panel.classList.add('active');
-            
-            const tabButtons = document.querySelectorAll('.tab');
-            tabButtons.forEach(tab => {
-                if (tab.textContent.includes(tabName === 'articles' ? '📰' : '📋')) {
-                    tab.classList.add('active');
-                }
-            });
+      updateEditionInfo(editionInfo){
+        const today=new Date();
+        const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
+        const dateStr=today.toLocaleDateString('en-US',options);
+        const statusText=editionInfo.is_automated ? (editionInfo.is_today ? '' : ' (Latest Edition)') : ' (Live Updates)';
+        document.getElementById('edition-info').textContent=`${dateStr} • Issue #${editionInfo.issue_number}${statusText}`;
+      }
+
+      displayArticles(){
+        const container=document.getElementById('articles-container');
+        const loading=document.getElementById('loading');
+        if(this.articles.length===0){ loading.innerHTML='No policy stories today.'; return; }
+        loading.style.display='none'; container.style.display='block';
+        container.innerHTML=this.articles.map((a,i)=>this.createArticleHTML(a,i)).join('');
+        
+        // Display structured analysis for each article
+        for(let i=0;i<this.articles.length;i++){
+          this.showStructuredAnalysis(i);
         }
+      }
 
-        function filterArticles(filter) {
-            if (window.adminPanel) {
-                adminPanel.renderArticles(filter);
-            }
+      createArticleHTML(article,index){
+        const timeAgo=this.getTimeAgo(article.publishedAt);
+        const cleanTitle=this.cleanTitle(article.title);
+        return `
+        <article class="article-item" onclick="window.open('${article.url}','_blank')">
+          <div class="news-image">
+            ${article.urlToImage||article.image ? `<img src="${article.urlToImage||article.image}" alt="News image" onerror="this.parentElement.innerHTML='📰'">` : '📰'}
+          </div>
+          <div class="article-content">
+            <div class="article-meta">
+              <span>${this.escapeHtml(article.source?.name||'News Source')} • ${timeAgo}</span>
+              <a href="${article.url}" class="read-full" target="_blank" onclick="event.stopPropagation()">Read full story →</a>
+            </div>
+            <h3 class="article-title">${this.escapeHtml(cleanTitle)}</h3>
+            <p class="article-summary">${this.escapeHtml(article.description||'')}</p>
+
+            <div class="analysis" id="analysis-container-${index}">
+              <!-- Analysis sections will be inserted here -->
+            </div>
+
+            <div class="social-sharing">
+              <div class="sharing-title">Share this analysis</div>
+              <div class="share-buttons">
+                <button class="share-btn twitter" onclick="event.stopPropagation(); dailyNewsletter.shareToTwitter(${index})">Twitter</button>
+                <button class="share-btn linkedin" onclick="event.stopPropagation(); dailyNewsletter.shareToLinkedIn(${index})">LinkedIn</button>
+                <button class="share-btn facebook" onclick="event.stopPropagation(); dailyNewsletter.shareToFacebook(${index})">Facebook</button>
+              </div>
+              <div class="copy-link">
+                <input type="text" class="link-input" id="link-${index}" value="${window.location.origin}#story-${index}" readonly>
+                <button class="copy-btn" onclick="event.stopPropagation(); dailyNewsletter.copyLink(${index})">Copy</button>
+              </div>
+            </div>
+          </div>
+        </article>`;
+      }
+
+      showStructuredAnalysis(index){
+        const article = this.articles[index];
+        const container = document.getElementById(`analysis-container-${index}`);
+        
+        if (!container) return;
+
+        // Check if we have structured sections
+        const hasStructured = article.whatsHappening || article.affectsMe;
+        
+        if (hasStructured) {
+          // Display structured sections with headlines
+          let html = '';
+          
+          if (article.whatsHappening) {
+            html += `
+              <div class="analysis-section">
+                <div class="analysis-label">What's Happening Here?</div>
+                <div class="analysis-text">${this.formatAnalysisText(article.whatsHappening)}</div>
+              </div>
+            `;
+          }
+          
+          if (article.affectsMe) {
+            html += `
+              <div class="analysis-section">
+                <div class="analysis-label">How Does This Affect Me?</div>
+                <div class="analysis-text">${this.formatAnalysisText(article.affectsMe)}</div>
+              </div>
+            `;
+          }
+          
+          container.innerHTML = html;
+          
+          // Set up sharing data - use the "affects me" section for sharing if available
+          const shareText = article.affectsMe || article.whatsHappening || 'Analysis available';
+          this.sharingData[index] = {
+            article: article,
+            analysis: this.extractKeyInsight(shareText),
+            url: `${window.location.origin}#story-${index}`
+          };
+          
+        } else if (article.preGeneratedAnalysis) {
+          // Fallback to old format for articles without structured sections
+          container.innerHTML = `
+            <div class="analysis-section">
+              <div class="analysis-label">How Does This Affect Me?</div>
+              <div class="analysis-text">${this.formatAnalysisText(article.preGeneratedAnalysis)}</div>
+            </div>
+          `;
+          
+          this.sharingData[index] = {
+            article: article,
+            analysis: this.extractKeyInsight(article.preGeneratedAnalysis),
+            url: `${window.location.origin}#story-${index}`
+          };
+          
+        } else {
+          // No analysis available
+          container.innerHTML = `
+            <div class="analysis-section">
+              <div class="analysis-label">How Does This Affect Me?</div>
+              <div class="analysis-text">
+                <div class="no-analysis">Analysis coming soon - check back for updates to this story.</div>
+              </div>
+            </div>
+          `;
+          
+          this.sharingData[index] = {
+            article: article,
+            analysis: 'Analysis coming soon',
+            url: `${window.location.origin}#story-${index}`
+          };
         }
+      }
 
-        async function fetchFreshArticles() {
-            if (!window.adminPanel) return;
-            
-            try {
-                adminPanel.addLog('info', 'Triggering fresh article fetch...');
-                
-                const response = await fetch('/api/manual-trigger', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ trigger_key: 'force-update-2025' })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                if (data.success) {
-                    adminPanel.addLog('success', `${data.processing?.action || 'Completed'} - ${data.processing?.articles_total || 0} articles`);
-                    await adminPanel.loadData();
-                    adminPanel.updateStats();
-                } else {
-                    adminPanel.addLog('error', 'Failed: ' + (data.error || 'Unknown error'));
-                }
-            } catch (error) {
-                console.error('Fetch fresh articles failed:', error);
-                adminPanel.addLog('error', 'Request failed: ' + error.message);
-            }
+      formatAnalysisText(text) {
+        if (!text || text === 'No analysis available') {
+          return '<div class="no-analysis">Analysis coming soon - check back for updates to this story.</div>';
         }
+        
+        // Convert text to paragraphs
+        return text.split('\n\n').filter(p => p.trim()).map(p => `<p>${this.escapeHtml(p.trim())}</p>`).join('');
+      }
 
-        async function forceRefetch() {
-            if (!confirm('Force refetch will DELETE all of today\'s articles and fetch completely fresh ones. Continue?')) return;
-            
-            if (!window.adminPanel) return;
-            
-            try {
-                adminPanel.addLog('warning', 'Force refetching - replacing all articles...');
-                
-                const response = await fetch('/api/manual-trigger', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        trigger_key: 'force-update-2025',
-                        force_refetch: true 
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                if (data.success) {
-                    adminPanel.addLog('success', `Refetched - ${data.processing?.articles_total || 0} fresh articles`);
-                    await adminPanel.loadData();
-                    adminPanel.updateStats();
-                } else {
-                    adminPanel.addLog('error', 'Failed: ' + (data.error || 'Unknown error'));
-                }
-            } catch (error) {
-                console.error('Force refetch failed:', error);
-                adminPanel.addLog('error', 'Request failed: ' + error.message);
-            }
-        }
+      extractKeyInsight(text){
+        if (!text) return 'Analysis coming soon';
+        const sentences = text.split('. ');
+        return (sentences.find(x => x.length > 50)?.trim() + '.') || (text.substring(0, 100) + '...');
+      }
 
-        async function refreshData() {
-            if (!window.adminPanel) return;
-            
-            try {
-                adminPanel.addLog('info', 'Refreshing data from database...');
-                await adminPanel.loadData();
-                adminPanel.updateStats();
-                adminPanel.addLog('success', 'Data refreshed');
-            } catch (error) {
-                console.error('Refresh data failed:', error);
-                adminPanel.addLog('error', 'Refresh failed: ' + error.message);
-            }
-        }
+      cleanTitle(t){ if(!t) return ''; return t.replace(/^(BREAKING|LIVE|UPDATE|ALERT):\s*/i,''); }
 
-        async function clearToday() {
-            if (!confirm('Clear today\'s edition? This will DELETE all articles and cannot be undone.')) return;
-            
-            if (!window.adminPanel) return;
-            
-            try {
-                adminPanel.addLog('warning', 'Clearing today\'s edition...');
-                
-                const response = await fetch('/api/admin?action=clear-today', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${window.adminPanel.adminKey}`
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                adminPanel.articles = [];
-                adminPanel.renderArticles();
-                adminPanel.updateStats();
-                adminPanel.addLog('success', 'Edition cleared successfully');
-                
-            } catch (error) {
-                console.error('Clear today failed:', error);
-                adminPanel.addLog('error', 'Failed to clear: ' + error.message);
-            }
-        }
+      getTimeAgo(p){
+        if(!p) return 'Recently';
+        const now=new Date(), pub=new Date(p); const hrs=Math.floor((now-pub)/3600000); const days=Math.floor(hrs/24);
+        if(hrs<1) return 'Just published'; if(hrs<24) return `${hrs}h ago`; if(days===1) return 'Yesterday'; if(days<7) return `${days} days ago`;
+        return pub.toLocaleDateString();
+      }
 
-        function refreshLogs() {
-            if (window.adminPanel) {
-                adminPanel.addLog('info', 'Logs refreshed');
-            }
-        }
+      escapeHtml(t){ if(!t) return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
 
-        function clearLogs() {
-            const logsContainer = document.getElementById('logs-container');
-            if (logsContainer) {
-                logsContainer.innerHTML = '<div class="log-line log-success">[System] Logs cleared</div>';
-            }
-        }
+      shareToTwitter(i){
+        const d=this.sharingData[i]; if(!d) return;
+        const text=`How Does This Affect Me: "${d.analysis}" Read more: ${d.url}`;
+        const u=`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`; window.open(u,'_blank');
+      }
+      shareToLinkedIn(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
+      shareToFacebook(i){ const d=this.sharingData[i]; if(!d) return; const u=`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(d.url)}`; window.open(u,'_blank'); }
+      copyLink(i){
+        const input=document.getElementById(`link-${i}`); if(!input) return; const btn=input.parentElement.querySelector('.copy-btn');
+        input.select(); document.execCommand('copy');
+        if(btn){ btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='Copy'; btn.classList.remove('copied')},2000); }
+      }
+    }
 
-        function closeModal() {
-            document.getElementById('edit-modal').style.display = 'none';
-            if (window.adminPanel) {
-                adminPanel.currentEditIndex = null;
-            }
-        }
-
-        function saveAnalysis() {
-            if (window.adminPanel) {
-                adminPanel.saveAnalysis();
-            }
-        }
-
-        // Initialize admin panel
-        let adminPanel;
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                adminPanel = new AdminPanel();
-                window.adminPanel = adminPanel;
-                await adminPanel.init();
-                console.log('✅ Admin panel initialized');
-            } catch (error) {
-                console.error('❌ Failed to initialize admin panel:', error);
-            }
-        });
-    </script>
+    document.addEventListener('DOMContentLoaded',()=>{ window.dailyNewsletter=new DailyNewsletterSite(); });
+  </script>
 </body>
 </html>
