@@ -1,5 +1,5 @@
-// api/manual-trigger.js - FIXED: Proper handling of existing editions
-import { runAutomatedWorkflow } from './cron/automated-daily-workflow.js';
+// api/manual-trigger.js - UPDATED for weekly operations with trend analysis
+import { runAutomatedWeeklyWorkflow } from './cron/automated-weekly-workflow.js';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -10,6 +10,14 @@ function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Max-Age', '86400');
+}
+
+function getWeekStart() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  const monday = new Date(now.setDate(diff));
+  return monday.toISOString().split('T')[0];
 }
 
 export default async function handler(req, res) {
@@ -35,15 +43,16 @@ export default async function handler(req, res) {
   }
 
   const startTime = Date.now();
-  const today = new Date().toISOString().split('T')[0];
+  const thisWeek = getWeekStart();
   
-  console.log('🔄 Manual trigger started:', new Date().toISOString());
-  console.log('📊 Options:', { force_refetch: !!force_refetch });
+  console.log('🔄 Manual weekly trigger started:', new Date().toISOString());
+  console.log('📊 Options:', { force_refetch: !!force_refetch, week_start: thisWeek });
 
   try {
     // Check environment variables
     const envCheck = {
       hasSupabase: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY),
+      hasNewsAPI: !!process.env.NEWS_API_KEY,
       hasGNews: !!process.env.GNEWS_API_KEY,
       hasOpenAI: !!process.env.OPENAI_API_KEY
     };
@@ -57,28 +66,29 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!envCheck.hasGNews) {
+    if (!envCheck.hasNewsAPI && !envCheck.hasGNews) {
       return res.status(500).json({
         success: false,
-        error: 'News API not configured - missing GNEWS_API_KEY'
+        error: 'News API not configured - missing NEWS_API_KEY or GNEWS_API_KEY'
       });
     }
 
-    // Check if today's edition already exists
+    // Check if this week's edition already exists
     const { data: existingEdition, error: fetchError } = await supabase
-      .from('daily_editions')
+      .from('weekly_editions')
       .select(`
         id, 
         issue_number, 
         status, 
-        edition_date,
+        week_start_date,
+        week_end_date,
         analyzed_articles (
           id,
           title,
           article_status
         )
       `)
-      .eq('edition_date', today)
+      .eq('week_start_date', thisWeek)
       .single();
 
     // Handle the case where no edition exists (not an error)
@@ -89,36 +99,36 @@ export default async function handler(req, res) {
     let edition;
     let action = 'created';
 
-    // FIXED LOGIC: Handle all cases properly
+    // FIXED LOGIC: Handle all cases properly for weekly
     if (existingEdition && force_refetch) {
       // Force refetch requested - delete and recreate regardless of article count
-      console.log('🔄 Force refetch requested - deleting existing edition');
+      console.log('🔄 Force refetch requested - deleting existing weekly edition');
       await supabase.from('analyzed_articles').delete().eq('edition_id', existingEdition.id);
-      await supabase.from('daily_editions').delete().eq('id', existingEdition.id);
+      await supabase.from('weekly_editions').delete().eq('id', existingEdition.id);
       
-      edition = await runAutomatedWorkflow();
+      edition = await runAutomatedWeeklyWorkflow();
       action = 'refetched';
       
     } else if (existingEdition && existingEdition.analyzed_articles?.length > 0) {
       // Edition exists and has articles - preserve it
-      console.log(`📰 Found existing edition #${existingEdition.issue_number} with ${existingEdition.analyzed_articles.length} articles`);
-      console.log('✅ Using existing articles');
+      console.log(`📰 Found existing weekly edition #${existingEdition.issue_number} with ${existingEdition.analyzed_articles.length} articles`);
+      console.log('✅ Using existing weekly articles');
       
       edition = existingEdition;
       action = 'preserved';
       
     } else if (existingEdition) {
       // Edition exists but has no articles - delete it first, then create new one
-      console.log('📝 Found existing edition with no articles - will recreate');
-      await supabase.from('daily_editions').delete().eq('id', existingEdition.id);
+      console.log('📝 Found existing weekly edition with no articles - will recreate');
+      await supabase.from('weekly_editions').delete().eq('id', existingEdition.id);
       
-      edition = await runAutomatedWorkflow();
+      edition = await runAutomatedWeeklyWorkflow();
       action = 'recreated';
       
     } else {
       // No existing edition - create new one
-      console.log('📝 Creating new edition with fresh articles');
-      edition = await runAutomatedWorkflow();
+      console.log('📝 Creating new weekly edition with fresh articles');
+      edition = await runAutomatedWeeklyWorkflow();
       action = 'created';
     }
     
@@ -134,13 +144,19 @@ export default async function handler(req, res) {
     const publishedCount = currentArticles?.filter(a => a.article_status === 'published').length || 0;
     const queuedCount = currentArticles?.filter(a => a.article_status === 'queue').length || 0;
 
+    // Get week end date
+    const weekEnd = edition.week_end_date || 
+      new Date(new Date(edition.week_start_date).getTime() + 6 * 24 * 60 * 60 * 1000)
+        .toISOString().split('T')[0];
+
     return res.json({
       success: true,
-      message: `Edition ${action} successfully`,
+      message: `Weekly edition ${action} successfully`,
       edition: {
         id: edition.id,
         issue_number: edition.issue_number,
-        date: edition.edition_date,
+        week_start_date: edition.week_start_date,
+        week_end_date: weekEnd,
         status: edition.status
       },
       processing: {
@@ -150,7 +166,7 @@ export default async function handler(req, res) {
         articles_queued: queuedCount,
         action: action
       },
-      articles_preview: currentArticles?.slice(0, 3).map(a => ({
+      articles_preview: currentArticles?.slice(0, 5).map(a => ({
         title: a.title.substring(0, 60) + '...',
         status: a.article_status || 'unknown',
         order: a.article_order
@@ -161,14 +177,14 @@ export default async function handler(req, res) {
   } catch (error) {
     const duration = Math.floor((Date.now() - startTime) / 1000);
     
-    console.error('❌ Manual trigger failed:', error);
+    console.error('❌ Manual weekly trigger failed:', error);
     
     return res.status(500).json({
       success: false,
       error: error.message,
       processing: {
         duration_seconds: duration,
-        failed_at: 'workflow_execution'
+        failed_at: 'weekly_workflow_execution'
       },
       timestamp: new Date().toISOString()
     });
