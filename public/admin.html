@@ -721,4 +721,446 @@
                 const rejected = this.articles.filter(a => a.status === 'rejected').length;
                 
                 const buttons = {
-                    'filter-all': `All Articles
+                    'filter-all': `All Articles (${this.articles.length})`,
+                    'filter-published': `Published (${published})`,
+                    'filter-queue': `Queue (${queue})`,
+                    'filter-drafts': `Drafts (${drafts})`,
+                    'filter-rejected': `Rejected (${rejected})`
+                };
+                
+                Object.keys(buttons).forEach(id => {
+                    const btn = document.getElementById(id);
+                    if (btn) {
+                        btn.textContent = buttons[id];
+                        if (id.includes(activeFilter)) {
+                            btn.classList.remove('btn-secondary');
+                        } else {
+                            btn.classList.add('btn-secondary');
+                        }
+                    }
+                });
+            }
+
+            updateStats() {
+                const published = this.articles.filter(a => a.status === 'published').length;
+                const queue = this.articles.filter(a => a.status === 'queue').length;
+                const analyzed = this.articles.filter(a => 
+                    a.preGeneratedAnalysis && 
+                    a.preGeneratedAnalysis !== 'No analysis available' &&
+                    a.preGeneratedAnalysis.trim() !== ''
+                ).length;
+                
+                document.getElementById('stat-total').textContent = this.articles.length;
+                document.getElementById('stat-published').textContent = published;
+                document.getElementById('stat-queued').textContent = queue;
+                document.getElementById('stat-analyzed').textContent = analyzed;
+            }
+
+            formatAnalysis(text) {
+                if (!text || text === 'No analysis available') return '<em>No analysis available</em>';
+                return text.split('\n\n').map(p => `<p>${this.escapeHtml(p)}</p>`).join('');
+            }
+
+            editAnalysis(articleId) {
+                const article = this.articles.find(a => a.id === articleId);
+                if (!article) return;
+                
+                this.currentEditIndex = articleId;
+                const modal = document.getElementById('edit-modal');
+                const editor = document.getElementById('analysis-editor');
+                
+                if (editor && modal) {
+                    editor.value = article.preGeneratedAnalysis || '';
+                    modal.style.display = 'block';
+                }
+            }
+
+            async saveAnalysis() {
+                if (this.currentEditIndex === null) return;
+                
+                const editor = document.getElementById('analysis-editor');
+                const newAnalysis = editor.value.trim();
+                const article = this.articles.find(a => a.id === this.currentEditIndex);
+                
+                if (!newAnalysis) {
+                    this.addLog('error', 'Analysis cannot be empty');
+                    return;
+                }
+
+                if (!article) {
+                    this.addLog('error', 'Article not found');
+                    return;
+                }
+
+                try {
+                    this.addLog('info', 'Saving analysis to database...');
+                    
+                    const response = await fetch(`${this.API_BASE}/api/admin?action=update-analysis`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.adminKey}`
+                        },
+                        body: JSON.stringify({
+                            articleId: this.currentEditIndex,
+                            newAnalysis: newAnalysis
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    // Update local copy
+                    article.preGeneratedAnalysis = newAnalysis;
+                    this.renderArticles(this.currentFilter);
+                    this.closeModal();
+                    
+                    this.addLog('success', `Analysis saved successfully (${result.wordCount} words)`);
+                    
+                } catch (error) {
+                    console.error('Failed to save analysis:', error);
+                    this.addLog('error', 'Failed to save analysis: ' + error.message);
+                }
+            }
+
+            async promoteArticle(articleId) {
+                const article = this.articles.find(a => a.id === articleId);
+                if (!article) {
+                    this.addLog('error', 'Article not found');
+                    return;
+                }
+
+                try {
+                    this.addLog('info', `Publishing article: ${article.title.substring(0, 30)}...`);
+                    
+                    const response = await fetch(`${this.API_BASE}/api/admin?action=update-status`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.adminKey}`
+                        },
+                        body: JSON.stringify({
+                            articleId: articleId,
+                            status: 'published'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    // Update local copy
+                    article.status = 'published';
+                    this.renderArticles(this.currentFilter);
+                    this.updateStats();
+                    
+                    this.addLog('success', `Published: ${article.title.substring(0, 30)}...`);
+                    
+                } catch (error) {
+                    console.error('Failed to promote article:', error);
+                    this.addLog('error', 'Failed to publish article: ' + error.message);
+                }
+            }
+
+            async demoteArticle(articleId) {
+                const article = this.articles.find(a => a.id === articleId);
+                if (!article) {
+                    this.addLog('error', 'Article not found');
+                    return;
+                }
+
+                try {
+                    this.addLog('info', `Moving to queue: ${article.title.substring(0, 30)}...`);
+                    
+                    const response = await fetch(`${this.API_BASE}/api/admin?action=update-status`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.adminKey}`
+                        },
+                        body: JSON.stringify({
+                            articleId: articleId,
+                            status: 'queue'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    // Update local copy
+                    article.status = 'queue';
+                    this.renderArticles(this.currentFilter);
+                    this.updateStats();
+                    
+                    this.addLog('warning', `Moved to queue: ${article.title.substring(0, 30)}...`);
+                    
+                } catch (error) {
+                    console.error('Failed to demote article:', error);
+                    this.addLog('error', 'Failed to move article: ' + error.message);
+                }
+            }
+
+            async removeArticle(articleId) {
+                const article = this.articles.find(a => a.id === articleId);
+                if (!article) {
+                    this.addLog('error', 'Article not found');
+                    return;
+                }
+                
+                if (!confirm('Remove this article permanently?')) return;
+
+                try {
+                    this.addLog('warning', `Removing article: ${article.title.substring(0, 30)}...`);
+                    
+                    const response = await fetch(`${this.API_BASE}/api/admin?action=remove-article`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.adminKey}`
+                        },
+                        body: JSON.stringify({
+                            articleId: articleId
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    // Remove from local array
+                    const title = article.title.substring(0, 30);
+                    const index = this.articles.findIndex(a => a.id === articleId);
+                    if (index !== -1) {
+                        this.articles.splice(index, 1);
+                    }
+                    this.renderArticles(this.currentFilter);
+                    this.updateStats();
+                    
+                    this.addLog('warning', `Removed: ${title}...`);
+                    
+                } catch (error) {
+                    console.error('Failed to remove article:', error);
+                    this.addLog('error', 'Failed to remove article: ' + error.message);
+                }
+            }
+
+            addLog(type, message) {
+                const logs = document.getElementById('logs-container');
+                const time = new Date().toLocaleTimeString();
+                const logClass = type === 'error' ? 'log-error' : 
+                                type === 'success' ? 'log-success' : 
+                                type === 'warning' ? 'log-warning' : '';
+                
+                const logLine = document.createElement('div');
+                logLine.className = `log-line ${logClass}`;
+                logLine.textContent = `[${time}] ${message}`;
+                
+                logs.appendChild(logLine);
+                logs.scrollTop = logs.scrollHeight;
+            }
+
+            getTimeAgo(publishedAt) {
+                if (!publishedAt) return 'Unknown time';
+                const now = new Date();
+                const pub = new Date(publishedAt);
+                const hours = Math.floor((now - pub) / 3600000);
+                const days = Math.floor(hours / 24);
+                
+                if (hours < 1) return 'Just published';
+                if (hours < 24) return `${hours}h ago`;
+                if (days === 1) return 'Yesterday';
+                if (days < 7) return `${days}d ago`;
+                return pub.toLocaleDateString();
+            }
+
+            escapeHtml(text) {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            closeModal() {
+                document.getElementById('edit-modal').style.display = 'none';
+                this.currentEditIndex = null;
+            }
+        }
+
+        // Global functions for UI
+        function showTab(tabName) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            
+            const panel = document.getElementById(`${tabName}-panel`);
+            if (panel) panel.classList.add('active');
+            
+            const tabButtons = document.querySelectorAll('.tab');
+            tabButtons.forEach(tab => {
+                if (tab.textContent.includes(tabName === 'articles' ? '📰' : '📋')) {
+                    tab.classList.add('active');
+                }
+            });
+        }
+
+        function filterArticles(filter) {
+            if (window.adminPanel) {
+                adminPanel.renderArticles(filter);
+            }
+        }
+
+        async function fetchFreshArticles() {
+            if (!window.adminPanel) return;
+            
+            try {
+                adminPanel.addLog('info', 'Triggering fresh article fetch...');
+                
+                const response = await fetch('/api/manual-trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trigger_key: 'force-update-2025' })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    adminPanel.addLog('success', `${data.processing?.action || 'Completed'} - ${data.processing?.articles_total || 0} articles`);
+                    await adminPanel.loadData();
+                    adminPanel.updateStats();
+                } else {
+                    adminPanel.addLog('error', 'Failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Fetch fresh articles failed:', error);
+                adminPanel.addLog('error', 'Request failed: ' + error.message);
+            }
+        }
+
+        async function forceRefetch() {
+            if (!confirm('Force refetch will DELETE all of today\'s articles and fetch completely fresh ones. Continue?')) return;
+            
+            if (!window.adminPanel) return;
+            
+            try {
+                adminPanel.addLog('warning', 'Force refetching - replacing all articles...');
+                
+                const response = await fetch('/api/manual-trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        trigger_key: 'force-update-2025',
+                        force_refetch: true 
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    adminPanel.addLog('success', `Refetched - ${data.processing?.articles_total || 0} fresh articles`);
+                    await adminPanel.loadData();
+                    adminPanel.updateStats();
+                } else {
+                    adminPanel.addLog('error', 'Failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Force refetch failed:', error);
+                adminPanel.addLog('error', 'Request failed: ' + error.message);
+            }
+        }
+
+        async function refreshData() {
+            if (!window.adminPanel) return;
+            
+            try {
+                adminPanel.addLog('info', 'Refreshing data from database...');
+                await adminPanel.loadData();
+                adminPanel.updateStats();
+                adminPanel.addLog('success', 'Data refreshed');
+            } catch (error) {
+                console.error('Refresh data failed:', error);
+                adminPanel.addLog('error', 'Refresh failed: ' + error.message);
+            }
+        }
+
+        async function clearToday() {
+            if (!confirm('Clear today\'s edition? This will DELETE all articles and cannot be undone.')) return;
+            
+            if (!window.adminPanel) return;
+            
+            try {
+                adminPanel.addLog('warning', 'Clearing today\'s edition...');
+                
+                const response = await fetch('/api/admin?action=clear-today', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.adminPanel.adminKey}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                adminPanel.articles = [];
+                adminPanel.renderArticles();
+                adminPanel.updateStats();
+                adminPanel.addLog('success', 'Edition cleared successfully');
+                
+            } catch (error) {
+                console.error('Clear today failed:', error);
+                adminPanel.addLog('error', 'Failed to clear: ' + error.message);
+            }
+        }
+
+        function refreshLogs() {
+            if (window.adminPanel) {
+                adminPanel.addLog('info', 'Logs refreshed');
+            }
+        }
+
+        function clearLogs() {
+            const logsContainer = document.getElementById('logs-container');
+            if (logsContainer) {
+                logsContainer.innerHTML = '<div class="log-line log-success">[System] Logs cleared</div>';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+            if (window.adminPanel) {
+                adminPanel.currentEditIndex = null;
+            }
+        }
+
+        function saveAnalysis() {
+            if (window.adminPanel) {
+                adminPanel.saveAnalysis();
+            }
+        }
+
+        // Initialize admin panel
+        let adminPanel;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                adminPanel = new AdminPanel();
+                window.adminPanel = adminPanel;
+                await adminPanel.init();
+                console.log('✅ Admin panel initialized');
+            } catch (error) {
+                console.error('❌ Failed to initialize admin panel:', error);
+            }
+        });
+    </script>
+</body>
+</html>
