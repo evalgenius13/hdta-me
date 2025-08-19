@@ -1,4 +1,4 @@
-// api/manual-trigger.js - UPDATED for weekly operations with trend analysis
+// api/manual-trigger.js - FIXED for weekly operations
 import { runAutomatedWeeklyWorkflow } from './cron/automated-weekly-workflow.js';
 import { createClient } from '@supabase/supabase-js';
 
@@ -81,19 +81,28 @@ export default async function handler(req, res) {
         issue_number, 
         status, 
         week_start_date,
-        week_end_date,
-        analyzed_articles (
-          id,
-          title,
-          article_status
-        )
+        week_end_date
       `)
       .eq('week_start_date', thisWeek)
       .single();
 
     // Handle the case where no edition exists (not an error)
     if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('❌ Database error checking existing edition:', fetchError);
       throw fetchError;
+    }
+
+    // Get articles count for existing edition
+    let existingArticlesCount = 0;
+    if (existingEdition) {
+      const { data: articles, error: articlesError } = await supabase
+        .from('analyzed_articles')
+        .select('id')
+        .eq('edition_id', existingEdition.id);
+      
+      if (!articlesError) {
+        existingArticlesCount = articles?.length || 0;
+      }
     }
 
     let edition;
@@ -109,15 +118,15 @@ export default async function handler(req, res) {
       edition = await runAutomatedWeeklyWorkflow();
       action = 'refetched';
       
-    } else if (existingEdition && existingEdition.analyzed_articles?.length > 0) {
+    } else if (existingEdition && existingArticlesCount > 0) {
       // Edition exists and has articles - preserve it
-      console.log(`📰 Found existing weekly edition #${existingEdition.issue_number} with ${existingEdition.analyzed_articles.length} articles`);
+      console.log(`📰 Found existing weekly edition #${existingEdition.issue_number} with ${existingArticlesCount} articles`);
       console.log('✅ Using existing weekly articles');
       
       edition = existingEdition;
       action = 'preserved';
       
-    } else if (existingEdition) {
+    } else if (existingEdition && existingArticlesCount === 0) {
       // Edition exists but has no articles - delete it first, then create new one
       console.log('📝 Found existing weekly edition with no articles - will recreate');
       await supabase.from('weekly_editions').delete().eq('id', existingEdition.id);
