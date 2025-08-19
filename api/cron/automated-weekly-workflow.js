@@ -734,6 +734,20 @@ class AutomatedWeeklyPublisher {
       throw new Error('Cannot create weekly edition without articles');
     }
     
+    // ✅ FIXED: Check for existing edition first
+    const { data: existingEdition, error: checkError } = await supabase
+      .from('weekly_editions')
+      .select('id, issue_number')
+      .eq('week_start_date', weekStart)
+      .order('issue_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!checkError && existingEdition) {
+      console.log(`📰 Weekly edition already exists for ${weekStart}, returning existing edition ${existingEdition.id}`);
+      return existingEdition;
+    }
+    
     let issue = 1;
     try {
       // Try to get next issue number from weekly_editions
@@ -775,6 +789,21 @@ class AutomatedWeeklyPublisher {
         edition = editionData;
         break;
       } catch (error) {
+        // ✅ FIXED: Handle duplicate key errors gracefully
+        if (error.message.includes('duplicate') || error.message.includes('unique')) {
+          console.log(`📰 Edition already created by another process, finding existing...`);
+          const { data: existing } = await supabase
+            .from('weekly_editions')
+            .select('*')
+            .eq('week_start_date', weekStart)
+            .order('issue_number', { ascending: false })
+            .limit(1)
+            .single();
+          if (existing) {
+            return existing;
+          }
+        }
+        
         console.warn(`⚠️ Weekly edition creation attempt ${attempt} failed for week ${weekStart}, issue #${issue}:`, error.message);
         if (attempt === 3) throw error;
         await this.sleep(2000);
