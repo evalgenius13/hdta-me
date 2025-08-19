@@ -134,7 +134,7 @@ export default async function handler(req, res) {
     
     const duration = Math.floor((Date.now() - startTime) / 1000);
     
-    // Get current articles for response
+    // Get current articles for response (separate query)
     const { data: currentArticles } = await supabase
       .from('analyzed_articles')
       .select('title, analysis_text, article_status, article_score, article_order')
