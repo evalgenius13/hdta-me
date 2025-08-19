@@ -1,6 +1,6 @@
-// api/admin.js - FIXED manual analysis functionality with proper error handling AND article reordering
+// api/admin.js - UPDATED for weekly operations with trend analysis
 import { createClient } from '@supabase/supabase-js';
-import { runAutomatedWorkflow, AutomatedPublisher } from './cron/automated-daily-workflow.js';
+import { runAutomatedWeeklyWorkflow, AutomatedWeeklyPublisher } from './cron/automated-weekly-workflow.js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   try {
     switch (action) {
       case 'get-articles':
-        return await getArticles(req, res);
+        return await getWeeklyArticles(req, res);
       case 'generate-analysis':
         return await generateAnalysis(req, res);
       case 'update-analysis':
@@ -37,11 +37,13 @@ export default async function handler(req, res) {
       case 'remove-article':
         return await removeArticle(req, res);
       case 'regenerate':
-        return await regenerateToday(req, res);
-      case 'clear-today':
-        return await clearToday(req, res);
+        return await regenerateWeekly(req, res);
+      case 'clear-week':
+        return await clearWeek(req, res);
       case 'reorder-article':
         return await reorderArticle(req, res);
+      case 'get-trends':
+        return await getTrends(req, res);
       default:
         return res.status(400).json({ error: 'Invalid action' });
     }
@@ -51,74 +53,14 @@ export default async function handler(req, res) {
   }
 }
 
-// FIXED: Generate analysis with proper error handling - reverted to env vars
-async function generateAnalysis(req, res) {
-  const { article } = req.body;
-  
-  // Validate input
-  if (!article || !article.title || !article.description) {
-    return res.status(400).json({ error: 'Missing required article data (title, description)' });
-  }
-
-  // Check environment variables
-  if (!process.env.OPENAI_API_KEY) {
-    return res.status(500).json({ error: 'OpenAI API key not configured' });
-  }
-
-  if (!process.env.SYSTEM_PROMPT || !process.env.USER_PROMPT) {
-    return res.status(500).json({ error: 'Analysis prompts not configured (SYSTEM_PROMPT, USER_PROMPT)' });
-  }
-
+async function getWeeklyArticles(req, res) {
   try {
-    console.log(`🧠 Manual analysis for: ${article.title.substring(0, 50)}...`);
-    
-    // Create publisher instance and generate analysis
-    const publisher = new AutomatedPublisher();
-    const analysis = await publisher.generateHumanImpactAnalysis(article);
-    
-    if (!analysis) {
-      return res.status(500).json({ error: 'No analysis generated - OpenAI returned empty response' });
-    }
-    
-    // Sanitize and validate the analysis
-    const sanitized = publisher.sanitize(article, analysis);
-    
-    if (!sanitized) {
-      return res.status(400).json({ error: 'Analysis failed quality checks - try regenerating' });
-    }
-    
-    const wordCount = sanitized.split(/\s+/).filter(Boolean).length;
-    console.log(`✅ Manual analysis: ${wordCount} words`);
-    
-    // Return analysis without auto-saving - let frontend handle the save
-    return res.json({ 
-      success: true, 
-      analysis: sanitized,
-      wordCount: wordCount
-    });
-    
-  } catch (error) {
-    console.error('Manual analysis failed:', error);
-    
-    // Provide more specific error messages
-    if (error.message.includes('OpenAI')) {
-      return res.status(500).json({ error: 'OpenAI API error: ' + error.message });
-    } else if (error.message.includes('fetch')) {
-      return res.status(500).json({ error: 'Network error connecting to OpenAI' });
-    } else {
-      return res.status(500).json({ error: 'Analysis generation failed: ' + error.message });
-    }
-  }
-}
-
-async function getArticles(req, res) {
-  try {
-    const today = new Date().toISOString().split('T')[0];
+    const weekStart = getWeekStart();
     
     const { data: edition, error: editionError } = await supabase
-      .from('daily_editions')
+      .from('weekly_editions')
       .select('*')
-      .eq('edition_date', today)
+      .eq('week_start_date', weekStart)
       .single();
 
     if (editionError && editionError.code !== 'PGRST116') {
@@ -129,7 +71,7 @@ async function getArticles(req, res) {
       return res.json({ 
         articles: [], 
         edition: null,
-        message: 'No edition found for today' 
+        message: 'No weekly edition found for this week' 
       });
     }
 
@@ -162,21 +104,123 @@ async function getArticles(req, res) {
       articles: formatted,
       edition: {
         id: edition.id,
-        date: edition.edition_date,
+        week_start_date: edition.week_start_date,
+        week_end_date: edition.week_end_date,
         issue_number: edition.issue_number,
         status: edition.status
       }
     });
   } catch (error) {
-    console.error('Failed to get articles:', error);
-    return res.status(500).json({ error: 'Failed to load articles: ' + error.message });
+    console.error('Failed to get weekly articles:', error);
+    return res.status(500).json({ error: 'Failed to load weekly articles: ' + error.message });
+  }
+}
+
+async function generateAnalysis(req, res) {
+  const { article } = req.body;
+  
+  if (!article || !article.title || !article.description) {
+    return res.status(400).json({ error: 'Missing required article data (title, description)' });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({ error: 'OpenAI API key not configured' });
+  }
+
+  if (!process.env.SYSTEM_PROMPT || !process.env.USER_PROMPT) {
+    return res.status(500).json({ error: 'Analysis prompts not configured (SYSTEM_PROMPT, USER_PROMPT)' });
+  }
+
+  try {
+    console.log(`🧠 Manual weekly analysis for: ${article.title.substring(0, 50)}...`);
+    
+    // Get trend context for this week
+    const trendContext = await getWeeklyTrendContext();
+    
+    // Create publisher instance and generate analysis with trends
+    const publisher = new AutomatedWeeklyPublisher();
+    const analysis = await publisher.generateHumanImpactAnalysisWithTrends(article, trendContext);
+    
+    if (!analysis) {
+      return res.status(500).json({ error: 'No analysis generated - OpenAI returned empty response' });
+    }
+    
+    const sanitized = publisher.sanitize(article, analysis);
+    
+    if (!sanitized) {
+      return res.status(400).json({ error: 'Analysis failed quality checks - try regenerating' });
+    }
+    
+    const wordCount = sanitized.split(/\s+/).filter(Boolean).length;
+    console.log(`✅ Manual weekly analysis: ${wordCount} words`);
+    
+    return res.json({ 
+      success: true, 
+      analysis: sanitized,
+      wordCount: wordCount,
+      trendContext: trendContext
+    });
+    
+  } catch (error) {
+    console.error('Manual weekly analysis failed:', error);
+    
+    if (error.message.includes('OpenAI')) {
+      return res.status(500).json({ error: 'OpenAI API error: ' + error.message });
+    } else if (error.message.includes('fetch')) {
+      return res.status(500).json({ error: 'Network error connecting to OpenAI' });
+    } else {
+      return res.status(500).json({ error: 'Analysis generation failed: ' + error.message });
+    }
+  }
+}
+
+async function getWeeklyTrendContext() {
+  try {
+    const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data: trendData, error } = await supabase
+      .from('news_trends')
+      .select('*')
+      .gte('published_date', weekStart)
+      .order('published_date', { ascending: false });
+
+    if (error || !trendData || trendData.length === 0) {
+      return '';
+    }
+
+    // Simple keyword frequency analysis
+    const keywordCounts = {};
+    trendData.forEach(item => {
+      if (item.keywords) {
+        item.keywords.split(',').forEach(keyword => {
+          keyword = keyword.trim();
+          if (keyword) {
+            keywordCounts[keyword] = (keywordCounts[keyword] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    const topKeywords = Object.entries(keywordCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 10)
+      .filter(([keyword, count]) => count >= 3)
+      .map(([keyword, count]) => `${keyword} (${count})`);
+
+    if (topKeywords.length === 0) {
+      return '';
+    }
+
+    return `This week's trending topics: ${topKeywords.join(', ')}`;
+  } catch (error) {
+    console.warn('⚠️ Failed to get trend context:', error.message);
+    return '';
   }
 }
 
 async function updateAnalysis(req, res) {
   const { articleId, newAnalysis } = req.body;
   
-  // Validate input
   if (!articleId) {
     return res.status(400).json({ error: 'articleId is required' });
   }
@@ -188,7 +232,6 @@ async function updateAnalysis(req, res) {
   const trimmedAnalysis = newAnalysis.trim();
   const wordCount = trimmedAnalysis.split(/\s+/).filter(Boolean).length;
   
-  // Validate word count
   if (wordCount < 10) {
     return res.status(400).json({ error: 'Analysis must be at least 10 words' });
   }
@@ -198,7 +241,6 @@ async function updateAnalysis(req, res) {
   }
   
   try {
-    // First check if article exists
     const { data: existingArticle, error: checkError } = await supabase
       .from('analyzed_articles')
       .select('id, title')
@@ -209,7 +251,6 @@ async function updateAnalysis(req, res) {
       return res.status(404).json({ error: 'Article not found' });
     }
 
-    // Update the analysis
     const { error: updateError } = await supabase
       .from('analyzed_articles')
       .update({
@@ -224,25 +265,23 @@ async function updateAnalysis(req, res) {
       throw updateError;
     }
 
-    console.log(`✅ Updated analysis for article ${existingArticle.title.substring(0, 30)}... (${wordCount} words)`);
+    console.log(`✅ Updated weekly analysis for article ${existingArticle.title.substring(0, 30)}... (${wordCount} words)`);
 
     return res.json({ 
       success: true, 
       wordCount,
       articleId,
-      message: 'Analysis updated successfully'
+      message: 'Weekly analysis updated successfully'
     });
   } catch (error) {
-    console.error('Failed to update analysis:', error);
+    console.error('Failed to update weekly analysis:', error);
     return res.status(500).json({ error: 'Database error: ' + error.message });
   }
 }
 
-// FIXED: Status update with proper validation and 6-article limit enforcement
 async function updateStatus(req, res) {
   const { articleId, status } = req.body;
   
-  // Validate input
   if (!articleId) {
     return res.status(400).json({ error: 'articleId is required' });
   }
@@ -257,7 +296,6 @@ async function updateStatus(req, res) {
   }
 
   try {
-    // First check if article exists
     const { data: existingArticle, error: checkError } = await supabase
       .from('analyzed_articles')
       .select('id, title, article_status, edition_id')
@@ -268,7 +306,7 @@ async function updateStatus(req, res) {
       return res.status(404).json({ error: 'Article not found' });
     }
 
-    // If promoting to published, check current published count for this edition
+    // For weekly: enforce 10-article limit for published articles
     if (status === 'published' && existingArticle.article_status !== 'published') {
       const { data: publishedArticles, error: countError } = await supabase
         .from('analyzed_articles')
@@ -280,15 +318,14 @@ async function updateStatus(req, res) {
         throw countError;
       }
       
-      if (publishedArticles && publishedArticles.length >= 6) {
+      if (publishedArticles && publishedArticles.length >= 10) {
         return res.status(400).json({ 
-          error: 'Cannot publish more than 6 articles per edition. Demote another article first.',
+          error: 'Cannot publish more than 10 articles per weekly edition. Demote another article first.',
           currentPublished: publishedArticles.length
         });
       }
     }
 
-    // Update the status
     const { error: updateError } = await supabase
       .from('analyzed_articles')
       .update({
@@ -301,17 +338,17 @@ async function updateStatus(req, res) {
       throw updateError;
     }
 
-    console.log(`✅ Updated article ${existingArticle.title.substring(0, 30)}... status to: ${status}`);
+    console.log(`✅ Updated weekly article ${existingArticle.title.substring(0, 30)}... status to: ${status}`);
 
     return res.json({ 
       success: true, 
       articleId,
       status,
       previousStatus: existingArticle.article_status,
-      message: `Article status updated to ${status}`
+      message: `Weekly article status updated to ${status}`
     });
   } catch (error) {
-    console.error('Failed to update status:', error);
+    console.error('Failed to update weekly article status:', error);
     return res.status(500).json({ error: 'Database error: ' + error.message });
   }
 }
@@ -324,7 +361,6 @@ async function removeArticle(req, res) {
   }
 
   try {
-    // First check if article exists and get its info
     const { data: existingArticle, error: checkError } = await supabase
       .from('analyzed_articles')
       .select('id, title')
@@ -335,7 +371,6 @@ async function removeArticle(req, res) {
       return res.status(404).json({ error: 'Article not found' });
     }
 
-    // Delete the article
     const { error: deleteError } = await supabase
       .from('analyzed_articles')
       .delete()
@@ -345,43 +380,42 @@ async function removeArticle(req, res) {
       throw deleteError;
     }
 
-    console.log(`✅ Removed article: ${existingArticle.title.substring(0, 50)}...`);
+    console.log(`✅ Removed weekly article: ${existingArticle.title.substring(0, 50)}...`);
 
     return res.json({ 
       success: true,
       articleId,
-      message: 'Article removed successfully'
+      message: 'Weekly article removed successfully'
     });
   } catch (error) {
-    console.error('Failed to remove article:', error);
+    console.error('Failed to remove weekly article:', error);
     return res.status(500).json({ error: 'Database error: ' + error.message });
   }
 }
 
-// FIXED: Simplified regenerate that uses existing workflow without breaking it
-async function regenerateToday(req, res) {
+async function regenerateWeekly(req, res) {
   const startTime = Date.now();
-  const today = new Date().toISOString().split('T')[0];
+  const weekStart = getWeekStart();
   
   try {
-    console.log('🔄 Admin regenerate started');
+    console.log('🔄 Admin weekly regenerate started');
     
-    // Check for existing edition - let runAutomatedWorkflow handle deletion if needed
+    // Check for existing edition
     const { data: existing } = await supabase
-      .from('daily_editions')
+      .from('weekly_editions')
       .select('id')
-      .eq('edition_date', today)
+      .eq('week_start_date', weekStart)
       .single();
 
     if (existing) {
-      console.log('📰 Found existing edition, workflow will handle it');
+      console.log('📰 Found existing weekly edition, workflow will handle it');
     }
 
-    // Run the existing automated workflow - it handles existing editions
-    const edition = await runAutomatedWorkflow();
+    // Run the weekly automated workflow
+    const edition = await runAutomatedWeeklyWorkflow();
     
     if (!edition || !edition.id) {
-      throw new Error('Workflow failed to return valid edition');
+      throw new Error('Weekly workflow failed to return valid edition');
     }
 
     const duration = Math.floor((Date.now() - startTime) / 1000);
@@ -398,14 +432,15 @@ async function regenerateToday(req, res) {
       !a.analysis_text.includes('depends on implementation')
     ).length || 0;
 
-    console.log(`✅ Regenerate completed in ${duration}s - ${articles?.length || 0} articles, ${analyzedCount} analyzed`);
+    console.log(`✅ Weekly regenerate completed in ${duration}s - ${articles?.length || 0} articles, ${analyzedCount} analyzed`);
 
     return res.json({
       success: true,
       edition: {
         id: edition.id,
         issue_number: edition.issue_number,
-        date: edition.edition_date,
+        week_start_date: edition.week_start_date,
+        week_end_date: edition.week_end_date,
         status: edition.status
       },
       processing: {
@@ -418,28 +453,28 @@ async function regenerateToday(req, res) {
     });
   } catch (error) {
     const duration = Math.floor((Date.now() - startTime) / 1000);
-    console.error('❌ Regenerate failed after', duration, 'seconds:', error);
+    console.error('❌ Weekly regenerate failed after', duration, 'seconds:', error);
     
     return res.status(500).json({ 
       success: false,
       error: error.message,
       processing: {
         duration_seconds: duration,
-        failed_at: 'workflow_execution'
+        failed_at: 'weekly_workflow_execution'
       },
       timestamp: new Date().toISOString()
     });
   }
 }
 
-async function clearToday(req, res) {
-  const today = new Date().toISOString().split('T')[0];
+async function clearWeek(req, res) {
+  const weekStart = getWeekStart();
   
   try {
     const { data: edition, error: fetchError } = await supabase
-      .from('daily_editions')
+      .from('weekly_editions')
       .select('id')
-      .eq('edition_date', today)
+      .eq('week_start_date', weekStart)
       .single();
 
     if (fetchError && fetchError.code !== 'PGRST116') {
@@ -450,27 +485,26 @@ async function clearToday(req, res) {
       // Delete articles first (foreign key constraint)
       await supabase.from('analyzed_articles').delete().eq('edition_id', edition.id);
       // Then delete edition
-      await supabase.from('daily_editions').delete().eq('id', edition.id);
-      console.log(`✅ Cleared edition ${edition.id} for ${today}`);
+      await supabase.from('weekly_editions').delete().eq('id', edition.id);
+      console.log(`✅ Cleared weekly edition ${edition.id} for week ${weekStart}`);
     } else {
-      console.log(`ℹ️ No edition found for ${today} to clear`);
+      console.log(`ℹ️ No weekly edition found for ${weekStart} to clear`);
     }
 
     return res.json({ 
       success: true, 
-      message: `Today's edition cleared successfully`,
-      date: today
+      message: `This week's edition cleared successfully`,
+      week_start: weekStart
     });
   } catch (error) {
-    console.error('❌ Failed to clear edition:', error);
-    return res.status(500).json({ error: 'Failed to clear edition: ' + error.message });
+    console.error('❌ Failed to clear weekly edition:', error);
+    return res.status(500).json({ error: 'Failed to clear weekly edition: ' + error.message });
   }
 }
 
 async function reorderArticle(req, res) {
   const { articleId, direction } = req.body;
   
-  // Validate input
   if (!articleId) {
     return res.status(400).json({ error: 'articleId is required' });
   }
@@ -480,7 +514,6 @@ async function reorderArticle(req, res) {
   }
 
   try {
-    // Get the current article
     const { data: currentArticle, error: fetchError } = await supabase
       .from('analyzed_articles')
       .select('id, title, article_order, edition_id')
@@ -494,7 +527,6 @@ async function reorderArticle(req, res) {
     const currentOrder = currentArticle.article_order;
     const newOrder = direction === 'up' ? currentOrder - 1 : currentOrder + 1;
 
-    // Find the article to swap with
     const { data: swapArticle, error: swapError } = await supabase
       .from('analyzed_articles')
       .select('id, title, article_order')
@@ -508,8 +540,7 @@ async function reorderArticle(req, res) {
       });
     }
 
-    // Perform the swap using a transaction-like approach
-    // First, temporarily set one to a high number to avoid constraint conflicts
+    // Perform the swap
     const tempOrder = 9999;
     
     await supabase
@@ -527,11 +558,11 @@ async function reorderArticle(req, res) {
       .update({ article_order: newOrder })
       .eq('id', currentArticle.id);
 
-    console.log(`✅ Moved "${currentArticle.title.substring(0, 30)}..." ${direction} (${currentOrder} → ${newOrder})`);
+    console.log(`✅ Moved weekly article "${currentArticle.title.substring(0, 30)}..." ${direction} (${currentOrder} → ${newOrder})`);
 
     return res.json({
       success: true,
-      message: `Article moved ${direction} successfully`,
+      message: `Weekly article moved ${direction} successfully`,
       articleId: articleId,
       oldOrder: currentOrder,
       newOrder: newOrder,
@@ -539,9 +570,86 @@ async function reorderArticle(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ Reorder article failed:', error);
+    console.error('❌ Reorder weekly article failed:', error);
     return res.status(500).json({ 
-      error: 'Failed to reorder article: ' + error.message 
+      error: 'Failed to reorder weekly article: ' + error.message 
     });
   }
+}
+
+async function getTrends(req, res) {
+  try {
+    const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data: trendData, error } = await supabase
+      .from('news_trends')
+      .select('*')
+      .gte('published_date', weekStart)
+      .order('published_date', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      throw error;
+    }
+
+    // Analyze trends
+    const keywordCounts = {};
+    const sourceCounts = {};
+    const dailyCounts = {};
+
+    trendData?.forEach(item => {
+      // Keywords
+      if (item.keywords) {
+        item.keywords.split(',').forEach(keyword => {
+          keyword = keyword.trim();
+          if (keyword) {
+            keywordCounts[keyword] = (keywordCounts[keyword] || 0) + 1;
+          }
+        });
+      }
+
+      // Sources
+      if (item.source) {
+        sourceCounts[item.source] = (sourceCounts[item.source] || 0) + 1;
+      }
+
+      // Daily counts
+      const day = new Date(item.published_date).toISOString().split('T')[0];
+      dailyCounts[day] = (dailyCounts[day] || 0) + 1;
+    });
+
+    const topKeywords = Object.entries(keywordCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 20)
+      .map(([keyword, count]) => ({ keyword, count }));
+
+    const topSources = Object.entries(sourceCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 10)
+      .map(([source, count]) => ({ source, count }));
+
+    return res.json({
+      success: true,
+      trends: {
+        total_articles: trendData?.length || 0,
+        top_keywords: topKeywords,
+        top_sources: topSources,
+        daily_counts: dailyCounts,
+        week_start: weekStart
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Failed to get trends:', error);
+    return res.status(500).json({ error: 'Failed to get trends: ' + error.message });
+  }
+}
+
+function getWeekStart() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  const monday = new Date(now.setDate(diff));
+  return monday.toISOString().split('T')[0];
 }
