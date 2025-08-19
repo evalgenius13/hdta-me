@@ -1,4 +1,4 @@
-// api/fetch-news.js - UPDATED for weekly operations
+// api/fetch-news.js - FIXED for weekly operations (PostgREST embedding issue resolved)
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -16,7 +16,7 @@ function getWeekStart() {
   const now = new Date();
   const day = now.getDay();
   const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
-  const monday = new Date(now.setDate(diff));
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
   return monday.toISOString().split('T')[0];
 }
 
@@ -41,10 +41,10 @@ export default async function handler(req, res) {
     const isPublished = (s) => (s || '').toString().trim().toLowerCase() === 'published';
     const hasText = (s) => typeof s === 'string' && s.trim().length > 0;
 
-    // STEP 1: Get this week's edition
+    // STEP 1: Get this week's edition (FIXED - removed PostgREST embedding)
     let { data: edition, error: edErr } = await supabase
       .from('weekly_editions')
-      .select('*')
+      .select('id, issue_number, status, week_start_date, week_end_date, featured_headline')
       .eq('week_start_date', thisWeek)
       .single();
 
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       
       const { data: latestEdition, error: latestErr } = await supabase
         .from('weekly_editions')
-        .select('*')
+        .select('id, issue_number, status, week_start_date, week_end_date, featured_headline')
         .in('status', ['published', 'sent'])
         .order('week_start_date', { ascending: false })
         .limit(1)
@@ -73,10 +73,10 @@ export default async function handler(req, res) {
       console.log(`✅ Using latest weekly edition: ${edition.week_start_date} to ${edition.week_end_date} (Issue #${edition.issue_number})`);
     }
 
-    // STEP 3: Get articles for this edition from database
+    // STEP 3: Get articles for this edition from database (separate query - no embedding)
     const { data: rows, error: artErr } = await supabase
       .from('analyzed_articles')
-      .select('*')
+      .select('id, title, description, url, image_url, source_name, published_at, analysis_text, article_status, article_order, article_score')
       .eq('edition_id', edition.id)
       .order('article_order', { ascending: true });
 
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
       
       const { data: latestEdition, error: latestErr } = await supabase
         .from('weekly_editions')
-        .select('*')
+        .select('id, issue_number, status, week_start_date, week_end_date, featured_headline')
         .in('status', ['published', 'sent'])
         .order('week_start_date', { ascending: false })
         .limit(1)
@@ -125,7 +125,7 @@ export default async function handler(req, res) {
       if (!latestErr && latestEdition) {
         const { data: rows2, error: artErr2 } = await supabase
           .from('analyzed_articles')
-          .select('*')
+          .select('id, title, description, url, image_url, source_name, published_at, analysis_text, article_status, article_order')
           .eq('edition_id', latestEdition.id)
           .order('article_order', { ascending: true });
 
