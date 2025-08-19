@@ -1,13 +1,13 @@
 {
   "functions": {
-    "api/cron/automated-daily.js": {
+    "api/cron/automated-weekly.js": {
       "maxDuration": 300
     }
   },
   "crons": [
     {
-      "path": "/api/cron/automated-daily",
-      "schedule": "0 10 * * *"
+      "path": "/api/cron/automated-weekly",
+      "schedule": "0 10 * * 1"
     }
   ]
 }
