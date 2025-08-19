@@ -1,4 +1,4 @@
-// api/cron/automated-weekly-workflow.js - Weekly news curation with trend analysis
+// api/cron/automated-weekly-workflow.js - OPTIMIZED weekly workflow
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -266,7 +266,7 @@ class AutomatedWeeklyPublisher {
     return { primary: primaryArticles, secondary: secondaryArticles };
   }
 
-  // NEW: Store trend data from fetched articles
+  // Store trend data from fetched articles
   async storeTrendData(articles) {
     if (!articles || articles.length === 0) {
       console.log('📊 No articles to store for trends');
@@ -310,7 +310,7 @@ class AutomatedWeeklyPublisher {
     }
   }
 
-  // NEW: Simple keyword extraction
+  // Simple keyword extraction
   extractKeywords(text) {
     if (!text) return '';
     
@@ -326,7 +326,7 @@ class AutomatedWeeklyPublisher {
     return words.join(',');
   }
 
-  // NEW: Generate weekly trend context
+  // Generate weekly trend context
   async generateWeeklyTrends() {
     try {
       const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -801,7 +801,6 @@ class AutomatedWeeklyPublisher {
 
     console.log(`✅ Created weekly edition #${issue} with ${articles.length} articles`);
     console.log(`📊 Weekly breakdown: ${articles.filter(a => a.status === 'published').length} published, ${articles.filter(a => a.status === 'queue').length} queued`);
-    console.log(`📡 API requests used: ${this.apiRequestCount}`);
     return edition;
   }
 
