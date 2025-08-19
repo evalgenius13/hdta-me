@@ -1,37 +1,38 @@
-// api/cron/automated-daily-workflow.js - FIXED: GPT-4.1 compatible, News API primary, GNews fallback, inline filtering
+// api/cron/automated-weekly-workflow.js - Weekly news curation with trend analysis
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-class AutomatedPublisher {
+class AutomatedWeeklyPublisher {
   constructor() {
-    this.maxArticles = 26;
-    this.numAnalyzed = 6;
+    this.maxArticles = 75; // Larger pool for weekly curation
+    this.numAnalyzed = 10; // Final curated selection
     this.maxRetries = 3;
     this.retryDelay = 1500;
     this.startTime = Date.now();
+    this.apiRequestCount = 0; // Track API usage
   }
 
   async runFullWorkflow() {
-    console.log('🚀 Starting daily workflow...');
+    console.log('🚀 Starting weekly workflow...');
     const edition = await this.curateAndAnalyze();
     await this.publishToWebsite(edition.id);
     await this.markNewsletterSent(edition.id);
-    console.log('✅ Daily workflow completed');
+    console.log('✅ Weekly workflow completed');
     return edition;
   }
 
   async curateAndAnalyze() {
-    const today = new Date().toISOString().split('T')[0];
-    const existing = await this.findEdition(today);
+    const weekStart = this.getWeekStart();
+    const existing = await this.findEdition(weekStart);
     if (existing) {
-      console.log(`📰 Edition already exists for ${today}, returning existing`);
+      console.log(`📰 Edition already exists for week ${weekStart}, returning existing`);
       return existing;
     }
 
-    // Fetch articles with News API primary, GNews fallback
-    const articles = await this.fetchCombinedNewsWithFallback();
-    console.log('🔵 fetchCombinedNews returned:', articles.length, 'articles');
+    // Fetch articles for the past week
+    const articles = await this.fetchWeeklyNewsWithTrends();
+    console.log('🔵 fetchWeeklyNews returned:', articles.length, 'articles');
 
     if (articles.length === 0) {
       throw new Error('No articles could be fetched from any source');
@@ -40,19 +41,29 @@ class AutomatedPublisher {
     const selected = this.selectBest(articles);
     console.log('🟡 selectBest after filtering:', selected.length, 'articles');
 
-    const analyzed = await this.analyzeAll(selected);
-    const edition = await this.createEdition(today, analyzed, 'published');
+    // Generate trend context for this week
+    const trendContext = await this.generateWeeklyTrends();
+    
+    const analyzed = await this.analyzeAllWithTrends(selected, trendContext);
+    const edition = await this.createEdition(weekStart, analyzed, 'published');
     return edition;
   }
 
-  // UPDATED: News API primary with GNews fallback
-  async fetchCombinedNewsWithFallback() {
-    // Environment variable configuration with News API defaults
-    const provider = process.env.NEWS_API_PROVIDER || 'newsapi'; // newsapi or gnews
+  getWeekStart() {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+    const monday = new Date(now.getFullYear(), now.getMonth(), diff);
+    return monday.toISOString().split('T')[0];
+  }
+
+  // Enhanced news fetching for weekly timeframe
+  async fetchWeeklyNewsWithTrends() {
+    const provider = process.env.NEWS_API_PROVIDER || 'newsapi';
     const newsApiKey = process.env.NEWS_API_KEY;
     const gNewsApiKey = process.env.GNEWS_API_KEY;
     
-    console.log('📡 News provider configuration:', { 
+    console.log('📡 Weekly news provider configuration:', { 
       primary: provider,
       hasNewsAPI: !!newsApiKey,
       hasGNews: !!gNewsApiKey 
@@ -62,63 +73,335 @@ class AutomatedPublisher {
     let secondaryArticles = [];
     let usedProvider = 'none';
 
-    // TRY 1: News API (primary)
+    // Try News API first (with 7-day window)
     if (provider === 'newsapi' && newsApiKey) {
       try {
-        const newsApiResult = await this.fetchFromNewsAPI();
+        const newsApiResult = await this.fetchWeeklyFromNewsAPI();
         primaryArticles = newsApiResult.primary || [];
         secondaryArticles = newsApiResult.secondary || [];
         usedProvider = 'newsapi';
-        console.log(`✅ News API success: ${primaryArticles.length} + ${secondaryArticles.length} articles`);
+        console.log(`✅ News API weekly success: ${primaryArticles.length} + ${secondaryArticles.length} articles`);
       } catch (error) {
         console.warn('⚠️ News API failed:', error.message);
       }
     }
 
-    // FALLBACK: GNews API
+    // Fallback to GNews
     if (primaryArticles.length === 0 && secondaryArticles.length === 0 && gNewsApiKey) {
       console.log('🔄 Falling back to GNews API...');
       try {
-        const gNewsResult = await this.fetchFromGNews();
+        const gNewsResult = await this.fetchWeeklyFromGNews();
         primaryArticles = gNewsResult.primary || [];
         secondaryArticles = gNewsResult.secondary || [];
         usedProvider = 'gnews';
-        console.log(`✅ GNews fallback success: ${primaryArticles.length} + ${secondaryArticles.length} articles`);
+        console.log(`✅ GNews weekly fallback success: ${primaryArticles.length} + ${secondaryArticles.length} articles`);
       } catch (error) {
         console.error('❌ GNews fallback also failed:', error.message);
       }
     }
 
-    // Combine and process results
     let allArticles = [...primaryArticles, ...secondaryArticles];
-    console.log(`📊 Combined from ${usedProvider}: ${allArticles.length} articles`);
+    console.log(`📊 Combined weekly articles from ${usedProvider}: ${allArticles.length}`);
 
-    // FIXED: Inline content filtering with policy scoring
+    // Store trend data from fetched articles
+    await this.storeTrendData(allArticles);
+
+    // Apply filtering (same as before but for weekly volume)
+    allArticles = this.filterAndScoreArticles(allArticles);
     
+    return allArticles;
+  }
+
+  async fetchWeeklyFromNewsAPI() {
+    const API_KEY = process.env.NEWS_API_KEY;
+    const country = process.env.NEWS_API_COUNTRY || 'us';
+    const language = process.env.NEWS_API_LANGUAGE || 'en';
+    const maxPrimary = process.env.NEWS_API_MAX_PRIMARY || '30';
+    const maxSecondary = process.env.NEWS_API_MAX_SECONDARY || '50';
+    const delayMs = parseInt(process.env.NEWS_API_DELAY_MS || '1000');
+    
+    // 7-day window for weekly collection
+    const fromISO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    
+    const includeQuery = process.env.NEWS_INCLUDE_QUERY || 
+      'congress OR senate OR "house passes" OR "executive order" OR "supreme court" OR regulation';
+    const sourcesWhitelist = process.env.NEWS_SOURCES_WHITELIST;
+    const domainsWhitelist = process.env.NEWS_DOMAINS_WHITELIST;
+    
+    console.log('📰 News API weekly config:', { country, language, maxPrimary, maxSecondary, fromDate: fromISO });
+
+    let primaryArticles = [];
+    let secondaryArticles = [];
+
+    // Fetch 1: Top headlines from past week
+    try {
+      console.log(`📰 Fetching ${maxPrimary} headlines from past week...`);
+      
+      const params = new URLSearchParams({
+        country: country,
+        pageSize: maxPrimary,
+        from: fromISO
+      });
+
+      if (sourcesWhitelist) {
+        params.delete('country');
+        params.set('sources', sourcesWhitelist);
+      }
+      
+      const primaryUrl = `https://newsapi.org/v2/top-headlines?${params.toString()}`;
+      
+      const primaryResponse = await fetch(primaryUrl, {
+        headers: { 'X-Api-Key': API_KEY }
+      });
+      this.apiRequestCount++;
+      
+      if (primaryResponse.ok) {
+        const primaryData = await primaryResponse.json();
+        
+        if (primaryData.status === 'ok') {
+          primaryArticles = (primaryData.articles || []).map(article => this.normalizeNewsAPIArticle(article));
+          console.log(`✅ News API weekly headlines: ${primaryArticles.length} articles`);
+        } else {
+          throw new Error(`News API error: ${primaryData.message || 'Unknown error'}`);
+        }
+      } else {
+        throw new Error(`News API HTTP ${primaryResponse.status}: ${primaryResponse.statusText}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ News API headlines failed: ${error.message}`);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+
+    // Fetch 2: Policy-targeted search for the week
+    try {
+      console.log(`🔍 Searching weekly policy content...`);
+      
+      const params = new URLSearchParams({
+        q: includeQuery,
+        language: language,
+        pageSize: maxSecondary,
+        sortBy: 'publishedAt',
+        from: fromISO
+      });
+      
+      if (domainsWhitelist) {
+        const trimmedDomains = domainsWhitelist.split(',').slice(0, 30).join(',');
+        params.set('domains', trimmedDomains);
+      }
+      
+      const searchUrl = `https://newsapi.org/v2/everything?${params.toString()}`;
+      
+      const searchResponse = await fetch(searchUrl, {
+        headers: { 'X-Api-Key': API_KEY }
+      });
+      this.apiRequestCount++;
+      
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        
+        if (searchData.status === 'ok') {
+          secondaryArticles = (searchData.articles || []).map(article => this.normalizeNewsAPIArticle(article));
+          console.log(`✅ News API weekly policy search: ${secondaryArticles.length} articles`);
+        } else {
+          throw new Error(`News API search error: ${searchData.message || 'Unknown error'}`);
+        }
+      } else {
+        throw new Error(`News API search HTTP ${searchResponse.status}: ${searchResponse.statusText}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ News API weekly policy search failed: ${error.message}`);
+    }
+
+    return { primary: primaryArticles, secondary: secondaryArticles };
+  }
+
+  async fetchWeeklyFromGNews() {
+    const API_KEY = process.env.GNEWS_API_KEY;
+    const primaryCategory = process.env.NEWS_API_PRIMARY_CATEGORY || 'general';
+    const secondaryQuery = process.env.NEWS_API_SECONDARY_QUERY || 
+      'congress OR senate OR biden OR trump OR policy OR federal OR government OR legislation';
+    const maxPrimary = process.env.NEWS_API_MAX_PRIMARY || '30';
+    const maxSecondary = process.env.NEWS_API_MAX_SECONDARY || '50';
+    const country = process.env.NEWS_API_COUNTRY || 'us';
+    const language = process.env.NEWS_API_LANGUAGE || 'en';
+    const delayMs = parseInt(process.env.NEWS_API_DELAY_MS || '1000');
+
+    console.log('📰 GNews weekly config:', { primaryCategory, maxPrimary, maxSecondary });
+
+    let primaryArticles = [];
+    let secondaryArticles = [];
+
+    // Fetch primary category headlines from past week
+    try {
+      const primaryUrl = primaryCategory === 'general' 
+        ? `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxPrimary}&token=${API_KEY}`
+        : `https://gnews.io/api/v4/top-headlines?category=${primaryCategory}&lang=${language}&country=${country}&max=${maxPrimary}&token=${API_KEY}`;
+      
+      const primaryResponse = await fetch(primaryUrl);
+      if (primaryResponse.ok) {
+        const primaryData = await primaryResponse.json();
+        primaryArticles = (primaryData.articles || []).map(article => this.normalizeGNewsArticle(article));
+        console.log(`✅ GNews weekly ${primaryCategory}: ${primaryArticles.length} articles`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ GNews weekly ${primaryCategory} failed: ${error.message}`);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+
+    // Fetch secondary content
+    try {
+      const searchUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(secondaryQuery)}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
+      const searchResponse = await fetch(searchUrl);
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        secondaryArticles = (searchData.articles || []).map(article => this.normalizeGNewsArticle(article));
+        console.log(`✅ GNews weekly search: ${secondaryArticles.length} articles`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ GNews weekly search failed: ${error.message}`);
+    }
+
+    return { primary: primaryArticles, secondary: secondaryArticles };
+  }
+
+  // NEW: Store trend data from fetched articles
+  async storeTrendData(articles) {
+    if (!articles || articles.length === 0) {
+      console.log('📊 No articles to store for trends');
+      return;
+    }
+
+    try {
+      const trendData = articles.map(article => ({
+        headline: article.title || '',
+        description: article.description || '',
+        source: article.source?.name || 'Unknown',
+        published_date: article.publishedAt || new Date().toISOString(),
+        keywords: this.extractKeywords(article.title + ' ' + (article.description || ''))
+      })).filter(item => item.headline); // Only store items with headlines
+
+      if (trendData.length === 0) {
+        console.log('📊 No valid trend data to store');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('news_trends')
+        .insert(trendData);
+
+      if (error) {
+        console.warn('⚠️ Failed to store trend data:', error.message);
+      } else {
+        console.log(`📊 Stored ${trendData.length} trend data points`);
+      }
+
+      // Cleanup old trend data (keep 14 days)
+      const cutoffDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+      await supabase
+        .from('news_trends')
+        .delete()
+        .lt('published_date', cutoffDate);
+
+    } catch (error) {
+      console.warn('⚠️ Trend data storage failed:', error.message);
+      // Don't throw - trend analysis is optional
+    }
+  }
+
+  // NEW: Simple keyword extraction
+  extractKeywords(text) {
+    if (!text) return '';
+    
+    // Simple keyword extraction - remove common words and get important terms
+    const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'will', 'would', 'could', 'should']);
+    
+    const words = text.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 3 && !commonWords.has(word))
+      .slice(0, 10); // Top 10 keywords
+    
+    return words.join(',');
+  }
+
+  // NEW: Generate weekly trend context
+  async generateWeeklyTrends() {
+    try {
+      const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      
+      const { data: trendData, error } = await supabase
+        .from('news_trends')
+        .select('*')
+        .gte('published_date', weekStart)
+        .order('published_date', { ascending: false });
+
+      if (error) {
+        console.warn('⚠️ Failed to fetch trend data:', error.message);
+        return '';
+      }
+
+      if (!trendData || trendData.length === 0) {
+        return '';
+      }
+
+      // Simple trend analysis - count keyword frequency
+      const keywordCounts = {};
+      trendData.forEach(item => {
+        if (item.keywords) {
+          item.keywords.split(',').forEach(keyword => {
+            keyword = keyword.trim();
+            if (keyword) {
+              keywordCounts[keyword] = (keywordCounts[keyword] || 0) + 1;
+            }
+          });
+        }
+      });
+
+      // Get top trending keywords
+      const topKeywords = Object.entries(keywordCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10)
+        .filter(([keyword, count]) => count >= 3) // Must appear at least 3 times
+        .map(([keyword, count]) => `${keyword} (${count})`);
+
+      if (topKeywords.length === 0) {
+        return '';
+      }
+
+      const trendContext = `This week's trending topics: ${topKeywords.join(', ')}`;
+      console.log('📊 Generated trend context:', trendContext);
+      
+      return trendContext;
+    } catch (error) {
+      console.warn('⚠️ Trend analysis failed:', error.message);
+      return '';
+    }
+  }
+
+  filterAndScoreArticles(allArticles) {
     // Filter invalid articles
     allArticles = allArticles.filter(article => 
       article?.title && 
       article?.description && 
       article?.url &&
-      !article.title?.includes('[Removed]') // News API removed articles
+      !article.title?.includes('[Removed]')
     );
     
     console.log(`📊 Valid articles after basic filtering: ${allArticles.length}`);
 
-    // Get exclude keywords only
+    // Apply exclude keywords
     const excludeKeywords = process.env.NEWS_EXCLUDE_KEYWORDS 
       ? process.env.NEWS_EXCLUDE_KEYWORDS.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
       : [];
     
-    console.log('🔍 Applying exclude filters and policy scoring:', { excludeCount: excludeKeywords.length });
-
     if (excludeKeywords.length > 0) {
       const beforeFilter = allArticles.length;
       
       allArticles = allArticles.filter(article => {
         const text = `${article.title} ${article.description || ''}`.toLowerCase();
         
-        // Exclude articles with banned keywords
         for (const keyword of excludeKeywords) {
           if (text.includes(keyword)) {
             console.log(`🚫 Excluded: ${article.title.substring(0, 50)}... (contains "${keyword}")`);
@@ -136,180 +419,24 @@ class AutomatedPublisher {
     allArticles = allArticles
       .map(a => ({ ...a, policyScore: this.policyScore(a) }))
       .sort((a, b) => b.policyScore - a.policyScore)
-      .slice(0, this.maxArticles); // Keep only what we'll actually use (26 articles)
+      .slice(0, this.maxArticles);
 
-    console.log(`📊 After policy scoring: ${allArticles.length} articles (top policy-relevant)`);
+    console.log(`📊 After weekly policy scoring: ${allArticles.length} articles`);
     
     return allArticles;
   }
 
-  // NEW: News API implementation with smart policy filtering
-  async fetchFromNewsAPI() {
-    const API_KEY = process.env.NEWS_API_KEY;
-    const country = process.env.NEWS_API_COUNTRY || 'us';
-    const language = process.env.NEWS_API_LANGUAGE || 'en';
-    const maxPrimary = process.env.NEWS_API_MAX_PRIMARY || '20';
-    const maxSecondary = process.env.NEWS_API_MAX_SECONDARY || '30';
-    const delayMs = parseInt(process.env.NEWS_API_DELAY_MS || '1000');
-    
-    // Smart policy filtering
-    const includeQuery = process.env.NEWS_INCLUDE_QUERY || 
-      'congress OR senate OR "house passes" OR "executive order" OR "supreme court" OR regulation';
-    const sourcesWhitelist = process.env.NEWS_SOURCES_WHITELIST;
-    const domainsWhitelist = process.env.NEWS_DOMAINS_WHITELIST;
-    
-    console.log('📰 News API config with policy filtering:', { country, language, maxPrimary, maxSecondary });
-
-    let primaryArticles = [];
-    let secondaryArticles = [];
-
-    // Fetch 1: Top headlines from quality sources
-    try {
-      console.log(`📰 Fetching ${maxPrimary} headlines from quality sources...`);
-      
-      const primaryUrl = sourcesWhitelist
-        ? `https://newsapi.org/v2/top-headlines?sources=${encodeURIComponent(sourcesWhitelist)}&pageSize=${maxPrimary}`
-        : `https://newsapi.org/v2/top-headlines?country=${country}&pageSize=${maxPrimary}`;
-      
-      const primaryResponse = await fetch(primaryUrl, {
-        headers: { 'X-Api-Key': API_KEY }
-      });
-      if (primaryResponse.ok) {
-        const primaryData = await primaryResponse.json();
-        
-        if (primaryData.status === 'ok') {
-          primaryArticles = (primaryData.articles || []).map(article => this.normalizeNewsAPIArticle(article));
-          console.log(`✅ News API quality headlines: ${primaryArticles.length} articles`);
-        } else {
-          throw new Error(`News API error: ${primaryData.message || 'Unknown error'}`);
-        }
-      } else {
-        throw new Error(`News API HTTP ${primaryResponse.status}: ${primaryResponse.statusText}`);
-      }
-    } catch (error) {
-      console.warn(`⚠️ News API headlines failed: ${error.message}`);
-    }
-
-    // Small delay between API calls
-    await new Promise(resolve => setTimeout(resolve, delayMs));
-
-    // Fetch 2: Policy-targeted search with freshness window
-    try {
-      console.log(`🔍 Searching for policy content with targeted query...`);
-      
-      // Add 36-hour freshness window
-      const fromISO = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
-      
-      const params = new URLSearchParams({
-        q: includeQuery,
-        language: language,
-        pageSize: maxSecondary,
-        sortBy: 'publishedAt',
-        from: fromISO
-      });
-      
-      // Trim domains list to avoid URL length limits
-      if (domainsWhitelist) {
-        const trimmedDomains = domainsWhitelist.split(',').slice(0, 30).join(',');
-        params.set('domains', trimmedDomains);
-      }
-      
-      const searchUrl = `https://newsapi.org/v2/everything?${params.toString()}`;
-      
-      const searchResponse = await fetch(searchUrl, {
-        headers: { 'X-Api-Key': API_KEY }
-      });
-      
-      if (searchResponse.ok) {
-        const searchData = await searchResponse.json();
-        
-        if (searchData.status === 'ok') {
-          secondaryArticles = (searchData.articles || []).map(article => this.normalizeNewsAPIArticle(article));
-          console.log(`✅ News API policy search: ${secondaryArticles.length} articles`);
-        } else {
-          throw new Error(`News API search error: ${searchData.message || 'Unknown error'}`);
-        }
-      } else {
-        throw new Error(`News API search HTTP ${searchResponse.status}: ${searchResponse.statusText}`);
-      }
-    } catch (error) {
-      console.warn(`⚠️ News API policy search failed: ${error.message}`);
-    }
-
-    return { primary: primaryArticles, secondary: secondaryArticles };
-  }
-
-  // EXISTING: GNews implementation (kept as fallback)
-  async fetchFromGNews() {
-    const API_KEY = process.env.GNEWS_API_KEY;
-    if (!API_KEY) {
-      throw new Error('GNEWS_API_KEY not found');
-    }
-
-    // Use unified config variables, fall back to GNews-specific ones for backward compatibility
-    const primaryCategory = process.env.NEWS_API_PRIMARY_CATEGORY || process.env.GNEWS_PRIMARY_CATEGORY || 'general';
-    const secondaryQuery = process.env.NEWS_API_SECONDARY_QUERY || process.env.GNEWS_SECONDARY_QUERY || 
-      'congress OR senate OR biden OR trump OR policy OR federal OR government OR legislation';
-    const maxPrimary = process.env.NEWS_API_MAX_PRIMARY || process.env.GNEWS_MAX_PRIMARY || '20';
-    const maxSecondary = process.env.NEWS_API_MAX_SECONDARY || process.env.GNEWS_MAX_SECONDARY || '6';
-    const country = process.env.NEWS_API_COUNTRY || process.env.GNEWS_COUNTRY || 'us';
-    const language = process.env.NEWS_API_LANGUAGE || process.env.GNEWS_LANGUAGE || 'en';
-    const delayMs = parseInt(process.env.NEWS_API_DELAY_MS || process.env.GNEWS_DELAY_MS || '1000');
-
-    console.log('📰 GNews fallback config:', { primaryCategory, maxPrimary, maxSecondary });
-
-    let primaryArticles = [];
-    let secondaryArticles = [];
-
-    // Fetch primary category headlines
-    try {
-      const primaryUrl = primaryCategory === 'general' 
-        ? `https://gnews.io/api/v4/top-headlines?lang=${language}&country=${country}&max=${maxPrimary}&token=${API_KEY}`
-        : `https://gnews.io/api/v4/top-headlines?category=${primaryCategory}&lang=${language}&country=${country}&max=${maxPrimary}&token=${API_KEY}`;
-      
-      const primaryResponse = await fetch(primaryUrl);
-      if (primaryResponse.ok) {
-        const primaryData = await primaryResponse.json();
-        primaryArticles = (primaryData.articles || []).map(article => this.normalizeGNewsArticle(article));
-        console.log(`✅ GNews ${primaryCategory}: ${primaryArticles.length} articles`);
-      }
-    } catch (error) {
-      console.warn(`⚠️ GNews ${primaryCategory} failed: ${error.message}`);
-    }
-
-    await new Promise(resolve => setTimeout(resolve, delayMs));
-
-    // Fetch secondary content (always use search for political content)
-    try {
-      const searchUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(secondaryQuery)}&lang=${language}&country=${country}&max=${maxSecondary}&token=${API_KEY}`;
-      const searchResponse = await fetch(searchUrl);
-      if (searchResponse.ok) {
-        const searchData = await searchResponse.json();
-        secondaryArticles = (searchData.articles || []).map(article => this.normalizeGNewsArticle(article));
-        console.log(`✅ GNews search: ${secondaryArticles.length} articles`);
-      }
-    } catch (error) {
-      console.warn(`⚠️ GNews search failed: ${error.message}`);
-    }
-
-    return { primary: primaryArticles, secondary: secondaryArticles };
-  }
-
-  // NEW: Policy scoring function
+  // Enhanced scoring for weekly - less time decay penalty
   policyScore(article) {
     const t = (article.title + ' ' + (article.description || '')).toLowerCase();
 
-    // High-value policy terms
     const highValue = [
       'executive order', 'supreme court', 'house passes', 'senate votes',
       'bill signed', 'federal judge', 'appeals court', 'rulemaking', 'proposed rule',
       'final rule', 'regulation', 'white house', 'ballot measure'
     ];
     
-    // Government agencies
     const agencies = ['ftc', 'fcc', 'epa', 'hhs', 'cms', 'doj', 'dol', 'irs', 'hud', 'dot', 'doe'];
-    
-    // Civic terms
     const civics = ['congress', 'senate', 'house', 'governor', 'statehouse', 'attorney general'];
 
     let s = 0;
@@ -326,11 +453,12 @@ class AutomatedPublisher {
     ];
     if (qualitySources.some(q => src.includes(q))) s += 5;
 
-    // Freshness bonus
+    // Reduced freshness penalty for weekly
     if (article.publishedAt) {
       const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
-      if (hrs < 6) s += 5; 
-      else if (hrs < 24) s += 3;
+      if (hrs < 24) s += 5; 
+      else if (hrs < 72) s += 3; // 3 days still good for weekly
+      else if (hrs < 168) s += 1; // 1 week is acceptable
     }
 
     // Penalty for non-policy content
@@ -340,35 +468,7 @@ class AutomatedPublisher {
     return Math.max(0, s);
   }
 
-  // NEW: Normalize News API article format to match expected structure
-  normalizeNewsAPIArticle(article) {
-    return {
-      title: article.title,
-      description: article.description,
-      url: article.url,
-      urlToImage: article.urlToImage,
-      publishedAt: article.publishedAt,
-      source: {
-        name: article.source?.name || 'Unknown Source'
-      }
-    };
-  }
-
-  // NEW: Normalize GNews article format
-  normalizeGNewsArticle(article) {
-    return {
-      title: article.title,
-      description: article.description,
-      url: article.url,
-      urlToImage: article.image,
-      publishedAt: article.publishedAt,
-      source: {
-        name: article.source?.name || 'Unknown Source'
-      }
-    };
-  }
-
-  async analyzeAll(articles) {
+  async analyzeAllWithTrends(articles, trendContext) {
     const out = [];
     for (let i = 0; i < Math.min(articles.length, this.maxArticles); i++) {
       const a = articles[i];
@@ -376,18 +476,18 @@ class AutomatedPublisher {
       const shouldAnalyze = i < this.numAnalyzed;
 
       if (shouldAnalyze) {
-        console.log(`🔬 Analyzing article ${i + 1}: ${a.title?.substring(0, 60)}...`);
+        console.log(`🔬 Analyzing weekly article ${i + 1}: ${a.title?.substring(0, 60)}...`);
         for (let attempt = 0; attempt < this.maxRetries && !analysis; attempt++) {
           try {
             console.log(`  📝 Generation attempt ${attempt + 1}...`);
-            const raw = await this.generateHumanImpactAnalysis(a);
+            const raw = await this.generateHumanImpactAnalysisWithTrends(a, trendContext);
             console.log(`  📊 Generated ${raw ? raw.split(/\s+/).length : 0} words`);
 
             if (raw) {
               const cleaned = this.sanitize(a, raw);
               if (cleaned) {
                 analysis = cleaned;
-                console.log(`  ✅ Analysis accepted (${cleaned.split(/\s+/).length} words)`);
+                console.log(`  ✅ Weekly analysis accepted (${cleaned.split(/\s+/).length} words)`);
               } else {
                 console.log(`  ❌ Analysis REJECTED by sanitize function`);
               }
@@ -403,7 +503,7 @@ class AutomatedPublisher {
           }
         }
         if (!analysis) {
-          console.log(`  ❌ No analysis generated for article ${i + 1} - leaving empty`);
+          console.log(`  ❌ No analysis generated for weekly article ${i + 1} - leaving empty`);
         }
       }
 
@@ -420,31 +520,15 @@ class AutomatedPublisher {
       });
     }
     
-    console.log(`🐛 DEBUG: Returning ${out.length} articles, ${out.filter(a => a.analysis !== 'No analysis available').length} with real analysis`);
+    console.log(`🐛 DEBUG: Returning ${out.length} weekly articles, ${out.filter(a => a.analysis !== 'No analysis available').length} with real analysis`);
     return out;
   }
 
-  selectBest(list) {
-    console.log('🔍 Starting selection with', list.length, 'articles');
-    const deduped = this.dedupe(list);
-    console.log('🔍 After deduplication:', deduped.length, 'articles');
-    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
-    const final = scored
-      .sort((x, y) => y.score - x.score)
-      .slice(0, this.maxArticles);
-    console.log('🔍 Final selection:', final.length, 'articles');
-    final.forEach((a, i) => {
-      console.log(`  ${i + 1}. Score ${a.score}: ${a.title.substring(0, 60)}...`);
-    });
-    return final;
-  }
-
-  // FIXED: generateHumanImpactAnalysis method - Admin API compatible with GPT-4.1
-  async generateHumanImpactAnalysis(article) {
+  // Enhanced analysis generation with trend context
+  async generateHumanImpactAnalysisWithTrends(article, trendContext) {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set');
 
-    // Check for prompt environment variables early
     const systemPrompt = process.env.SYSTEM_PROMPT;
     const userTemplate = process.env.USER_PROMPT;
     if (!systemPrompt || !userTemplate) throw new Error('SYSTEM_PROMPT and USER_PROMPT must be set');
@@ -458,13 +542,19 @@ class AutomatedPublisher {
     const desc = clean(article.description, 400);
     const src = clean(source, 80);
 
-    const prompt = userTemplate
+    // Enhanced prompt with trend context
+    let prompt = userTemplate
       .replace('{title}', title)
       .replace('{description}', desc)
       .replace('{source}', src)
       .replace('{date}', pubDate);
 
-    console.log(`🧠 Calling GPT-4.1 for "${title.substring(0, 50)}..."`);
+    // Add trend context if available
+    if (trendContext) {
+      prompt += `\n\nWeekly Context: ${trendContext}. Consider how this story relates to the week's trending topics.`;
+    }
+
+    console.log(`🧠 Calling GPT-4.1 for weekly analysis: "${title.substring(0, 50)}..."`);
 
     const body = {
       model: 'gpt-4.1',
@@ -472,7 +562,7 @@ class AutomatedPublisher {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 300,
+      max_tokens: 350, // Slightly more for weekly context
       temperature: 0.4,
     };
 
@@ -497,17 +587,32 @@ class AutomatedPublisher {
       throw new Error('Empty completion from GPT-4.1');
     }
 
-    // Post-processing guards (matching admin API expectations)
+    // Post-processing guards
     const banned = /^(in|at|on|inside|across)\b/i;
     if (banned.test(content)) {
       content = content.replace(banned, '').replace(/^[\s,–—-]+/, '').replace(/^[a-z]/, c => c.toUpperCase());
     }
 
-    console.log(`✅ GPT-4.1 generated ${content.length} characters`);
+    console.log(`✅ GPT-4.1 weekly analysis generated ${content.length} characters`);
     return content;
   }
 
-  // FIXED: sanitize method for admin API compatibility
+  // Rest of the methods remain the same but with weekly terminology
+  selectBest(list) {
+    console.log('🔍 Starting weekly selection with', list.length, 'articles');
+    const deduped = this.dedupe(list);
+    console.log('🔍 After deduplication:', deduped.length, 'articles');
+    const scored = deduped.map(a => ({ ...a, score: this.score(a) }));
+    const final = scored
+      .sort((x, y) => y.score - x.score)
+      .slice(0, this.maxArticles);
+    console.log('🔍 Final weekly selection:', final.length, 'articles');
+    final.forEach((a, i) => {
+      console.log(`  ${i + 1}. Score ${a.score}: ${a.title.substring(0, 60)}...`);
+    });
+    return final;
+  }
+
   sanitize(article, text) {
     if (!text || typeof text !== 'string') {
       return null;
@@ -522,25 +627,21 @@ class AutomatedPublisher {
 
     const words = normalized.split(/\s+/).filter(Boolean);
     
-    // Check minimum length
     if (words.length < 20) {
       console.log(`  ❌ Too short: ${words.length} words`);
       return null;
     }
     
-    // Trim if too long
-    if (words.length > 280) {
-      normalized = words.slice(0, 220).join(' ');
-      console.log(`  ✂️ Trimmed from ${words.length} to 220 words`);
+    if (words.length > 300) { // Slightly higher for weekly
+      normalized = words.slice(0, 250).join(' ');
+      console.log(`  ✂️ Trimmed from ${words.length} to 250 words`);
     }
     
-    // Reject bullet points/lists
     if (/^\s*(?:-|\*|\d+\.)\s/m.test(normalized)) {
       console.log(`  ❌ Contains bullet points/lists`);
       return null;
     }
 
-    // Check for basic sentence structure
     const sentences = normalized.split(/[.!?]+/).filter(s => s.trim().length > 10);
     if (sentences.length < 2) {
       console.log(`  ❌ Not enough sentences`);
@@ -589,7 +690,6 @@ class AutomatedPublisher {
   }
 
   score(article) {
-    // Original scoring logic
     let s = 0;
     const t = (article.title + ' ' + (article.description || '')).toLowerCase();
     const highValue = ['executive order', 'supreme court', 'congress passes', 'senate votes', 'bill signed', 'federal ruling', 'white house', 'biden', 'trump'];
@@ -600,55 +700,61 @@ class AutomatedPublisher {
     lowValue.forEach(k => { if (t.includes(k)) s += 3; });
     const negative = ['celebrity', 'entertainment', 'sports', 'death', 'dies', 'shooting', 'crime'];
     negative.forEach(k => { if (t.includes(k)) s -= 5; });
+    
+    // Weekly freshness scoring (less penalty for older articles)
     if (article.publishedAt) {
       const hrs = (Date.now() - new Date(article.publishedAt)) / 3600000;
-      if (hrs < 6) s += 8;
-      else if (hrs < 12) s += 5;
-      else if (hrs < 24) s += 3;
+      if (hrs < 24) s += 8;
+      else if (hrs < 72) s += 5; // 3 days still good
+      else if (hrs < 168) s += 3; // 1 week acceptable
     }
+    
     const qualitySources = ['reuters', 'ap news', 'bloomberg', 'wall street journal', 'washington post', 'new york times', 'politico', 'cnn', 'fox news'];
     if (qualitySources.some(src => (article.source?.name || '').toLowerCase().includes(src))) s += 5;
     
-    // Policy-first weighting
     return this.policyScore(article) * 2 + Math.max(0, s);
   }
 
-  async createEdition(date, articles, status) {
+  async createEdition(weekStart, articles, status) {
     if (!articles || articles.length === 0) {
-      console.warn('⚠️ No articles to create edition with');
-      throw new Error('Cannot create edition without articles');
+      console.warn('⚠️ No articles to create weekly edition with');
+      throw new Error('Cannot create weekly edition without articles');
     }
+    
     let issue = 1;
     try {
-      const { data: next, error } = await supabase.rpc('get_next_issue_number');
-      if (error) {
-        console.warn('⚠️ get_next_issue_number failed:', error.message);
-        const { data: maxIssue } = await supabase
-          .from('daily_editions')
-          .select('issue_number')
-          .order('issue_number', { ascending: false })
-          .limit(1)
-          .single();
-        issue = (maxIssue?.issue_number || 0) + 1;
-        console.log(`📊 Using fallback issue number: ${issue}`);
-      } else {
-        issue = next || 1;
+      // Try to get next issue number from weekly_editions
+      const { data: maxIssue, error } = await supabase
+        .from('weekly_editions')
+        .select('issue_number')
+        .order('issue_number', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.warn('⚠️ Error getting max issue number:', error.message);
       }
+      
+      issue = (maxIssue?.issue_number || 0) + 1;
+      console.log(`📊 Using weekly issue number: ${issue}`);
     } catch (error) {
-      console.warn('⚠️ Issue number calculation failed, using timestamp-based number');
-      issue = Math.floor(Date.now() / 86400000);
+      console.warn('⚠️ Weekly issue number calculation failed, using timestamp-based number');
+      issue = Math.floor(Date.now() / (7 * 86400000)); // Weekly based
     }
+
+    const weekEnd = new Date(new Date(weekStart).getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     let edition;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const { data: editionData, error: e1 } = await supabase
-          .from('daily_editions')
+          .from('weekly_editions')
           .insert({
-            edition_date: date,
+            week_start_date: weekStart,
+            week_end_date: weekEnd,
             issue_number: issue,
             status,
-            featured_headline: articles[0]?.title || 'Daily Headlines'
+            featured_headline: articles[0]?.title || 'Weekly Headlines'
           })
           .select()
           .single();
@@ -656,7 +762,7 @@ class AutomatedPublisher {
         edition = editionData;
         break;
       } catch (error) {
-        console.warn(`⚠️ Edition creation attempt ${attempt} failed for date ${date}, issue #${issue}:`, error.message);
+        console.warn(`⚠️ Weekly edition creation attempt ${attempt} failed for week ${weekStart}, issue #${issue}:`, error.message);
         if (attempt === 3) throw error;
         await this.sleep(2000);
       }
@@ -684,28 +790,29 @@ class AutomatedPublisher {
         if (e2) throw e2;
         break;
       } catch (error) {
-        console.warn(`⚠️ Articles insert attempt ${attempt} failed for edition ${edition.id} with ${rows.length} articles:`, error.message);
+        console.warn(`⚠️ Articles insert attempt ${attempt} failed for weekly edition ${edition.id} with ${rows.length} articles:`, error.message);
         if (attempt === 3) {
-          await supabase.from('daily_editions').delete().eq('id', edition.id);
+          await supabase.from('weekly_editions').delete().eq('id', edition.id);
           throw error;
         }
         await this.sleep(2000);
       }
     }
 
-    console.log(`✅ Created edition #${issue} with ${articles.length} articles`);
-    console.log(`📊 Breakdown: ${articles.filter(a => a.status === 'published').length} published, ${articles.filter(a => a.status === 'queue').length} queued`);
+    console.log(`✅ Created weekly edition #${issue} with ${articles.length} articles`);
+    console.log(`📊 Weekly breakdown: ${articles.filter(a => a.status === 'published').length} published, ${articles.filter(a => a.status === 'queue').length} queued`);
+    console.log(`📡 API requests used: ${this.apiRequestCount}`);
     return edition;
   }
 
   async publishToWebsite(editionId) {
     try {
       const { error } = await supabase
-        .from('daily_editions')
+        .from('weekly_editions')
         .update({ status: 'published', updated_at: new Date().toISOString() })
         .eq('id', editionId);
       if (error) throw error;
-      console.log('✅ Edition published to website');
+      console.log('✅ Weekly edition published to website');
     } catch (error) {
       console.error('❌ publishToWebsite failed:', error.message);
       throw error;
@@ -715,25 +822,25 @@ class AutomatedPublisher {
   async markNewsletterSent(editionId) {
     try {
       const { error } = await supabase
-        .from('daily_editions')
+        .from('weekly_editions')
         .update({ status: 'sent' })
         .eq('id', editionId);
       if (error) {
-        console.warn('⚠️ Failed to mark newsletter as sent:', error.message);
+        console.warn('⚠️ Failed to mark weekly newsletter as sent:', error.message);
       } else {
-        console.log('✅ Newsletter marked as sent');
+        console.log('✅ Weekly newsletter marked as sent');
       }
     } catch (error) {
       console.warn('⚠️ markNewsletterSent error:', error.message);
     }
   }
 
-  async findEdition(date) {
+  async findEdition(weekStart) {
     try {
       const { data, error } = await supabase
-        .from('daily_editions')
+        .from('weekly_editions')
         .select('*')
-        .eq('edition_date', date)
+        .eq('week_start_date', weekStart)
         .single();
       if (error) {
         if (error.code === 'PGRST116') {
@@ -747,8 +854,8 @@ class AutomatedPublisher {
         .eq('edition_id', data.id)
         .limit(1);
       if (!articles || articles.length === 0) {
-        console.log('🗑️ Found empty edition, will recreate');
-        await supabase.from('daily_editions').delete().eq('id', data.id);
+        console.log('🗑️ Found empty weekly edition, will recreate');
+        await supabase.from('weekly_editions').delete().eq('id', data.id);
         return null;
       }
       return data;
@@ -758,15 +865,41 @@ class AutomatedPublisher {
     }
   }
 
+  normalizeNewsAPIArticle(article) {
+    return {
+      title: article.title,
+      description: article.description,
+      url: article.url,
+      urlToImage: article.urlToImage,
+      publishedAt: article.publishedAt,
+      source: {
+        name: article.source?.name || 'Unknown Source'
+      }
+    };
+  }
+
+  normalizeGNewsArticle(article) {
+    return {
+      title: article.title,
+      description: article.description,
+      url: article.url,
+      urlToImage: article.image,
+      publishedAt: article.publishedAt,
+      source: {
+        name: article.source?.name || 'Unknown Source'
+      }
+    };
+  }
+
   sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
   }
 }
 
 // Export the class and workflow function
-export { AutomatedPublisher };
+export { AutomatedWeeklyPublisher };
 
-export async function runAutomatedWorkflow() {
-  const p = new AutomatedPublisher();
+export async function runAutomatedWeeklyWorkflow() {
+  const p = new AutomatedWeeklyPublisher();
   return p.runFullWorkflow();
 }
