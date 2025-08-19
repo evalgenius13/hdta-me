@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>How the News Affects You</title>
+  <title>How the News Affects You - Weekly</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='black'/><text x='50%' y='60%' text-anchor='middle' font-size='42' fill='white' font-family='system-ui'>HD</text></svg>">
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
@@ -61,7 +61,7 @@
   <header class="masthead">
     <div class="wrap">
       <h1 class="brand">How the News Affects You</h1>
-      <p class="tagline">Form headline to real life</p>
+      <p class="tagline">Weekly policy analysis that matters to your life</p>
       <div class="edition-info" id="edition-info">Loading...</div>
     </div>
   </header>
@@ -70,7 +70,7 @@
     <div class="wrap">
       <div class="loading-state" id="loading">
         <span class="loading-spinner"></span>
-        Loading today's analysis...
+        Loading this week's analysis...
       </div>
       <div class="articles-list" id="articles-container" style="display:none"></div>
     </div>
@@ -78,7 +78,7 @@
     <div class="newsletter-signup">
       <div class="wrap">
         <div class="signup-container">
-          <h3 class="signup-title">See How the News Affects You Every Morning at 7am EST</h3>
+          <h3 class="signup-title">Get Weekly Policy Analysis Every Monday at 7am EST</h3>
           <form class="signup-form" onsubmit="return false;">
             <input 
               type="email" 
@@ -95,49 +95,68 @@
 
   <footer class="footer">
     <div class="wrap">
-      <div class="footer-text">© 2025 How the News Affects You™. All rights reserved.</div>
+      <div class="footer-text">© 2025 How the News Affects You™. Weekly policy insights.</div>
     </div>
   </footer>
 
   <script>
-    class DailyNewsletterSite {
+    class WeeklyNewsletterSite {
       constructor(){ 
         this.articles=[];  
         this.API_BASE = '';  // Use relative URLs for same domain
         this.init(); 
       }
 
-      async init(){ await this.fetchTodaysContent(); }
+      async init(){ await this.fetchWeeklyContent(); }
 
-      async fetchTodaysContent(){
+      async fetchWeeklyContent(){
         try{
           const response=await fetch('/api/fetch-news');  // Relative URL
           if(!response.ok) throw new Error(`HTTP ${response.status}`);
           const data=await response.json();
           if(data.articles){
-            this.articles=data.articles.slice(0,6);
+            this.articles=data.articles.slice(0,10); // Top 10 for weekly
             if(data.edition_info) this.updateEditionInfo(data.edition_info);
             this.displayArticles();
           } else { throw new Error('No articles'); }
         }catch(e){
-          console.error('Error fetching articles:',e);
-          document.getElementById('loading').innerHTML='Unable to load today\'s analysis. Please refresh.';
+          console.error('Error fetching weekly articles:',e);
+          document.getElementById('loading').innerHTML='Unable to load this week\'s analysis. Please refresh.';
         }
       }
 
       updateEditionInfo(editionInfo){
-        const today=new Date();
-        const options={weekday:'long',year:'numeric',month:'long',day:'numeric'};
-        const dateStr=today.toLocaleDateString('en-US',options);
-        const statusText=editionInfo.is_automated ? (editionInfo.is_today ? '' : ' (Latest Edition)') : ' (Live Updates)';
-        document.getElementById('edition-info').textContent=`${dateStr} • Issue #${editionInfo.issue_number}${statusText}`;
+        const formatDate = (dateStr) => {
+          const date = new Date(dateStr);
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        };
+
+        let dateRange = '';
+        if (editionInfo.week_start_date && editionInfo.week_end_date) {
+          const startFormatted = formatDate(editionInfo.week_start_date);
+          const endFormatted = formatDate(editionInfo.week_end_date);
+          dateRange = `${startFormatted} - ${endFormatted}`;
+        } else {
+          dateRange = 'This Week';
+        }
+
+        const statusText = editionInfo.is_automated ? 
+          (editionInfo.is_current_week ? '' : ' (Latest Edition)') : 
+          ' (Live Updates)';
+          
+        document.getElementById('edition-info').textContent = 
+          `${dateRange} • Issue #${editionInfo.issue_number}${statusText}`;
       }
 
       displayArticles(){
         const container=document.getElementById('articles-container');
         const loading=document.getElementById('loading');
-        if(this.articles.length===0){ loading.innerHTML='No policy stories today.'; return; }
-        loading.style.display='none'; container.style.display='block';
+        if(this.articles.length===0){ 
+          loading.innerHTML='No policy stories this week.'; 
+          return; 
+        }
+        loading.style.display='none'; 
+        container.style.display='block';
         container.innerHTML=this.articles.map((a,i)=>this.createArticleHTML(a,i)).join('');
         
         // Display structured analysis for each article
@@ -204,10 +223,10 @@
           container.innerHTML = html;
           
         } else if (article.preGeneratedAnalysis) {
-          // Fallback to old format for articles without structured sections
+          // Fallback to single analysis section for weekly articles
           container.innerHTML = `
             <div class="analysis-section">
-              <div class="analysis-label">How Does This Affect Me?</div>
+              <div class="analysis-label">Weekly Impact Analysis</div>
               <div class="analysis-text">${this.formatAnalysisText(article.preGeneratedAnalysis)}</div>
             </div>
           `;
@@ -216,7 +235,7 @@
           // No analysis available
           container.innerHTML = `
             <div class="analysis-section">
-              <div class="analysis-label">How Does This Affect Me?</div>
+              <div class="analysis-label">Weekly Impact Analysis</div>
               <div class="analysis-text">
                 <div class="no-analysis">Analysis coming soon - check back for updates to this story.</div>
               </div>
@@ -238,15 +257,24 @@
 
       getTimeAgo(p){
         if(!p) return 'Recently';
-        const now=new Date(), pub=new Date(p); const hrs=Math.floor((now-pub)/3600000); const days=Math.floor(hrs/24);
-        if(hrs<1) return 'Just published'; if(hrs<24) return `${hrs}h ago`; if(days===1) return 'Yesterday'; if(days<7) return `${days} days ago`;
+        const now=new Date(), pub=new Date(p); 
+        const hrs=Math.floor((now-pub)/3600000); 
+        const days=Math.floor(hrs/24);
+        
+        if(hrs<1) return 'Just published'; 
+        if(hrs<24) return `${hrs}h ago`; 
+        if(days===1) return 'Yesterday'; 
+        if(days<7) return `${days} days ago`;
+        if(days<14) return `${Math.floor(days/7)} week ago`;
         return pub.toLocaleDateString();
       }
 
       escapeHtml(t){ if(!t) return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
     }
 
-    document.addEventListener('DOMContentLoaded',()=>{ window.dailyNewsletter=new DailyNewsletterSite(); });
+    document.addEventListener('DOMContentLoaded',()=>{ 
+      window.weeklyNewsletter=new WeeklyNewsletterSite(); 
+    });
   </script>
 </body>
 </html>
