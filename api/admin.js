@@ -648,10 +648,23 @@ async function getTrends(req, res) {
   }
 }
 
+// ✅ FIXED: Standardized UTC-based week calculation
 function getWeekStart() {
   const now = new Date();
-  const day = now.getDay();
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
-  const monday = new Date(now.setDate(diff));
+  
+  // Use UTC to avoid timezone issues
+  const utc = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  ));
+  
+  const dayOfWeek = utc.getUTCDay();
+  const daysFromMonday = (dayOfWeek + 6) % 7; // Convert Sunday=0 to Monday=0 system
+  
+  // Calculate Monday of this week
+  const monday = new Date(utc);
+  monday.setUTCDate(utc.getUTCDate() - daysFromMonday);
+  
   return monday.toISOString().split('T')[0];
 }
