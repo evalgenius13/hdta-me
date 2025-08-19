@@ -57,9 +57,10 @@ async function getWeeklyArticles(req, res) {
   try {
     const weekStart = getWeekStart();
     
+    // Get weekly edition without embedding
     const { data: edition, error: editionError } = await supabase
       .from('weekly_editions')
-      .select('*')
+      .select('id, issue_number, status, week_start_date, week_end_date')
       .eq('week_start_date', weekStart)
       .single();
 
@@ -75,6 +76,7 @@ async function getWeeklyArticles(req, res) {
       });
     }
 
+    // Get articles in separate query
     const { data: articles, error: articlesError } = await supabase
       .from('analyzed_articles')
       .select('*')
