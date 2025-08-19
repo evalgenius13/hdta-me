@@ -1,4 +1,4 @@
-import { runAutomatedWorkflow } from './automated-daily-workflow.js';
+import { runAutomatedWeeklyWorkflow } from './automated-weekly-workflow.js';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -26,8 +26,8 @@ export default async function handler(req, res) {
 
   const startTime = Date.now();
   try {
-    // Run the workflow
-    const edition = await runAutomatedWorkflow();
+    // Run the weekly workflow
+    const edition = await runAutomatedWeeklyWorkflow();
 
     // Get articles for response
     const { data: articles } = await supabase
@@ -45,11 +45,12 @@ export default async function handler(req, res) {
 
     const response = {
       success: true,
-      message: 'Workflow completed successfully',
+      message: 'Weekly workflow completed successfully',
       edition: {
         id: edition.id,
         issue_number: edition.issue_number,
-        date: edition.edition_date,
+        week_start_date: edition.week_start_date,
+        week_end_date: edition.week_end_date,
         status: edition.status
       },
       processing: {
@@ -58,7 +59,7 @@ export default async function handler(req, res) {
         articles_analyzed: articlesWithAnalysis.length,
         success_rate: articles?.length > 0 ? Math.round((articlesWithAnalysis.length / articles.length) * 100) : 0
       },
-      articles_preview: articles?.slice(0, 3).map(a => ({
+      articles_preview: articles?.slice(0, 5).map(a => ({
         title: a.title.substring(0, 60) + '...',
         has_analysis: !!(a.analysis_text && !a.analysis_text.includes('depends on implementation')),
         status: a.article_status || 'unknown'
@@ -76,7 +77,7 @@ export default async function handler(req, res) {
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       processing: {
         duration_seconds: duration,
-        failed_at: 'workflow_execution'
+        failed_at: 'weekly_workflow_execution'
       },
       timestamp: new Date().toISOString()
     });
