@@ -164,7 +164,6 @@ AdminPanel.prototype.promoteArticle = function(articleId) {
     article.status = 'published';
     this.renderArticles(this.currentFilter);
     this.updateStats();
-    if (this.addLog) this.addLog('success', 'Article promoted to published');
 };
 
 AdminPanel.prototype.demoteArticle = function(articleId) {
@@ -174,13 +173,10 @@ AdminPanel.prototype.demoteArticle = function(articleId) {
     article.status = 'queue';
     this.renderArticles(this.currentFilter);
     this.updateStats();
-    if (this.addLog) this.addLog('warning', 'Article demoted to queue');
 };
 
 AdminPanel.prototype.removeArticle = function(articleId) {
-    if (!confirm('Move this article to rejected?')) return;
-    
-    // Change status to 'rejected'
+    // Change status to 'rejected' - no confirm dialog
     fetch('/api/admin?action=update-status', {
         method: 'POST',
         headers: {
@@ -199,13 +195,8 @@ AdminPanel.prototype.removeArticle = function(articleId) {
                 article.status = 'rejected';
                 this.renderArticles(this.currentFilter);
                 this.updateStats();
-                if (this.addLog) this.addLog('warning', 'Article moved to rejected');
             }
-        } else {
-            if (this.addLog) this.addLog('error', 'Failed to update article status');
         }
-    }).catch(error => {
-        if (this.addLog) this.addLog('error', 'Error updating status: ' + error.message);
     });
 };
 
