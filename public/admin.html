@@ -121,8 +121,33 @@
             border-radius: 8px; 
             overflow: hidden;
             transition: box-shadow 0.2s;
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 0;
         }
         .article-card:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        .article-image {
+            width: 120px;
+            height: 120px;
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            font-size: 24px;
+            border-right: 1px solid #e5e7eb;
+        }
+        .article-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .article-body {
+            display: flex;
+            flex-direction: column;
+        }
         
         .article-header { 
             padding: 16px; 
@@ -322,76 +347,7 @@
             font-size: 14px;
         }
 
-        /* NEW: Trends panel styles */
-        .trends-overview {
-            background: #f8fafc;
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #e2e8f0;
-        }
-        
-        .trend-topic {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 12px;
-        }
-        
-        .trend-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        
-        .trend-keyword {
-            font-weight: 700;
-            font-size: 16px;
-            color: #1f2937;
-        }
-        
-        .trend-stats {
-            display: flex;
-            gap: 12px;
-            font-size: 12px;
-            color: #6b7280;
-        }
-        
-        .trend-stat {
-            background: #f3f4f6;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-        
-        .trend-description {
-            color: #4b5563;
-            font-size: 14px;
-            line-height: 1.5;
-            margin-bottom: 8px;
-        }
-        
-        .trend-context-display {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            padding: 16px;
-            margin-bottom: 20px;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.6;
-            color: #374151;
-        }
-        
-        .trend-context-label {
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: #6b7280;
-            margin-bottom: 8px;
-            font-family: system-ui;
-        }
+        /* Removed trends panel styles */
     </style>
 </head>
 <body>
@@ -437,7 +393,6 @@
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('articles')">📰 Articles</button>
-            <button class="tab" onclick="showTab('trends')">📊 Weekly Trends</button>
             <button class="tab" onclick="showTab('logs')">📋 Logs</button>
         </div>
 
@@ -459,26 +414,6 @@
                     <div style="font-size: 18px; margin-bottom: 12px;">📰 Ready to Load Weekly Articles</div>
                     <div style="font-size: 14px; margin-bottom: 20px;">Click "📊 Reload Data" to get started</div>
                     <button class="btn" onclick="refreshData()">📊 Reload Data</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="trends-panel" class="panel">
-            <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
-                <button class="btn btn-secondary btn-small" onclick="refreshTrends()">🔄 Refresh Trends</button>
-                <span id="trends-status" style="color: #6b7280; font-size: 14px;">Click refresh to load trend analysis</span>
-            </div>
-            
-            <div class="loading" id="trends-loading" style="display: none;">
-                <span class="spinner"></span>
-                Analyzing weekly trends...
-            </div>
-            
-            <div id="trends-container">
-                <div style="text-align: center; color: #6b7280; padding: 40px;">
-                    <div style="font-size: 18px; margin-bottom: 12px;">📊 Weekly Trend Analysis</div>
-                    <div style="font-size: 14px; margin-bottom: 20px;">Analyze this week's trending topics and story evolution</div>
-                    <button class="btn" onclick="refreshTrends()">🔄 Load Trends</button>
                 </div>
             </div>
         </div>
@@ -516,6 +451,5 @@
     <script src="js/admin-prompts.js"></script>
     <script src="js/admin-bulk.js"></script>
     <script src="js/admin-init.js"></script>
-    <script src="js/admin-trends.js"></script>
 </body>
 </html>
