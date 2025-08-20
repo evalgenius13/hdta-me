@@ -1,4 +1,4 @@
-// admin-ui.js - UI rendering and article management (SIMPLIFIED - No regenerate functions)
+// admin-ui.js - UI rendering and article management with images
 AdminPanel.prototype.renderArticles = function(filter = 'all') {
     const grid = document.getElementById('articles-grid');
     if (!grid) return;
@@ -25,6 +25,8 @@ AdminPanel.prototype.renderArticles = function(filter = 'all') {
         const safeTitle = this.escapeHtml(article.title || '');
         const safeDescription = this.escapeHtml(article.description || '');
         const safeMeta = this.escapeHtml(article.source?.name || 'Unknown Source');
+        const safeUrl = this.escapeHtml(article.url || '');
+        const imageUrl = article.urlToImage || article.image_url;
         const timeAgo = this.getTimeAgo(article.publishedAt);
         const hasAnalysis = article.preGeneratedAnalysis;
         const statusClass = hasAnalysis ? 'status-success' : 'status-warning';
@@ -52,41 +54,50 @@ AdminPanel.prototype.renderArticles = function(filter = 'all') {
         
         return `
             <div class="article-card">
-                <div class="article-header">
-                    <div style="flex: 1;">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                            <div class="article-title" style="flex: 1;">${safeTitle}</div>
-                            ${statusBadge}
-                        </div>
-                        <div class="article-meta">
-                            ${safeMeta} • ${timeAgo}
-                        </div>
-                    </div>
-                    <div class="article-score">Score: ${article.score || '--'}</div>
+                <div class="article-image">
+                    ${imageUrl ? 
+                        `<img src="${this.escapeHtml(imageUrl)}" alt="Article image" onerror="this.style.display='none'; this.parentElement.innerHTML='📰';">` : 
+                        '📰'
+                    }
                 </div>
                 
-                <div class="article-content">
-                    <div class="article-description">
-                        ${safeDescription}
+                <div class="article-body">
+                    <div class="article-header">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <div class="article-title" style="flex: 1;">${safeTitle}</div>
+                                ${statusBadge}
+                            </div>
+                            <div class="article-meta">
+                                ${safeMeta} • ${timeAgo}
+                            </div>
+                        </div>
+                        <div class="article-score">Score: ${article.score || '--'}</div>
                     </div>
                     
-                    <div class="analysis-section">
-                        <div class="analysis-status">
-                            <span class="status-dot ${statusClass}"></span>
-                            ${statusText}
+                    <div class="article-content">
+                        <div class="article-description">
+                            ${safeDescription}
                         </div>
-                        <div class="analysis-label">Analysis</div>
-                        <div class="analysis-content" id="analysis-${safeIndex}">
-                            ${analysisContent}
+                        
+                        <div class="analysis-section">
+                            <div class="analysis-status">
+                                <span class="status-dot ${statusClass}"></span>
+                                ${statusText}
+                            </div>
+                            <div class="analysis-label">Analysis</div>
+                            <div class="analysis-content" id="analysis-${safeIndex}">
+                                ${analysisContent}
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <div class="article-actions">
-                    <button class="btn btn-small" onclick="adminPanel.editAnalysis(${safeIndex})">✏️ Edit</button>
-                    ${statusActions}
-                    <button class="btn btn-small btn-secondary" onclick="window.open('${this.escapeHtml(article.url || '')}', '_blank')">🔗 View Original</button>
-                    <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${safeIndex})">🗑️ Remove</button>
+                    
+                    <div class="article-actions">
+                        <button class="btn btn-small" onclick="adminPanel.editAnalysis(${safeIndex})">✏️ Edit</button>
+                        ${statusActions}
+                        <button class="btn btn-small btn-secondary" onclick="window.open('${safeUrl}', '_blank')">🔗 View Original</button>
+                        <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${safeIndex})">🗑️ Remove</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -199,6 +210,3 @@ AdminPanel.prototype.removeArticle = function(index) {
         this.updateStats();
     }
 };
-
-// REMOVED: regenerateAnalysis() function - no longer calls /api/personalize
-// Note: For fresh analysis, use Force Refetch to run the daily workflow
