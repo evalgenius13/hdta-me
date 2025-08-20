@@ -510,4 +510,53 @@ window.testTrigger = testTrigger;
 window.testAdminAPI = testAdminAPI;
 window.testPublicAPI = testPublicAPI;
 
+// Weekly-specific functions - Keep it simple
+async function fetchFreshArticles() {
+    try {
+        const response = await fetch('/api/manual-trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trigger_key: 'force-update-2025' })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            location.reload(); // Simple - just reload the page
+        }
+    } catch (error) {
+        alert('Failed to fetch articles: ' + error.message);
+    }
+}
+
+async function clearWeek() {
+    if (!confirm('Clear this week\'s edition? This cannot be undone.')) return;
+    
+    try {
+        const response = await fetch('/api/admin?action=clear-week', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer hdta-admin-2025-temp'
+            }
+        });
+        
+        if (response.ok) {
+            location.reload(); // Simple - just reload the page
+        }
+    } catch (error) {
+        alert('Failed to clear week: ' + error.message);
+    }
+}
+
+function refreshTrends() {
+    if (window.adminPanel && window.adminPanel.loadTrends) {
+        window.adminPanel.loadTrends();
+    }
+}
+
+// Export weekly functions - simple
+window.fetchFreshArticles = fetchFreshArticles;
+window.clearWeek = clearWeek;
+window.refreshTrends = refreshTrends;
+
 console.log('📋 Admin init script loaded - weekly workflow with trends support');
