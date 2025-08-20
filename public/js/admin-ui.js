@@ -161,18 +161,48 @@ AdminPanel.prototype.promoteArticle = function(articleId) {
     const article = this.articles.find(a => a.id === articleId);
     if (!article) return;
     
-    article.status = 'published';
-    this.renderArticles(this.currentFilter);
-    this.updateStats();
+    // Update database
+    fetch('/api/admin?action=update-status', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.adminKey || 'hdta-admin-2025-temp'}`
+        },
+        body: JSON.stringify({ 
+            articleId: articleId,
+            status: 'published' 
+        })
+    }).then(response => {
+        if (response.ok) {
+            article.status = 'published';
+            this.renderArticles(this.currentFilter);
+            this.updateStats();
+        }
+    });
 };
 
 AdminPanel.prototype.demoteArticle = function(articleId) {
     const article = this.articles.find(a => a.id === articleId);
     if (!article) return;
     
-    article.status = 'queue';
-    this.renderArticles(this.currentFilter);
-    this.updateStats();
+    // Update database
+    fetch('/api/admin?action=update-status', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.adminKey || 'hdta-admin-2025-temp'}`
+        },
+        body: JSON.stringify({ 
+            articleId: articleId,
+            status: 'queue' 
+        })
+    }).then(response => {
+        if (response.ok) {
+            article.status = 'queue';
+            this.renderArticles(this.currentFilter);
+            this.updateStats();
+        }
+    });
 };
 
 AdminPanel.prototype.removeArticle = function(articleId) {
