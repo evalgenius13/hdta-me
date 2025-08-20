@@ -1,4 +1,4 @@
-// admin-init.js - Complete working version with full functionality - FIXED (No personalize API)
+// admin-init.js - Complete working version with full functionality - UPDATED with trends support
 
 // Global UI functions
 function showTab(tabName) {
@@ -24,13 +24,8 @@ function showTab(tabName) {
 function getTabDisplayName(tabName) {
     const tabNames = {
         'articles': '📰',
-        'prompts': '🎯',
-        'add-article': '➕',
-        'preview': '👁️',
-        'bulk': '⚡',
-        'settings': '⚙️',
-        'logs': '📋',
-        'analytics': '📊'
+        'trends': '📊',
+        'logs': '📋'
     };
     return tabNames[tabName] || tabName;
 }
@@ -52,7 +47,7 @@ function filterArticles(filter) {
     }
 }
 
-// Main action functions - REMOVED regenerateAnalysis() function
+// Main action functions
 async function triggerUpdate(event) {
     // Handle both button clicks and direct calls
     const btn = event?.target || document.querySelector('button[onclick*="triggerUpdate"]');
@@ -158,8 +153,6 @@ async function triggerUpdate(event) {
         btn.textContent = '🚀 Force Update Today';
     }
 }
-
-// REMOVED: regenerateAnalysis() function - no longer needed
 
 async function forceRefetch() {
     console.log('🚀 Force refetching news...');
@@ -446,7 +439,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log('📝 Loaded saved user prompt');
             }
             
-            adminPanel.addLog('success', 'Admin panel initialized - simplified workflow mode');
+            adminPanel.addLog('success', 'Admin panel initialized - weekly workflow with trends');
             console.log('✅ Admin panel initialization completed');
             
         } else {
@@ -509,7 +502,6 @@ window.addEventListener('unhandledrejection', function(e) {
 
 // Export for debugging - make functions globally available
 window.triggerUpdate = triggerUpdate;
-// REMOVED: window.regenerateAnalysis = regenerateAnalysis; (no longer exists)
 window.forceRefetch = forceRefetch;
 window.testWithMock = testWithMock;
 window.refreshData = refreshData;
@@ -518,4 +510,4 @@ window.testTrigger = testTrigger;
 window.testAdminAPI = testAdminAPI;
 window.testPublicAPI = testPublicAPI;
 
-console.log('📋 Admin init script loaded - simplified workflow (no regenerate functions)');
+console.log('📋 Admin init script loaded - weekly workflow with trends support');
