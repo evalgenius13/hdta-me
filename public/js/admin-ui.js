@@ -178,15 +178,35 @@ AdminPanel.prototype.demoteArticle = function(articleId) {
 };
 
 AdminPanel.prototype.removeArticle = function(articleId) {
-    if (!confirm('Remove this article?')) return;
+    if (!confirm('Move this article to rejected?')) return;
     
-    const index = this.articles.findIndex(a => a.id === articleId);
-    if (index !== -1) {
-        this.articles.splice(index, 1);
-        this.renderArticles(this.currentFilter);
-        this.updateStats();
-        if (this.addLog) this.addLog('warning', 'Article removed');
-    }
+    // Change status to 'rejected'
+    fetch('/api/admin?action=update-status', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.adminKey || 'hdta-admin-2025-temp'}`
+        },
+        body: JSON.stringify({ 
+            articleId: articleId,
+            status: 'rejected' 
+        })
+    }).then(response => {
+        if (response.ok) {
+            // Update local copy
+            const article = this.articles.find(a => a.id === articleId);
+            if (article) {
+                article.status = 'rejected';
+                this.renderArticles(this.currentFilter);
+                this.updateStats();
+                if (this.addLog) this.addLog('warning', 'Article moved to rejected');
+            }
+        } else {
+            if (this.addLog) this.addLog('error', 'Failed to update article status');
+        }
+    }).catch(error => {
+        if (this.addLog) this.addLog('error', 'Error updating status: ' + error.message);
+    });
 };
 
 AdminPanel.prototype.analyzeArticle = async function(articleId) {
