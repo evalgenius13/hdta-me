@@ -1,56 +1,52 @@
-// admin-ui.js - UI rendering and article management with images
+// admin-ui.js - UI rendering and article management with images - FIXED
 AdminPanel.prototype.renderArticles = function(filter = 'all') {
     const grid = document.getElementById('articles-grid');
     if (!grid) return;
     
     let articlesToShow = this.articles;
     
-    // Apply filter
+    // Simple filter logic
     if (filter === 'published') {
-        articlesToShow = this.articles.filter(a => a.status === 'published' || a.order <= 6);
+        articlesToShow = this.articles.filter(a => a.status === 'published');
     } else if (filter === 'drafts') {
         articlesToShow = this.articles.filter(a => a.status === 'draft');
     } else if (filter === 'queue') {
-        articlesToShow = this.articles.filter(a => a.status === 'queue' || (!a.preGeneratedAnalysis && !a.order));
+        articlesToShow = this.articles.filter(a => a.status === 'queue');
     } else if (filter === 'rejected') {
         articlesToShow = this.articles.filter(a => a.status === 'rejected');
     }
     
-    // Update filter button counts
     this.updateFilterCounts();
     
-    grid.innerHTML = articlesToShow.map((article, index) => {
-        const realIndex = this.articles.indexOf(article); // Get real index in full array
-        const safeIndex = String(realIndex);
+    grid.innerHTML = articlesToShow.map((article) => {
+        const articleId = article.id;
         const safeTitle = this.escapeHtml(article.title || '');
         const safeDescription = this.escapeHtml(article.description || '');
         const safeMeta = this.escapeHtml(article.source?.name || 'Unknown Source');
         const safeUrl = this.escapeHtml(article.url || '');
         const imageUrl = article.urlToImage || article.image_url;
         const timeAgo = this.getTimeAgo(article.publishedAt);
-        const hasAnalysis = article.preGeneratedAnalysis;
+        const hasAnalysis = article.preGeneratedAnalysis && 
+                           article.preGeneratedAnalysis !== 'No analysis available' &&
+                           article.preGeneratedAnalysis.trim() !== '';
         const statusClass = hasAnalysis ? 'status-success' : 'status-warning';
-        const statusText = hasAnalysis ? 'Analysis Generated' : 'Using Fallback';
+        const statusText = hasAnalysis ? 'Analysis Generated' : 'No Analysis';
         const analysisContent = this.formatAnalysis(article.preGeneratedAnalysis || 'No analysis available');
         
-        // Determine article status and actions
-        const isPublished = article.status === 'published' || article.order <= 6;
-        const isDraft = article.status === 'draft';
-        const isQueue = article.status === 'queue' || (!hasAnalysis && !article.order);
-        const isRejected = article.status === 'rejected';
-        
         let statusBadge = '';
-        if (isPublished) statusBadge = '<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 12px; font-size: 11px;">PUBLISHED</span>';
-        else if (isDraft) statusBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 12px; font-size: 11px;">DRAFT</span>';
-        else if (isQueue) statusBadge = '<span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 12px; font-size: 11px;">QUEUE</span>';
-        else if (isRejected) statusBadge = '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 12px; font-size: 11px;">REJECTED</span>';
+        if (article.status === 'published') statusBadge = '<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 12px; font-size: 11px;">PUBLISHED</span>';
+        else if (article.status === 'draft') statusBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 12px; font-size: 11px;">DRAFT</span>';
+        else if (article.status === 'queue') statusBadge = '<span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 12px; font-size: 11px;">QUEUE</span>';
+        else if (article.status === 'rejected') statusBadge = '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 12px; font-size: 11px;">REJECTED</span>';
         
         let statusActions = '';
-        if (isPublished) {
-            statusActions = `<button class="btn btn-small btn-secondary" onclick="adminPanel.demoteArticle(${safeIndex})">⬇️ Demote</button>`;
-        } else if (isDraft || isQueue) {
-            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle(${safeIndex})">⬆️ Promote</button>`;
+        if (article.status === 'published') {
+            statusActions = `<button class="btn btn-small btn-secondary" onclick="adminPanel.demoteArticle('${articleId}')">⬇️ Demote</button>`;
+        } else {
+            statusActions = `<button class="btn btn-small" onclick="adminPanel.promoteArticle('${articleId}')">⬆️ Promote</button>`;
         }
+        
+        const analyzeText = hasAnalysis ? '✅ Analyzed' : '🧠 Analyze';
         
         return `
             <div class="article-card">
@@ -86,17 +82,18 @@ AdminPanel.prototype.renderArticles = function(filter = 'all') {
                                 ${statusText}
                             </div>
                             <div class="analysis-label">Analysis</div>
-                            <div class="analysis-content" id="analysis-${safeIndex}">
+                            <div class="analysis-content">
                                 ${analysisContent}
                             </div>
                         </div>
                     </div>
                     
                     <div class="article-actions">
-                        <button class="btn btn-small" onclick="adminPanel.editAnalysis(${safeIndex})">✏️ Edit</button>
+                        <button class="btn btn-small" onclick="adminPanel.editAnalysis('${articleId}')">✏️ Edit</button>
+                        <button class="btn btn-small btn-warning" onclick="adminPanel.analyzeArticle('${articleId}')">${analyzeText}</button>
                         ${statusActions}
                         <button class="btn btn-small btn-secondary" onclick="window.open('${safeUrl}', '_blank')">🔗 View Original</button>
-                        <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle(${safeIndex})">🗑️ Remove</button>
+                        <button class="btn btn-small btn-danger" onclick="adminPanel.removeArticle('${articleId}')">🗑️ Remove</button>
                     </div>
                 </div>
             </div>
@@ -107,9 +104,9 @@ AdminPanel.prototype.renderArticles = function(filter = 'all') {
 };
 
 AdminPanel.prototype.updateFilterCounts = function() {
-    const published = this.articles.filter(a => a.status === 'published' || a.order <= 6).length;
+    const published = this.articles.filter(a => a.status === 'published').length;
     const drafts = this.articles.filter(a => a.status === 'draft').length;
-    const queue = this.articles.filter(a => a.status === 'queue' || (!a.preGeneratedAnalysis && !a.order)).length;
+    const queue = this.articles.filter(a => a.status === 'queue').length;
     const rejected = this.articles.filter(a => a.status === 'rejected').length;
     
     const publishedBtn = document.getElementById('filter-published');
@@ -126,87 +123,99 @@ AdminPanel.prototype.updateFilterCounts = function() {
 };
 
 AdminPanel.prototype.formatAnalysis = function(text) {
-    if (!text) return '<em>No analysis available</em>';
+    if (!text || text === 'No analysis available') return '<em>No analysis available</em>';
     return text.split('\n\n').map(p => `<p>${this.escapeHtml(p)}</p>`).join('');
 };
 
 AdminPanel.prototype.updateStats = function() {
-    const analyzed = this.articles.filter(a => a.preGeneratedAnalysis).length;
-    const successRate = this.articles.length > 0 ? Math.round((analyzed / this.articles.length) * 100) : 0;
+    const analyzed = this.articles.filter(a => a.preGeneratedAnalysis && a.preGeneratedAnalysis !== 'No analysis available').length;
+    const published = this.articles.filter(a => a.status === 'published').length;
+    const queue = this.articles.filter(a => a.status === 'queue').length;
     
-    const statFetched = document.getElementById('stat-fetched');
-    const statAnalyzed = document.getElementById('stat-analyzed');
-    const statSuccess = document.getElementById('stat-success');
-    const statFallback = document.getElementById('stat-fallback');
-    const statWords = document.getElementById('stat-words');
-    const statSource = document.getElementById('stat-source');
     const statTotal = document.getElementById('stat-total');
     const statPublished = document.getElementById('stat-published');
     const statQueued = document.getElementById('stat-queued');
+    const statAnalyzed = document.getElementById('stat-analyzed');
     
-    // Core stats that exist in most layouts
     if (statTotal) statTotal.textContent = this.articles.length;
-    if (statPublished) statPublished.textContent = this.articles.filter(a => a.status === 'published').length;
-    if (statQueued) statQueued.textContent = this.articles.filter(a => a.status === 'queue').length;
-    
-    // Extended stats if elements exist
-    if (statFetched) statFetched.textContent = this.articles.length;
+    if (statPublished) statPublished.textContent = published;
+    if (statQueued) statQueued.textContent = queue;
     if (statAnalyzed) statAnalyzed.textContent = analyzed;
-    if (statSuccess) statSuccess.textContent = `${successRate}%`;
-    if (statFallback) statFallback.textContent = `${this.articles.length - analyzed}`;
-    
-    if (analyzed > 0 && statWords) {
-        const avgWords = Math.round(
-            this.articles
-                .filter(a => a.preGeneratedAnalysis)
-                .reduce((sum, a) => sum + (a.preGeneratedAnalysis.split(' ').length || 0), 0) / analyzed
-        );
-        statWords.textContent = avgWords;
-    }
-    
-    if (statSource) {
-        const sources = this.articles.map(a => a.source?.name).filter(Boolean);
-        const topSource = sources.length > 0 ? 
-            sources.reduce((a, b, i, arr) => 
-                arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b
-            ) : 'None';
-        statSource.textContent = topSource;
-    }
 };
 
-AdminPanel.prototype.editAnalysis = function(index) {
-    const article = this.articles[index];
+AdminPanel.prototype.editAnalysis = function(articleId) {
+    const article = this.articles.find(a => a.id === articleId);
+    if (!article) return;
+    
     const modal = document.getElementById('edit-modal');
     const editor = document.getElementById('analysis-editor');
     
     if (editor && modal) {
         editor.value = article.preGeneratedAnalysis || '';
-        editor.dataset.articleIndex = index;
+        editor.dataset.articleId = articleId;
         modal.style.display = 'block';
     }
 };
 
-AdminPanel.prototype.promoteArticle = function(index) {
-    this.articles[index].status = 'published';
-    this.articles[index].order = this.articles.filter(a => a.status === 'published').length;
-    this.addLog('success', `Promoted article to published`);
+AdminPanel.prototype.promoteArticle = function(articleId) {
+    const article = this.articles.find(a => a.id === articleId);
+    if (!article) return;
+    
+    article.status = 'published';
     this.renderArticles(this.currentFilter);
     this.updateStats();
+    if (this.addLog) this.addLog('success', 'Article promoted to published');
 };
 
-AdminPanel.prototype.demoteArticle = function(index) {
-    this.articles[index].status = 'draft';
-    delete this.articles[index].order;
-    this.addLog('warning', `Demoted article to draft`);
+AdminPanel.prototype.demoteArticle = function(articleId) {
+    const article = this.articles.find(a => a.id === articleId);
+    if (!article) return;
+    
+    article.status = 'queue';
     this.renderArticles(this.currentFilter);
     this.updateStats();
+    if (this.addLog) this.addLog('warning', 'Article demoted to queue');
 };
 
-AdminPanel.prototype.removeArticle = function(index) {
-    if (confirm('Remove this article from today\'s edition?')) {
+AdminPanel.prototype.removeArticle = function(articleId) {
+    if (!confirm('Remove this article?')) return;
+    
+    const index = this.articles.findIndex(a => a.id === articleId);
+    if (index !== -1) {
         this.articles.splice(index, 1);
         this.renderArticles(this.currentFilter);
-        this.addLog('warning', `Removed article ${index + 1}`);
         this.updateStats();
+        if (this.addLog) this.addLog('warning', 'Article removed');
+    }
+};
+
+AdminPanel.prototype.analyzeArticle = async function(articleId) {
+    const article = this.articles.find(a => a.id === articleId);
+    if (!article) return;
+
+    try {
+        if (this.addLog) this.addLog('info', 'Analyzing article...');
+        
+        const response = await fetch('/api/admin?action=generate-analysis', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.adminKey || 'hdta-admin-2025-temp'}`
+            },
+            body: JSON.stringify({ article })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.analysis) {
+                article.preGeneratedAnalysis = result.analysis;
+                this.renderArticles(this.currentFilter);
+                if (this.addLog) this.addLog('success', 'Analysis generated');
+            }
+        } else {
+            throw new Error(`HTTP ${response.status}`);
+        }
+    } catch (error) {
+        if (this.addLog) this.addLog('error', 'Analysis failed: ' + error.message);
     }
 };
