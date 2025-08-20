@@ -24,7 +24,6 @@ function showTab(tabName) {
 function getTabDisplayName(tabName) {
     const tabNames = {
         'articles': '📰',
-        'trends': '📊',
         'logs': '📋'
     };
     return tabNames[tabName] || tabName;
@@ -549,14 +548,12 @@ async function clearWeek() {
 }
 
 function refreshTrends() {
-    if (window.adminPanel && window.adminPanel.loadTrends) {
-        window.adminPanel.loadTrends();
-    }
+    // Removed - trends functionality disabled
+    console.log('Trends functionality removed');
 }
 
-// Export weekly functions - simple
+// Export weekly functions - simple (trends removed)
 window.fetchFreshArticles = fetchFreshArticles;
 window.clearWeek = clearWeek;
-window.refreshTrends = refreshTrends;
 
 console.log('📋 Admin init script loaded - weekly workflow with trends support');
